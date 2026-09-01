@@ -25,6 +25,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
 
   const passwordRegex =
     /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
@@ -73,7 +74,6 @@ export default function Register() {
       [name]: type === 'checkbox' ? checked : value,
     }));
 
-    // Clear API error when user starts editing again
     if (apiError) {
       setApiError('');
     }
@@ -91,7 +91,6 @@ export default function Register() {
           delete updatedErrors.password;
         }
 
-        // Re-check confirm password whenever password changes
         if (formData.confirmPassword) {
           if (value !== formData.confirmPassword) {
             updatedErrors.confirmPassword = 'Passwords do not match';
@@ -139,24 +138,70 @@ export default function Register() {
     });
   };
 
+  const handleSocialLogin = async (
+    provider: 'google' | 'facebook' | 'github'
+  ) => {
+    setSocialLoading(provider);
+    setApiError('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/social`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ provider }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data.detail === 'string'
+            ? data.detail
+            : 'Unable to start social login.'
+        );
+      }
+
+      if (!data.url) {
+        throw new Error('Social login URL was not returned by the server.');
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      console.error(`${provider} login failed:`, error);
+
+      setApiError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to start social login.'
+      );
+
+      setSocialLoading(null);
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setApiError('');
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
 
     setIsLoading(true);
 
     const apiPayload: RegisterFormData = {
-      full_name: formData.fullName,
-      email: formData.email,
+      full_name: formData.fullName.trim(),
+      email: formData.email.trim(),
       password: formData.password,
       terms_accepted: formData.termsAccepted,
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/auth/register`,
+      const response = await fetch(
+        `${API_URL}/api/v1/auth/register`,
         {
           method: 'POST',
           headers: {
@@ -177,13 +222,10 @@ export default function Register() {
       }
 
       console.log('Registration successful:', data);
+
       window.location.href = `/verify-email?email=${encodeURIComponent(
-  formData.email
-)}`;
-
-      // Redirect will be added after confirming backend response.
-      // router.push('/login');
-
+        formData.email.trim()
+      )}`;
     } catch (error) {
       console.error('Registration failed:', error);
 
@@ -201,9 +243,8 @@ export default function Register() {
     <section className="min-h-screen flex items-center justify-center bg-[#eae9e5] p-4 sm:p-8 font-inter">
       <div className="w-full max-w-[1040px] bg-white rounded-[24px] shadow-sm border border-gray-100 flex flex-col md:flex-row overflow-hidden">
 
-        {/* Left Column: Registration Form */}
+        {/* Registration Form */}
         <div className="w-full md:w-3/5 p-8 sm:p-12 lg:p-14 z-10 bg-white">
-
           <div className="mb-8">
             <img
               className="h-8 w-auto mb-6"
@@ -220,58 +261,71 @@ export default function Register() {
             </h2>
           </div>
 
+          {/* Social Login */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
             <button
               type="button"
-              className="flex justify-center items-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              onClick={() => handleSocialLogin('google')}
+              disabled={socialLoading !== null || isLoading}
+              className="flex justify-center items-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <img
                 src="https://www.svgrepo.com/show/475656/google-color.svg"
                 alt="Google"
                 className="w-5 h-5"
               />
+
               <span className="text-sm font-semibold text-gray-700">
-                Google
+                {socialLoading === 'google' ? 'Connecting...' : 'Google'}
               </span>
             </button>
 
             <button
               type="button"
-              className="flex justify-center items-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              onClick={() => handleSocialLogin('facebook')}
+              disabled={socialLoading !== null || isLoading}
+              className="flex justify-center items-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <img
                 src="https://www.svgrepo.com/show/475647/facebook-color.svg"
                 alt="Facebook"
                 className="w-5 h-5"
               />
+
               <span className="text-sm font-semibold text-gray-700">
-                Facebook
+                {socialLoading === 'facebook'
+                  ? 'Connecting...'
+                  : 'Facebook'}
               </span>
             </button>
 
             <button
               type="button"
-              className="flex justify-center items-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              onClick={() => handleSocialLogin('github')}
+              disabled={socialLoading !== null || isLoading}
+              className="flex justify-center items-center gap-2 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <img
                 src="https://www.svgrepo.com/show/512317/github-142.svg"
                 alt="GitHub"
                 className="w-5 h-5"
               />
+
               <span className="text-sm font-semibold text-gray-700">
-                GitHub
+                {socialLoading === 'github' ? 'Connecting...' : 'GitHub'}
               </span>
             </button>
           </div>
 
+          {/* Divider */}
           <div className="relative flex items-center py-2 mb-6">
-            <div className="flex-grow border-t border-gray-200"></div>
+            <div className="flex-grow border-t border-gray-200" />
 
             <span className="flex-shrink-0 mx-4 text-xs font-medium text-gray-400 tracking-wider uppercase">
               Or Email
             </span>
 
-            <div className="flex-grow border-t border-gray-200"></div>
+            <div className="flex-grow border-t border-gray-200" />
           </div>
 
           {/* API Error */}
@@ -284,9 +338,8 @@ export default function Register() {
             </div>
           )}
 
+          {/* Form */}
           <form onSubmit={handleRegister} className="space-y-4">
-
-            {/* Full Name */}
             <div>
               <label
                 className="block text-sm font-medium text-gray-700 mb-1.5"
@@ -316,7 +369,6 @@ export default function Register() {
               )}
             </div>
 
-            {/* Email */}
             <div>
               <label
                 className="block text-sm font-medium text-gray-700 mb-1.5"
@@ -348,8 +400,6 @@ export default function Register() {
 
             {/* Password Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-              {/* Password */}
               <div>
                 <label
                   className="block text-sm font-medium text-gray-700 mb-1.5"
@@ -375,9 +425,7 @@ export default function Register() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowPassword(!showPassword)
-                    }
+                    onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
                   >
                     <svg
@@ -412,7 +460,6 @@ export default function Register() {
                 )}
               </div>
 
-              {/* Confirm Password */}
               <div>
                 <label
                   className="block text-sm font-medium text-gray-700 mb-1.5"
@@ -441,9 +488,7 @@ export default function Register() {
                   <button
                     type="button"
                     onClick={() =>
-                      setShowConfirmPassword(
-                        !showConfirmPassword
-                      )
+                      setShowConfirmPassword(!showConfirmPassword)
                     }
                     className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
                   >
@@ -503,13 +548,16 @@ export default function Register() {
                   } cursor-pointer`}
                 >
                   I agree to the{' '}
+
                   <Link
                     href="/terms"
                     className="text-[#6366F1] hover:underline"
                   >
                     Terms of Service
                   </Link>{' '}
+
                   and{' '}
+
                   <Link
                     href="/privacy"
                     className="text-[#6366F1] hover:underline"
@@ -520,11 +568,10 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Submit */}
             <div className="pt-4">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || socialLoading !== null}
                 className="w-full bg-[#6366F1] hover:bg-indigo-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_0_rgba(99,102,241,0.39)]"
               >
                 {isLoading ? (
@@ -541,10 +588,11 @@ export default function Register() {
                       stroke="currentColor"
                       strokeWidth="4"
                     />
+
                     <path
                       className="opacity-75"
                       fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.343 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
                 ) : (
@@ -557,6 +605,7 @@ export default function Register() {
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600">
               Already have an account?{' '}
+
               <Link
                 href="/login"
                 className="font-semibold text-[#6366F1] hover:text-indigo-600 transition-colors"
@@ -567,24 +616,21 @@ export default function Register() {
           </div>
         </div>
 
-        {/* Right Column */}
+        {/* Platform Preview */}
         <div className="hidden md:flex md:w-2/5 bg-[#F8F9FB] p-10 flex-col justify-center relative overflow-hidden border-l border-gray-100">
-
           <div className="relative z-10 w-full max-w-sm mx-auto">
-
             <div className="mb-8">
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
                 Everything you need.
               </h3>
 
               <p className="text-sm text-gray-500">
-                Unlock the tools designed to help you build skills and land roles.
+                Unlock the tools designed to help you build skills and land
+                roles.
               </p>
             </div>
 
             <div className="space-y-4">
-
-              {/* Feature 1 */}
               <div className="bg-white p-4 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex items-start gap-4 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                 <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
                   <svg
@@ -613,7 +659,6 @@ export default function Register() {
                 </div>
               </div>
 
-              {/* Feature 2 */}
               <div className="bg-white p-4 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex items-start gap-4 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                 <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
                   <svg
@@ -642,7 +687,6 @@ export default function Register() {
                 </div>
               </div>
 
-              {/* Feature 3 */}
               <div className="bg-white p-4 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 flex items-start gap-4 transform transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
                   <svg
@@ -655,7 +699,7 @@ export default function Register() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={1.5}
-                      d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 002 2v10a2 2 0 01-2 2z"
+                      d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                     />
                   </svg>
                 </div>
@@ -666,21 +710,18 @@ export default function Register() {
                   </h4>
 
                   <p className="text-[12px] text-gray-500 mt-1 leading-snug">
-                    Get curated internship and job opportunities based on your skills.
+                    Get curated internship and job opportunities based on your
+                    skills.
                   </p>
                 </div>
               </div>
-
             </div>
           </div>
 
-          {/* Subtle Background Elements */}
-          <div className="absolute top-[5%] right-[-10%] w-[250px] h-[250px] bg-[#6366F1]/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute top-[5%] right-[-10%] w-[250px] h-[250px] bg-[#6366F1]/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="absolute bottom-[0%] left-[-10%] w-[200px] h-[200px] bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
+          <div className="absolute bottom-[0%] left-[-10%] w-[200px] h-[200px] bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
         </div>
-
       </div>
     </section>
   );
