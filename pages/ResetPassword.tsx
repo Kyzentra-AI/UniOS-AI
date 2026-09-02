@@ -4,103 +4,115 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { API_URL } from '@/lib/api';
+
+import { useMutation } from '@tanstack/react-query';
+
+import {
+  useForm,
+  type FieldErrors,
+} from 'react-hook-form';
+
+import { zodResolver } from '@hookform/resolvers/zod';
+
+import { resetPassword } from '@/lib/api';
+
+import {
+  resetPasswordSchema,
+  type ResetPasswordFormData,
+} from '@/app/validations/auth';
 
 export default function ResetPassword() {
-  const searchParams = useSearchParams();
-  const resetToken = searchParams.get('token');
+  const searchParams =
+    useSearchParams();
 
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const resetToken =
+    searchParams.get('token');
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
+  ] = useState(false);
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const passwordRegex =
-    /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(
+      resetPasswordSchema
+    ),
+    mode: 'onChange',
+    defaultValues: {
+      password: '',
+      confirmPassword: '',
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const resetPasswordMutation =
+    useMutation({
+      mutationFn: resetPassword,
 
+      onSuccess: () => {
+        setError('');
+
+        setSuccess(
+          'Your password has been reset successfully. You can now sign in with your new password.'
+        );
+
+        reset();
+      },
+
+      onError: (error) => {
+        setSuccess('');
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'Something went wrong. Please try again.'
+        );
+      },
+    });
+
+  const handleSubmitForm = (
+    formData: ResetPasswordFormData
+  ) => {
     setError('');
     setSuccess('');
 
     if (!resetToken) {
-      setError('Invalid or missing password reset token.');
-      return;
-    }
-
-    if (!password) {
-      setError('Password is required.');
-      return;
-    }
-
-    if (!passwordRegex.test(password)) {
       setError(
-        'Password must contain at least 8 characters, 1 uppercase letter, 1 number, and 1 special character.'
+        'Invalid or missing password reset token.'
       );
       return;
     }
 
-    if (!confirmPassword) {
-      setError('Please confirm your password.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(
-        `${API_URL}/api/v1/auth/reset-password`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            reset_token: resetToken,
-            new_password: password,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          typeof data.detail === 'string'
-            ? data.detail
-            : typeof data.message === 'string'
-              ? data.message
-              : 'Unable to reset password.'
-        );
-      }
-
-      setSuccess(
-        'Your password has been reset successfully. You can now sign in with your new password.'
-      );
-
-      setPassword('');
-      setConfirmPassword('');
-    } catch (error) {
-      console.error('Password reset failed:', error);
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'Something went wrong. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    resetPasswordMutation.mutate({
+      reset_token: resetToken,
+      new_password: formData.password,
+    });
   };
+
+  const handleInvalid = (
+    formErrors: FieldErrors<ResetPasswordFormData>
+  ) => {
+    setSuccess('');
+
+    setError(
+      formErrors.password?.message ||
+        formErrors.confirmPassword?.message ||
+        'Please check your password details.'
+    );
+  };
+
+  const isLoading =
+    resetPasswordMutation.isPending;
 
   return (
     <section className="min-h-screen flex items-center justify-center bg-[#eae9e5] p-4 sm:p-8 font-inter">
@@ -151,7 +163,13 @@ export default function ResetPassword() {
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form
+            onSubmit={handleSubmit(
+              handleSubmitForm,
+              handleInvalid
+            )}
+            className="space-y-5"
+          >
 
             {/** Password */}
             <div>
@@ -165,25 +183,43 @@ export default function ResetPassword() {
               <div className="relative">
                 <input
                   id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={
+                    showPassword
+                      ? 'text'
+                      : 'password'
+                  }
                   autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError('');
-                  }}
+                  {...register('password', {
+                    onChange: () => {
+                      setError('');
+                      setSuccess('');
+                    },
+                  })}
                   placeholder="••••••••"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-[#6366F1] transition-colors pr-10"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-[#6366F1] transition-colors pr-10 ${
+                    errors.password
+                      ? 'border-red-300'
+                      : 'border-gray-200'
+                  }`}
                 />
 
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() =>
+                    setShowPassword(
+                      !showPassword
+                    )
+                  }
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={
+                    showPassword
+                      ? 'Hide password'
+                      : 'Show password'
+                  }
                 >
-                  {showPassword ? 'Hide' : 'Show'}
+                  {showPassword
+                    ? 'Hide'
+                    : 'Show'}
                 </button>
               </div>
 
@@ -204,22 +240,35 @@ export default function ResetPassword() {
               <div className="relative">
                 <input
                   id="confirmPassword"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
+                  type={
+                    showConfirmPassword
+                      ? 'text'
+                      : 'password'
+                  }
                   autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value);
-                    setError('');
-                  }}
+                  {...register(
+                    'confirmPassword',
+                    {
+                      onChange: () => {
+                        setError('');
+                        setSuccess('');
+                      },
+                    }
+                  )}
                   placeholder="••••••••"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-[#6366F1] transition-colors pr-10"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-[#6366F1] transition-colors pr-10 ${
+                    errors.confirmPassword
+                      ? 'border-red-300'
+                      : 'border-gray-200'
+                  }`}
                 />
 
                 <button
                   type="button"
                   onClick={() =>
-                    setShowConfirmPassword(!showConfirmPassword)
+                    setShowConfirmPassword(
+                      !showConfirmPassword
+                    )
                   }
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
                   aria-label={
@@ -228,7 +277,9 @@ export default function ResetPassword() {
                       : 'Show password'
                   }
                 >
-                  {showConfirmPassword ? 'Hide' : 'Show'}
+                  {showConfirmPassword
+                    ? 'Hide'
+                    : 'Show'}
                 </button>
               </div>
             </div>
@@ -239,7 +290,9 @@ export default function ResetPassword() {
               disabled={isLoading}
               className="w-full bg-[#6366F1] hover:bg-indigo-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_0_rgba(99,102,241,0.39)]"
             >
-              {isLoading ? 'Resetting Password...' : 'Reset Password'}
+              {isLoading
+                ? 'Resetting Password...'
+                : 'Reset Password'}
             </button>
           </form>
         )}

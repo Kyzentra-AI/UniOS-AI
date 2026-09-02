@@ -1,134 +1,95 @@
 'use client';
 
-import { API_URL } from '@/lib/api';
+import {
+  enrollMFA,
+  verifyMFAEnrollment,
+} from '@/lib/api';
+
+import {
+  getAccessToken,
+  saveSession,
+  getRememberMe,
+} from '@/lib/auth';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import QRCode from 'qrcode';
 
-interface MFAEnrollResponse {
-  id?: string;
-  factor_type?: string;
-  friendly_name?: string;
-  status?: string;
-  totp?: {
-    qr_code?: string;
-    secret?: string;
-    uri?: string;
-  };
-  detail?: string;
-  message?: string;
+interface MFASetupData {
+  factorId: string;
+  secret: string;
+  qrCode: string;
 }
 
-interface MFAVerifyEnrollResponse {
-  message?: string;
-  session?: {
-    access_token?: string;
-    refresh_token?: string;
-    expires_in?: number;
-    token_type?: string;
-  };
-  detail?: string;
-}
-
-export default function MFAsetup() {
+export default function MFASetup() {
   const router = useRouter();
 
   const [factorId, setFactorId] = useState('');
-  const [qrCode, setQrCode] = useState('');
   const [secret, setSecret] = useState('');
+  const [qrCode, setQrCode] = useState('');
   const [code, setCode] = useState('');
 
+  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    enrollMFA();
-  }, []);
+    const setupMFA = async () => {
+      const accessToken = getAccessToken();
 
-  const enrollMFA = async () => {
-    const accessToken = sessionStorage.getItem('access_token');
+      if (!accessToken) {
+        setError(
+          'Your session has expired. Please sign in again.'
+        );
+        setIsLoading(false);
+        return;
+      }
 
-    if (!accessToken) {
-      setError('Your session has expired. Please sign in again.');
-      setIsLoading(false);
-      return;
-    }
+      try {
+        const data = await enrollMFA(accessToken);
 
-    try {
-      setError('');
+        const id = data.id || data.factor_id;
 
-      const response = await fetch(
-        `${API_URL}/api/v1/auth/mfa/enroll`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
+        if (!id) {
+          throw new Error(
+            'MFA setup failed because no factor ID was returned.'
+          );
         }
-      );
 
-      const data: MFAEnrollResponse = await response.json();
+        setFactorId(id);
 
-      if (!response.ok) {
-        throw new Error(
-          typeof data.detail === 'string'
-            ? data.detail
-            : typeof data.message === 'string'
-              ? data.message
-              : 'Unable to set up two-factor authentication.'
+        const uri = data.totp?.uri || '';
+        const returnedSecret = data.totp?.secret || '';
+
+        setSecret(returnedSecret);
+
+        if (data.totp?.qr_code) {
+          setQrCode(data.totp.qr_code);
+        } else if (uri) {
+          const generatedQRCode =
+            await QRCode.toDataURL(uri);
+
+          setQrCode(generatedQRCode);
+        } else {
+          throw new Error(
+            'MFA setup failed because no QR code or setup URI was returned.'
+          );
+        }
+      } catch (err) {
+        console.error('MFA enrollment failed:', err);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to set up MFA. Please try again.'
         );
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      if (!data.id) {
-        throw new Error('MFA factor ID was not returned by the server.');
-      }
-
-      setFactorId(data.id);
-
-      if (data.totp?.secret) {
-        setSecret(data.totp.secret);
-      }
-
-      /*
-       * Supabase normally returns qr_code as an SVG data URI.
-       * If it does, use it directly.
-       *
-       * Otherwise, generate a QR code from the TOTP URI.
-       */
-      if (data.totp?.qr_code) {
-        setQrCode(data.totp.qr_code);
-      } else if (data.totp?.uri) {
-        const generatedQRCode = await QRCode.toDataURL(
-          data.totp.uri,
-          {
-            width: 220,
-            margin: 2,
-          }
-        );
-
-        setQrCode(generatedQRCode);
-      } else {
-        throw new Error(
-          'QR code information was not returned by the server.'
-        );
-      }
-    } catch (err) {
-      console.error('MFA enrollment failed:', err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to set up MFA. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    setupMFA();
+  }, []);
 
   const handleCodeChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -144,22 +105,26 @@ export default function MFAsetup() {
     }
   };
 
-  const handleVerifyEnrollment = async (
+  const handleVerify = async (
     e: React.FormEvent
   ) => {
     e.preventDefault();
 
     if (code.length !== 6) {
-      setError('Please enter the 6-digit verification code.');
+      setError(
+        'Please enter the 6-digit verification code.'
+      );
       return;
     }
 
     if (!factorId) {
-      setError('MFA setup information is missing. Please try again.');
+      setError(
+        'MFA setup information is missing. Please restart the setup.'
+      );
       return;
     }
 
-    const accessToken = sessionStorage.getItem('access_token');
+    const accessToken = getAccessToken();
 
     if (!accessToken) {
       setError(
@@ -172,53 +137,28 @@ export default function MFAsetup() {
     setError('');
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/auth/mfa/verify-enroll`,
+      const data = await verifyMFAEnrollment(
+        accessToken,
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            factor_id: factorId,
-            code,
-          }),
+          factor_id: factorId,
+          code,
         }
       );
 
-      const data: MFAVerifyEnrollResponse =
-        await response.json();
-
-      if (!response.ok) {
+      if (!data.session?.access_token) {
         throw new Error(
-          typeof data.detail === 'string'
-            ? data.detail
-            : typeof data.message === 'string'
-              ? data.message
-              : 'Invalid verification code.'
+          'MFA was activated, but no valid session was returned.'
         );
       }
 
-      /*
-       * The backend returns a new session after
-       * successfully activating MFA.
-       */
-      if (data.session?.access_token) {
-        sessionStorage.setItem(
-          'access_token',
-          data.session.access_token
-        );
-      }
+      saveSession(
+        data.session,
+        getRememberMe()
+      );
 
-      if (data.session?.refresh_token) {
-        sessionStorage.setItem(
-          'refresh_token',
-          data.session.refresh_token
-        );
-      }
+      setCode('');
 
-      setIsSuccess(true);
+      router.replace('/dashboard');
     } catch (err) {
       console.error(
         'MFA enrollment verification failed:',
@@ -235,110 +175,9 @@ export default function MFAsetup() {
     }
   };
 
-  const handleContinue = () => {
-    router.push('/dashboard');
-  };
-
-  if (isLoading) {
-    return (
-      <section className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-inter">
-        <div className="w-full max-w-[520px] bg-white rounded-[24px] shadow-sm border border-slate-200 p-8 sm:p-12">
-          <div className="flex justify-center mb-8">
-            <img
-              src="/logo.svg"
-              alt="UniOS.ai"
-              className="h-8 w-auto"
-            />
-          </div>
-
-          <div className="flex justify-center py-12">
-            <svg
-              className="animate-spin h-8 w-8 text-indigo-600"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-          </div>
-
-          <p className="text-center text-sm text-slate-500">
-            Preparing your two-factor authentication setup...
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  if (isSuccess) {
-    return (
-      <section className="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-8 font-inter">
-        <div className="w-full max-w-[520px] bg-white rounded-[24px] shadow-sm border border-slate-200 p-8 sm:p-12">
-
-          <div className="flex justify-center mb-8">
-            <img
-              src="/logo.svg"
-              alt="UniOS.ai"
-              className="h-8 w-auto"
-            />
-          </div>
-
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-emerald-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-          </div>
-
-          <div className="text-center mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
-              Two-Factor Authentication Enabled
-            </h1>
-
-            <p className="text-sm text-slate-500 leading-relaxed">
-              Your account is now protected with an additional
-              layer of security.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleContinue}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-[0_4px_14px_0_rgba(79,70,229,0.25)]"
-          >
-            Continue to Dashboard
-          </button>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-8 font-inter">
-      <div className="w-full max-w-[520px] bg-white rounded-[24px] shadow-sm border border-slate-200 p-8 sm:p-12">
+    <section className="min-h-screen flex items-center justify-center bg-[var(--auth-bg)] p-4 sm:p-8 font-inter">
+      <div className="w-full max-w-[520px] bg-[var(--surface)] rounded-[24px] shadow-sm border border-[var(--border)] p-8 sm:p-12">
 
         {/* Logo */}
         <div className="flex justify-center mb-8">
@@ -351,9 +190,9 @@ export default function MFAsetup() {
 
         {/* Icon */}
         <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--primary-soft)] flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-indigo-600"
+              className="w-8 h-8 text-[var(--primary)]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -370,162 +209,153 @@ export default function MFAsetup() {
 
         {/* Heading */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)] mb-3">
             Set Up Two-Factor Authentication
           </h1>
 
-          <p className="text-sm text-slate-500 leading-relaxed">
-            Add an extra layer of security to your UniOS.ai
-            account using an authenticator app.
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+            Scan the QR code using your authenticator app,
+            then enter the 6-digit code to activate MFA.
           </p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-6 p-3.5 bg-red-50 border border-red-100 rounded-xl">
-            <p className="text-sm font-medium text-red-700">
+          <div className="mb-6 p-3.5 bg-[var(--danger-soft)] border border-[var(--danger-border)] rounded-xl">
+            <p className="text-sm font-medium text-[var(--danger)]">
               {error}
             </p>
-
-            <button
-              type="button"
-              onClick={enrollMFA}
-              className="mt-2 text-xs font-semibold text-red-700 hover:text-red-800 underline"
-            >
-              Try again
-            </button>
           </div>
         )}
 
-        {/* QR Section */}
-        {qrCode && (
-          <div className="mb-8">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <svg
+              className="animate-spin h-8 w-8 text-[var(--primary)]"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
 
-            <div className="text-center mb-5">
-              <h2 className="text-base font-semibold text-slate-800 mb-1">
-                1. Scan the QR code
-              </h2>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
 
-              <p className="text-sm text-slate-500">
-                Open Google Authenticator or another TOTP
-                authenticator app and scan this code.
-              </p>
-            </div>
-
-            <div className="flex justify-center">
-              <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                <img
-                  src={qrCode}
-                  alt="MFA setup QR code"
-                  className="w-[220px] h-[220px]"
-                />
-              </div>
-            </div>
-
-            {/* Secret */}
-            {secret && (
-              <div className="mt-5">
-                <p className="text-xs text-slate-400 text-center mb-2">
-                  Can't scan the QR code? Enter this setup key
-                  manually.
-                </p>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center break-all">
-                  <span className="text-sm font-mono font-semibold text-slate-700 tracking-wider">
-                    {secret}
-                  </span>
+            <p className="mt-4 text-sm text-[var(--text-secondary)]">
+              Preparing your MFA setup...
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* QR Code */}
+            {qrCode && (
+              <div className="flex justify-center mb-6">
+                <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-2xl">
+                  <img
+                    src={qrCode}
+                    alt="MFA setup QR code"
+                    className="w-48 h-48"
+                  />
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Verification */}
-        {qrCode && (
-          <form
-            onSubmit={handleVerifyEnrollment}
-            className="space-y-6"
-          >
-            <div>
-              <label
-                htmlFor="mfa-setup-code"
-                className="block text-sm font-medium text-slate-700 mb-2"
-              >
-                2. Enter the 6-digit code
-              </label>
+            {/* Manual Secret */}
+            {secret && (
+              <div className="mb-8">
+                <p className="text-sm font-medium text-[var(--text-label)] mb-2 text-center">
+                  Or enter this setup key manually
+                </p>
 
-              <input
-                id="mfa-setup-code"
-                name="mfa-setup-code"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={handleCodeChange}
-                placeholder="000000"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-center text-xl tracking-[0.5em] font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-                autoFocus
-              />
+                <div className="px-4 py-3 bg-[var(--auth-bg)] border border-[var(--border)] rounded-xl text-center break-all">
+                  <code className="text-sm font-semibold tracking-wider text-[var(--text-primary)]">
+                    {secret}
+                  </code>
+                </div>
+              </div>
+            )}
 
-              <p className="mt-2 text-xs text-slate-400 text-center">
-                Enter the current code shown in your
-                authenticator app.
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={
-                isVerifying ||
-                code.length !== 6 ||
-                !factorId
-              }
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_0_rgba(79,70,229,0.25)]"
+            {/* Verification Form */}
+            <form
+              onSubmit={handleVerify}
+              className="space-y-6"
             >
-              {isVerifying ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
+              <div>
+                <label
+                  htmlFor="mfa-code"
+                  className="block text-sm font-medium text-[var(--text-label)] mb-2"
+                >
+                  Authentication Code
+                </label>
 
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
+                <input
+                  id="mfa-code"
+                  name="mfa-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={code}
+                  onChange={handleCodeChange}
+                  placeholder="000000"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--border)] text-[var(--text-primary)] text-center text-xl tracking-[0.5em] font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-colors"
+                  autoFocus
+                />
+              </div>
 
-                  Enabling...
-                </>
-              ) : (
-                'Enable Two-Factor Authentication'
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={
+                  isVerifying ||
+                  code.length !== 6 ||
+                  !factorId
+                }
+                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_0_var(--primary-shadow)]"
+              >
+                {isVerifying ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12 0h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+
+                    Verifying...
+                  </>
+                ) : (
+                  'Activate MFA'
+                )}
+              </button>
+            </form>
+          </>
         )}
 
-        {/* Back */}
-        <div className="mt-8 text-center">
-          <Link
-            href="/dashboard"
-            className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
-          >
-            Back to Dashboard
-          </Link>
-        </div>
-
-        <p className="text-center text-xs text-slate-400 mt-6 leading-relaxed">
+        <p className="text-center text-xs text-[var(--text-muted)] mt-6 leading-relaxed">
           Make sure your authenticator app is installed before
           continuing. Keep your setup key private.
         </p>

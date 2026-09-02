@@ -3,77 +3,88 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { API_URL } from '@/lib/api';
+
+import { useMutation } from '@tanstack/react-query';
+
+import {
+  useForm,
+  type FieldErrors,
+} from 'react-hook-form';
+
+import { zodResolver } from '@hookform/resolvers/zod';
+
+import { forgotPassword } from '@/lib/api';
+
+import {
+  forgotPasswordSchema,
+  type ForgotPasswordFormData,
+} from '@/app/validations/auth';
 
 export default function Forgot() {
-  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(
+      forgotPasswordSchema
+    ),
+    mode: 'onChange',
+    defaultValues: {
+      email: '',
+    },
+  });
 
+  const forgotPasswordMutation =
+    useMutation({
+      mutationFn: forgotPassword,
+
+      onSuccess: () => {
+        setError('');
+
+        setSuccess(
+          'If an account exists with this email, a password reset link has been sent.'
+        );
+      },
+
+      onError: (error) => {
+        setSuccess('');
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'Something went wrong. Please try again.'
+        );
+      },
+    });
+
+  const handleSubmitForm = (
+    formData: ForgotPasswordFormData
+  ) => {
     setError('');
     setSuccess('');
 
-    const trimmedEmail = email.trim();
-
-    if (!trimmedEmail) {
-      setError('Email address is required');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(trimmedEmail)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(
-        `${API_URL}/api/v1/auth/forgot-password`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: trimmedEmail,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          typeof data.detail === 'string'
-            ? data.detail
-            : typeof data.message === 'string'
-              ? data.message
-              : 'Unable to send password reset link.'
-        );
-      }
-
-      setSuccess(
-        'If an account exists with this email, a password reset link has been sent.'
-      );
-    } catch (error) {
-      console.error('Forgot password failed:', error);
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'Something went wrong. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    forgotPasswordMutation.mutate({
+      email: formData.email.trim(),
+    });
   };
+
+  const handleInvalid = (
+    formErrors: FieldErrors<ForgotPasswordFormData>
+  ) => {
+    setSuccess('');
+
+    setError(
+      formErrors.email?.message ||
+        'Please check your email address.'
+    );
+  };
+
+  const isLoading =
+    forgotPasswordMutation.isPending;
 
   return (
     <section className="min-h-screen flex items-center justify-center bg-[#eae9e5] p-4 sm:p-8 font-inter">
@@ -92,7 +103,8 @@ export default function Forgot() {
           </h1>
 
           <p className="text-sm text-gray-500 leading-relaxed">
-            Enter your email address and we'll send you a link to reset your password.
+            Enter your email address and we&apos;ll
+            send you a link to reset your password.
           </p>
         </div>
 
@@ -116,8 +128,14 @@ export default function Forgot() {
           </div>
         )}
 
-        {/** Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form
+          onSubmit={handleSubmit(
+            handleSubmitForm,
+            handleInvalid
+          )}
+          className="space-y-5"
+        >
+          {/** Email */}
           <div>
             <label
               htmlFor="email"
@@ -128,28 +146,33 @@ export default function Forgot() {
 
             <input
               id="email"
-              name="email"
               type="email"
               autoComplete="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError('');
-                setSuccess('');
-              }}
               placeholder="name@university.edu"
+              disabled={isLoading}
+              {...register('email', {
+                onChange: () => {
+                  setError('');
+                  setSuccess('');
+                },
+              })}
               className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-[#6366F1] transition-colors ${
-                error ? 'border-red-500' : 'border-gray-200'
+                errors.email
+                  ? 'border-red-300'
+                  : 'border-gray-200'
               }`}
             />
           </div>
 
+          {/** Submit */}
           <button
             type="submit"
             disabled={isLoading}
             className="w-full bg-[#6366F1] hover:bg-indigo-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_0_rgba(99,102,241,0.39)]"
           >
-            {isLoading ? 'Sending...' : 'Send Reset Link'}
+            {isLoading
+              ? 'Sending...'
+              : 'Send Reset Link'}
           </button>
         </form>
 

@@ -1,59 +1,50 @@
 'use client';
-import { API_URL } from '@/lib/api';
+
 import { useState } from 'react';
 import Link from 'next/link';
+import { useMutation } from '@tanstack/react-query';
+import { resendVerification } from '@/lib/api';
 
 interface VerifyProps {
   email?: string;
 }
 
 export default function Verify({ email = '' }: VerifyProps) {
-  const [isResending, setIsResending] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const handleResend = async () => {
+  const resendMutation = useMutation({
+    mutationFn: resendVerification,
+    onSuccess: (data) => {
+      setMessage(
+        data.message ||
+          'Verification email sent successfully. Please check your inbox.'
+      );
+    },
+    onError: (error) => {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to resend verification email. Please try again.'
+      );
+    },
+  });
+
+  const handleResend = () => {
     if (!email) {
       setError('Email address is missing. Please register again.');
       return;
     }
 
-    setIsResending(true);
     setMessage('');
     setError('');
 
-    try {
-      const response = await fetch(`${API_URL}/api/v1/auth/resend-verification`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Unable to resend verification email.');
-      }
-
-      setMessage(
-        data.message || 'Verification email sent successfully. Please check your inbox.'
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to resend verification email. Please try again.'
-      );
-    } finally {
-      setIsResending(false);
-    }
+    resendMutation.mutate({
+      email,
+    });
   };
+
+  const isResending = resendMutation.isPending;
 
   return (
     <section className="min-h-screen flex items-center justify-center bg-[#eae9e5] p-4 sm:p-8 font-inter">
@@ -81,7 +72,6 @@ export default function Verify({ email = '' }: VerifyProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1.7}
-               
                 d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
               />
             </svg>
@@ -174,12 +164,14 @@ export default function Verify({ email = '' }: VerifyProps) {
                   stroke="currentColor"
                   strokeWidth="4"
                 />
+
                 <path
                   className="opacity-75"
                   fill="currentColor"
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
+
               Sending...
             </>
           ) : (
