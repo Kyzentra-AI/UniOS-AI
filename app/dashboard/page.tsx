@@ -1,11 +1,10 @@
 import ProtectedRoute from '@/components/ProtectedRoute';
 
+import Landing from '@/pages/Landing';
 export default function DashboardPage() {
   return (
     <ProtectedRoute>
-      <main>
-        <h1>Irfan</h1>
-      </main>
+      <Landing/>
     </ProtectedRoute>
   );
 }

@@ -1,5 +1,5 @@
 'use client';
-{/*imports*/}
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -7,11 +7,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 
-{/**/}
 import {
   registerUser,
   startSocialLogin,
 } from '@/lib/api';
+
 import {
   registerSchema,
   RegisterFormData,
@@ -19,6 +19,7 @@ import {
 
 export default function Register() {
   const router = useRouter();
+
   const [apiError, setApiError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -42,11 +43,15 @@ export default function Register() {
 
   const registerMutation = useMutation({
     mutationFn: registerUser,
+
     onSuccess: (_, variables) => {
-      router.push(`/verify-email?email=${encodeURIComponent(
-        variables.email
-      )}`);
+      router.push(
+        `/verify-email?email=${encodeURIComponent(
+          variables.email
+        )}`
+      );
     },
+
     onError: (error) => {
       setApiError(
         error instanceof Error
@@ -58,15 +63,29 @@ export default function Register() {
 
   const socialMutation = useMutation({
     mutationFn: startSocialLogin,
+
     onSuccess: (data) => {
-      router.push(data.url);
+      if (!data.url) {
+        setApiError(
+          'Social login URL was not returned by the server.'
+        );
+        setSocialLoading(null);
+        return;
+      }
+
+      // External OAuth URL — browser redirect is required.
+      window.location.href = data.url;
     },
+
     onError: (error) => {
+      console.error('Social login failed:', error);
+
       setApiError(
         error instanceof Error
           ? error.message
           : 'Unable to start social login.'
       );
+
       setSocialLoading(null);
     },
   });
@@ -76,10 +95,15 @@ export default function Register() {
   ) => {
     setApiError('');
     setSocialLoading(provider);
-    socialMutation.mutate({ provider });
+
+    socialMutation.mutate({
+      provider,
+    });
   };
 
-  const handleRegister = (formData: RegisterFormData) => {
+  const handleRegister = (
+    formData: RegisterFormData
+  ) => {
     setApiError('');
 
     registerMutation.mutate({
@@ -96,6 +120,7 @@ export default function Register() {
   return (
     <section className="min-h-screen flex items-center justify-center bg-[var(--auth-bg)] p-4 sm:p-8 font-inter">
       <div className="w-full max-w-[1040px] bg-[var(--surface)] rounded-[24px] shadow-sm border border-[var(--border)] flex flex-col md:flex-row overflow-hidden">
+
         <div className="w-full md:w-3/5 p-8 sm:p-12 lg:p-14 z-10 bg-[var(--surface)]">
           <div className="mb-8">
             <img
@@ -113,36 +138,45 @@ export default function Register() {
             </h2>
           </div>
 
+          {/* Social Login */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-            {(['google', 'facebook', 'github'] as const).map((provider) => (
-              <button
-                key={provider}
-                type="button"
-                onClick={() => handleSocialLogin(provider)}
-                disabled={isSocialLoading || isLoading}
-                className="flex justify-center items-center gap-2 py-2.5 border border-[var(--border)] rounded-xl hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <img
-                  src={
-                    provider === 'google'
-                      ? 'https://www.svgrepo.com/show/475656/google-color.svg'
-                      : provider === 'facebook'
-                        ? 'https://www.svgrepo.com/show/475647/facebook-color.svg'
-                        : 'https://www.svgrepo.com/show/512317/github-142.svg'
+            {(['google', 'facebook', 'github'] as const).map(
+              (provider) => (
+                <button
+                  key={provider}
+                  type="button"
+                  onClick={() => handleSocialLogin(provider)}
+                  disabled={
+                    provider !== 'google' ||
+                    isSocialLoading ||
+                    isLoading
                   }
-                  alt={provider}
-                  className="w-5 h-5"
-                />
+                  className="flex justify-center items-center gap-2 py-2.5 border border-[var(--border)] rounded-xl hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <img
+                    src={
+                      provider === 'google'
+                        ? 'https://www.svgrepo.com/show/475656/google-color.svg'
+                        : provider === 'facebook'
+                          ? 'https://www.svgrepo.com/show/475647/facebook-color.svg'
+                          : 'https://www.svgrepo.com/show/512317/github-142.svg'
+                    }
+                    alt={provider}
+                    className="w-5 h-5"
+                  />
 
-                <span className="text-sm font-semibold text-[var(--text-label)]">
-                  {socialLoading === provider
-                    ? 'Connecting...'
-                    : provider.charAt(0).toUpperCase() + provider.slice(1)}
-                </span>
-              </button>
-            ))}
+                  <span className="text-sm font-semibold text-[var(--text-label)]">
+                    {socialLoading === provider
+                      ? 'Connecting...'
+                      : provider.charAt(0).toUpperCase() +
+                        provider.slice(1)}
+                  </span>
+                </button>
+              )
+            )}
           </div>
 
+          {/* Divider */}
           <div className="relative flex items-center py-2 mb-6">
             <div className="flex-grow border-t border-[var(--border)]" />
 
@@ -153,6 +187,7 @@ export default function Register() {
             <div className="flex-grow border-t border-[var(--border)]" />
           </div>
 
+          {/* API Error */}
           {apiError && (
             <div
               role="alert"
@@ -162,6 +197,7 @@ export default function Register() {
             </div>
           )}
 
+          {/* Form */}
           <form
             onSubmit={handleSubmit(handleRegister)}
             className="space-y-4"
@@ -221,6 +257,7 @@ export default function Register() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Password */}
               <div>
                 <label
                   className="block text-sm font-medium text-[var(--text-label)] mb-1.5"
@@ -232,7 +269,9 @@ export default function Register() {
                 <div className="relative">
                   <input
                     id="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={
+                      showPassword ? 'text' : 'password'
+                    }
                     placeholder="••••••••"
                     {...register('password')}
                     className={`w-full px-4 py-2.5 rounded-xl border text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-colors pr-10 ${
@@ -244,7 +283,9 @@ export default function Register() {
 
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() =>
+                      setShowPassword(!showPassword)
+                    }
                     className="absolute inset-y-0 right-0 flex items-center pr-3 text-[var(--text-muted)] hover:text-[var(--text-label)]"
                   >
                     <svg
@@ -279,6 +320,7 @@ export default function Register() {
                 )}
               </div>
 
+              {/* Confirm Password */}
               <div>
                 <label
                   className="block text-sm font-medium text-[var(--text-label)] mb-1.5"
@@ -290,7 +332,11 @@ export default function Register() {
                 <div className="relative">
                   <input
                     id="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
+                    type={
+                      showConfirmPassword
+                        ? 'text'
+                        : 'password'
+                    }
                     placeholder="••••••••"
                     {...register('confirmPassword')}
                     className={`w-full px-4 py-2.5 rounded-xl border text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-colors pr-10 ${
@@ -303,7 +349,9 @@ export default function Register() {
                   <button
                     type="button"
                     onClick={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
+                      setShowConfirmPassword(
+                        !showConfirmPassword
+                      )
                     }
                     className="absolute inset-y-0 right-0 flex items-center pr-3 text-[var(--text-muted)] hover:text-[var(--text-label)]"
                   >
@@ -340,6 +388,7 @@ export default function Register() {
               </div>
             </div>
 
+            {/* Terms */}
             <div className="flex items-start pt-2">
               <div className="flex items-center h-5">
                 <input
@@ -383,10 +432,13 @@ export default function Register() {
               </p>
             )}
 
+            {/* Submit */}
             <div className="pt-4">
               <button
                 type="submit"
-                disabled={isLoading || isSocialLoading}
+                disabled={
+                  isLoading || isSocialLoading
+                }
                 className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_0_var(--primary-shadow)]"
               >
                 {isLoading ? (
@@ -408,7 +460,7 @@ export default function Register() {
                       <path
                         className="opacity-75"
                         fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.358 5.824 3 7.938l-3-2.647z"
                       />
                     </svg>
 
@@ -424,6 +476,7 @@ export default function Register() {
           <div className="mt-8 text-center">
             <p className="text-sm text-[var(--text-secondary)]">
               Already have an account?{' '}
+
               <Link
                 href="/login"
                 className="font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors"
@@ -434,6 +487,7 @@ export default function Register() {
           </div>
         </div>
 
+        {/* Platform Preview */}
         <div className="hidden md:flex md:w-2/5 bg-[var(--surface-muted)] p-10 flex-col justify-center relative overflow-hidden border-l border-[var(--border)]">
           <div className="relative z-10 w-full max-w-sm mx-auto">
             <div className="mb-8">
@@ -518,7 +572,7 @@ export default function Register() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={1.5}
-                      d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                     />
                   </svg>
                 </div>
@@ -529,8 +583,8 @@ export default function Register() {
                   </h4>
 
                   <p className="text-[12px] text-[var(--text-secondary)] mt-1 leading-snug">
-                    Get curated internship and job opportunities based on your
-                    skills.
+                    Get curated internship and job opportunities based on
+                    your skills.
                   </p>
                 </div>
               </div>
@@ -538,6 +592,7 @@ export default function Register() {
           </div>
 
           <div className="absolute top-[5%] right-[-10%] w-[250px] h-[250px] bg-indigo-600/5 rounded-full blur-3xl pointer-events-none" />
+
           <div className="absolute bottom-[0%] left-[-10%] w-[200px] h-[200px] bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
         </div>
       </div>

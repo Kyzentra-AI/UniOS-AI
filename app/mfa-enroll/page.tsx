@@ -1,10 +1,11 @@
-import MFAVerify from '@/pages/MFAVerify';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
-export default function MFAVerifyPage() {
+import MFAEnroll from '@/pages/MFAEnroll';
+
+export default function MFAEnrollPage() {
   return (
   <ProtectedRoute>
-    <MFAVerify/>
+    <MFAEnroll/>
   </ProtectedRoute>
   );
 }

@@ -5,12 +5,14 @@
   --foreground: #171717;
 
   /* =====================================================
-     UNIOS AUTH THEME
-     Change colors here only — auth pages update everywhere.
+     UNIOS AUTH & GLOBAL THEME
+     (Matches your existing login.tsx syntax)
   ====================================================== */
 
   --auth-bg: #eae9e5;
   --surface: #ffffff;
+  --surface-alt: #f8f9fb;
+  --surface-muted: #f3f4f6;
   --border: #e5e7eb;
 
   --text-primary: #111827;
@@ -26,17 +28,13 @@
   --danger: #dc2626;
   --danger-soft: #fef2f2;
   --danger-border: #fecaca;
-
-  /* Auth preview panel */
-  --auth-panel: #f8f9fb;
+  --danger-text: #b91c1c;
 
   /* Feature card accents */
   --feature-purple-soft: #faf5ff;
   --feature-purple: #9333ea;
-
   --feature-orange-soft: #fff7ed;
   --feature-orange: #f97316;
-
   --feature-blue-soft: #eff6ff;
   --feature-blue: #3b82f6;
 }
