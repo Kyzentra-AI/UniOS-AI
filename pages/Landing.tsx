@@ -1,271 +1,666 @@
-import React from 'react';
-import Link from 'next/link';
+
+import React from "react";
+import Link from "next/link";
+
+const features = [
+  {
+    number: "01",
+    title: "AI Study Partner",
+    description:
+      "Personalized roadmap generator that adapts to your learning pace and professional goals.",
+    points: ["Adaptive Curriculum", "Smart Scheduling"],
+  },
+  {
+    number: "02",
+    title: "Career Pipeline",
+    description:
+      "Curated internship listings and application tracking system to land your dream role.",
+    points: ["1-Click Applications", "Application Analytics"],
+  },
+  {
+    number: "03",
+    title: "Collaborative Lab",
+    description:
+      "Manage student projects, share feedback, and build a portfolio that stands out to recruiters.",
+    points: ["Real-time Feedback", "Portfolio Export"],
+  },
+];
+
+const testimonials = [
+  {
+    name: "Sarah Chen",
+    role: "CS Student at Stanford",
+    text: "UniOS transformed how I approach my engineering projects. The AI roadmap actually understood my goals and provided resources I couldn't find anywhere else.",
+    avatar: "https://i.pravatar.cc/100?img=47",
+  },
+  {
+    name: "Marcus Rodriguez",
+    role: "Software Eng. Intern",
+    text: "Managing internship applications used to be a nightmare. Now I have a centralized hub that tracks everything and gives me feedback on my CV in real-time.",
+    avatar: "https://i.pravatar.cc/100?img=12",
+  },
+  {
+    name: "Laila Ahmed",
+    role: "Design at NYU",
+    text: "The best tool for student teams. We built our entire final year project using UniOS labs. The collaborative features are smoother than any Enterprise tool we tried.",
+    avatar: "https://i.pravatar.cc/100?img=32",
+  },
+];
+
+const stats = [
+  ["92%", "Placements within 6mo"],
+  ["500+", "Partner Companies"],
+  ["1.2M", "Tasks Completed"],
+  ["4.9/5", "User Satisfaction"],
+];
+
+const velocityData = [
+  [150, 105],
+  [175, 120],
+  [160, 135],
+  [190, 150],
+  [175, 160],
+  [200, 175],
+];
+
+const activityPoints = [
+  [0, 150],
+  [65, 128],
+  [130, 138],
+  [195, 92],
+  [260, 106],
+  [325, 62],
+  [400, 38],
+];
 
 export default function LandingPage() {
   return (
-    <div className="w-full bg-[var(--surface)] font-inter overflow-hidden flex-grow">
-      
-      {/* 1. HERO SECTION */}
-      <section className="relative pt-20 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
-        
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--primary-soft)] border border-[var(--border)] text-[var(--primary)] text-xs font-semibold mb-6">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--primary)] opacity-50"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--primary)]"></span>
-          </span>
-          UniOS v2.0 is now live
-        </div>
-        
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-[var(--text-primary)] tracking-tight mb-6 max-w-4xl mx-auto leading-tight">
-          The Unified OS for <br className="hidden md:block" />
-          <span className="text-[var(--primary)]">Future-Ready Students</span>
-        </h1>
-        
-        <p className="text-base md:text-lg text-[var(--text-secondary)] mb-10 max-w-2xl mx-auto leading-relaxed">
-          UniOS integrates project management, internship tracking, and personalized roadmaps into one AI-powered workspace. Built for high-performers.
-        </p>
-        
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/register" className="w-full sm:w-auto px-8 py-4 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold rounded-xl transition-all shadow-[0_4px_14px_0_var(--primary-shadow)] hover:-translate-y-0.5">
-            Start Your Journey
-          </Link>
-          <button className="w-full sm:w-auto px-8 py-4 bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-alt)] text-[var(--text-primary)] font-semibold rounded-xl transition-all flex items-center justify-center gap-2">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            Watch Demo
-          </button>
-        </div>
-      </section>
+    <main className="min-h-screen overflow-x-hidden bg-[var(--background)] text-[var(--foreground)]">
 
-      {/* 2. TRUSTED BY LOGOS */}
-      <section className="py-10 border-y border-[var(--border)] bg-[var(--surface-alt)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-xs font-bold text-[var(--text-muted)] tracking-widest uppercase mb-8">
-            Trusted by over 50,000 students from elite institutions
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-60 grayscale text-[var(--text-secondary)]">
-            <svg className="h-6" viewBox="0 0 100 30" fill="currentColor"><text x="0" y="22" fontSize="24" fontWeight="bold">Google</text></svg>
-            <svg className="h-6" viewBox="0 0 100 30" fill="currentColor"><text x="0" y="22" fontSize="24" fontWeight="bold">Microsoft</text></svg>
-            <svg className="h-6" viewBox="0 0 100 30" fill="currentColor"><text x="0" y="22" fontSize="24" fontWeight="bold">Apple</text></svg>
-            <svg className="h-6" viewBox="0 0 100 30" fill="currentColor"><text x="0" y="22" fontSize="24" fontWeight="bold">Amazon</text></svg>
-            <svg className="h-6 hidden md:block" viewBox="0 0 100 30" fill="currentColor"><text x="0" y="22" fontSize="24" fontWeight="bold">Meta</text></svg>
-          </div>
-        </div>
-      </section>
+      {/* =====================================================
+          HERO
+      ====================================================== */}
+      <section>
+        <div className="mx-auto max-w-7xl px-5 pb-20 pt-10 sm:px-8 sm:pb-24 sm:pt-14 lg:px-10 lg:pb-28 lg:pt-20">
+          <div className="grid gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-20">
 
-      {/* 3. ANALYTICS SHOWCASE */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex flex-col lg:flex-row items-center gap-16">
-          <div className="w-full lg:w-1/2 space-y-8">
             <div>
-              <span className="text-[var(--primary)] font-semibold tracking-wider text-sm uppercase">Platform Preview</span>
-              <h2 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mt-2 mb-4">
-                Master your metrics with <br /> Advanced Analytics.
-              </h2>
-              <p className="text-[var(--text-secondary)] leading-relaxed">
-                See exactly how you'll grow. Once inside, our integrated dashboard provides real-time insights into your skill acquisition, project velocity, and internship success rates.
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]" />
+                UniOS v2.0 is now live
+              </div>
+
+              <h1 className="max-w-4xl text-4xl font-semibold leading-[1.08] tracking-[-0.04em] sm:text-5xl lg:text-6xl">
+                The Unified OS for Future-Ready Students
+              </h1>
+
+              <p className="mt-6 max-w-2xl text-base leading-7 text-[var(--text-secondary)] sm:text-lg sm:leading-8">
+                UniOS integrates project management, internship tracking, and
+                personalized roadmaps into one AI-powered workspace. Built for
+                high-performers.
               </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/register"
+                  className="inline-flex h-12 items-center justify-center rounded-lg bg-[var(--primary)] px-6 text-sm font-semibold text-white transition-colors hover:bg-[var(--primary-hover)]"
+                >
+                  Start Your Journey
+                </Link>
+
+                <Link
+                  href="#analytics"
+                  className="inline-flex h-12 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-6 text-sm font-semibold text-[var(--text-primary)] shadow-sm transition-colors hover:bg-[var(--surface-muted)]"
+                >
+                  Watch Demo
+                </Link>
+              </div>
             </div>
 
-            <div className="space-y-6">
-              <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-lg bg-[var(--primary-soft)] flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-[var(--primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-[var(--text-primary)]">Progress Forecasting</h4>
-                  <p className="text-sm text-[var(--text-secondary)] mt-1">AI predicts when you'll be job-ready based on current learning velocity.</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-lg bg-[var(--feature-purple-soft)] flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-[var(--feature-purple)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-[var(--text-primary)]">Skill Gap Analysis</h4>
-                  <p className="text-sm text-[var(--text-secondary)] mt-1">Compare your skills against top tech requirements to see what's missing.</p>
-                </div>
-              </div>
-            </div>
-          </div>
+            {/* Product Preview */}
+            <div>
+              <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
 
-          <div className="w-full lg:w-1/2 relative">
-            <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-6 md:p-8 relative transform transition-transform hover:-translate-y-2 duration-500 shadow-sm hover:shadow-md">
-              <div className="flex justify-between items-center mb-8">
-                <h5 className="font-bold text-[var(--text-primary)]">Your Activity Preview</h5>
-                <span className="text-xs font-semibold bg-[var(--primary-soft)] text-[var(--primary)] px-2.5 py-1 rounded-md">Top 5% Trajectory</span>
-              </div>
-              <div className="flex items-end justify-between gap-2 h-48 mb-6 border-b border-[var(--border)] pb-2">
-                {[40, 70, 45, 90, 65, 80, 55].map((height, i) => (
-                  <div key={i} className="w-full flex flex-col justify-end group">
-                    <div 
-                      className="w-full bg-[var(--primary)] rounded-t-md transition-all duration-500 hover:bg-[var(--primary-hover)] relative"
-                      style={{ height: `${height}%` }}
-                    >
+                
+
+                <div className="grid grid-cols-2 gap-3 p-5">
+                  <div className="rounded-xl bg-[var(--surface-alt)] p-4">
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Current focus
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                      Learning & Projects
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-[var(--surface-alt)] p-4">
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Workspace
+                    </p>
+
+                    <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
+                      Career Planning
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-5 pb-5">
+                  <div className="rounded-xl border border-[var(--border)] p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
+                          Learning Velocity
+                        </p>
+
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                          Weekly overview
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--text-secondary)]">
+                        Overview
+                      </div>
+                    </div>
+
+                    <div className="mt-7 flex h-40 items-end gap-2 border-b border-l border-[var(--border)] px-3">
+                      {[35, 52, 44, 66, 57, 76, 63, 84].map(
+                        (height, index) => (
+                          <div
+                            key={index}
+                            className="flex-1 rounded-t-sm bg-[var(--primary)] opacity-70"
+                            style={{ height: `${height}%` }}
+                          />
+                        )
+                      )}
+                    </div>
+
+                    <div className="mt-3 flex justify-between text-[10px] text-[var(--text-muted)]">
+                      <span>Week 1</span>
+                      <span>Week 2</span>
+                      <span>Week 3</span>
+                      <span>Week 4</span>
                     </div>
                   </div>
-                ))}
-              </div>
-              <div className="flex justify-between text-[10px] text-[var(--text-muted)] font-medium px-1">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 px-5 pb-5">
+                  <div className="rounded-xl bg-[var(--surface-alt)] p-4">
+                    <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                      Projects
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold">
+                      Organized
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-[var(--surface-alt)] p-4">
+                    <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                      Internships
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold">
+                      Tracked
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-[var(--surface-alt)] p-4">
+                    <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                      Roadmaps
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold">
+                      Personalized
+                    </p>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4. FEATURES GRID */}
-      <section className="py-20 bg-[var(--surface-muted)] border-t border-[var(--border)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-4">
-              Everything you need to <span className="text-[var(--primary)]">accelerate your career.</span>
+      {/* =====================================================
+          TRUSTED BY
+      ====================================================== */}
+      <section>
+        <div className="mx-auto max-w-7xl px-5 pb-16 sm:px-8 lg:px-10 lg:pb-20">
+
+          <p className="text-center text-xs font-medium uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+            Trusted by over 50,000 students from elite institutions
+          </p>
+
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-6">
+            {["Google", "Microsoft", "Apple", "Amazon", "Meta", "Facebook"].map(
+              (company) => (
+                <div
+                  key={company}
+                  className="flex h-16 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm font-semibold text-[var(--text-secondary)] shadow-sm"
+                >
+                  {company}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          ANALYTICS
+      ====================================================== */}
+      <section id="analytics" className="bg-[var(--surface-alt)]">
+        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-24 lg:px-10 lg:py-28">
+
+          <div className="grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-20">
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
+                Advanced Analytics.
+              </p>
+
+              <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+                Advanced Analytics.
+              </h2>
+
+              <p className="mt-5 max-w-xl text-base leading-7 text-[var(--text-secondary)]">
+                Don't just study—measure your progress. Our integrated
+                dashboard provides real-time insights into your skill
+                acquisition, project velocity, and internship success rates.
+              </p>
+
+              <div className="mt-9 space-y-7">
+
+                <div className="flex gap-4">
+                  <div className="mt-1 h-8 w-1 shrink-0 rounded-full bg-[var(--primary)]" />
+
+                  <div>
+                    <h3 className="text-sm font-semibold">
+                      Progress Forecasting
+                    </h3>
+
+                    <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                      AI predicts when you'll be job-ready based on current
+                      learning velocity.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="mt-1 h-8 w-1 shrink-0 rounded-full bg-[var(--border)]" />
+
+                  <div>
+                    <h3 className="text-sm font-semibold">
+                      Skill Gap Analysis
+                    </h3>
+
+                    <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                      Compare your skills against top tech requirements to see
+                      what's missing.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+
+              {/* Expected vs Actual */}
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
+
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Learning Velocity
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+                    Expected vs Actual
+                  </p>
+                </div>
+
+                <div className="mt-8">
+
+                  <div className="relative h-52 border-b border-l border-[var(--border)] px-4">
+
+                    <div className="absolute inset-x-4 bottom-0 top-0 flex items-end justify-between gap-3">
+
+                      {velocityData.map(
+                        ([expected, actual], index) => (
+                          <div
+                            key={index}
+                            className="flex h-full flex-1 items-end justify-center"
+                          >
+                            <div className="flex items-end gap-1.5">
+
+                              <div
+                                className="w-3 rounded-t-sm"
+                                style={{
+                                  height: `${expected}px`,
+                                  minHeight: "4px",
+                                  backgroundColor:
+                                    "var(--border)",
+                                }}
+                              />
+
+                              <div
+                                className="w-3 rounded-t-sm"
+                                style={{
+                                  height: `${actual}px`,
+                                  minHeight: "4px",
+                                  backgroundColor:
+                                    "var(--primary)",
+                                }}
+                              />
+
+                            </div>
+                          </div>
+                        )
+                      )}
+
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-6 text-center text-[10px] text-[var(--text-muted)]">
+                    <span>Mon</span>
+                    <span>Tue</span>
+                    <span>Wed</span>
+                    <span>Thu</span>
+                    <span>Fri</span>
+                    <span>Sat</span>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex gap-5 text-[10px] text-[var(--text-secondary)]">
+
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="h-2 w-2 rounded-sm"
+                      style={{
+                        backgroundColor: "var(--border)",
+                      }}
+                    />
+                    Expected
+                  </span>
+
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="h-2 w-2 rounded-sm"
+                      style={{
+                        backgroundColor: "var(--primary)",
+                      }}
+                    />
+                    Actual
+                  </span>
+
+                </div>
+              </div>
+
+              {/* Academic Output */}
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
+
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Academic Output
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+                    Weekly Activity
+                  </p>
+                </div>
+
+                <div className="relative mt-8 h-52 border-b border-l border-[var(--border)]">
+
+                  <div className="absolute inset-0">
+
+                    <div className="absolute left-0 right-0 top-1/4 border-t border-[var(--border)] opacity-50" />
+
+                    <div className="absolute left-0 right-0 top-1/2 border-t border-[var(--border)] opacity-50" />
+
+                    <div className="absolute left-0 right-0 top-3/4 border-t border-[var(--border)] opacity-50" />
+
+                  </div>
+
+                  <svg
+                    viewBox="0 0 400 180"
+                    className="absolute inset-0 h-full w-full"
+                    preserveAspectRatio="none"
+                  >
+
+                    <polyline
+                      points={activityPoints
+                        .map(([x, y]) => `${x},${y}`)
+                        .join(" ")}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      className="text-[var(--primary)]"
+                    />
+
+                    {activityPoints.map(([x, y], index) => (
+                      <circle
+                        key={index}
+                        cx={x}
+                        cy={y}
+                        r="4"
+                        fill="currentColor"
+                        className="text-[var(--primary)]"
+                      />
+                    ))}
+
+                  </svg>
+                </div>
+
+                <div className="mt-3 flex justify-between text-[10px] text-[var(--text-muted)]">
+                  <span>Week 1</span>
+                  <span>Week 2</span>
+                  <span>Week 3</span>
+                  <span>Week 4</span>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          FEATURES
+      ====================================================== */}
+      <section>
+        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-24 lg:px-10 lg:py-28">
+
+          <div className="max-w-2xl">
+
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
+              The Platform
+            </p>
+
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+              Everything you need to accelerate your career.
             </h2>
-            <p className="text-[var(--text-secondary)] text-lg">
-              A comprehensive ecosystem designed to manage your academic journey and professional growth in one place.
+
+            <p className="mt-5 text-base leading-7 text-[var(--text-secondary)]">
+              A comprehensive ecosystem designed to manage your academic
+              journey and professional growth in one place.
             </p>
+
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="bg-[var(--surface)] rounded-3xl p-8 border border-[var(--border)] shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-2xl bg-[var(--feature-purple-soft)] flex items-center justify-center mb-6">
-                <svg className="w-6 h-6 text-[var(--feature-purple)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-              </div>
-              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-3">AI Study Partner</h3>
-              <p className="text-[var(--text-secondary)] text-sm mb-6 leading-relaxed">
-                Personalized roadmap generator that adapts to your learning pace and professional goals.
-              </p>
-            </div>
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
 
-            {/* Feature 2 */}
-            <div className="bg-[var(--surface)] rounded-3xl p-8 border border-[var(--border)] shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-2xl bg-[var(--feature-orange-soft)] flex items-center justify-center mb-6">
-                <svg className="w-6 h-6 text-[var(--feature-orange)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-              </div>
-              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-3">Career Pipeline</h3>
-              <p className="text-[var(--text-secondary)] text-sm mb-6 leading-relaxed">
-                Curated internship listings and application tracking system to land your dream role.
-              </p>
-            </div>
+            {features.map((feature) => (
+              <article
+                key={feature.title}
+                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm transition-shadow hover:shadow-md sm:p-8"
+              >
 
-            {/* Feature 3 */}
-            <div className="bg-[var(--surface)] rounded-3xl p-8 border border-[var(--border)] shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-2xl bg-[var(--feature-blue-soft)] flex items-center justify-center mb-6">
-                <svg className="w-6 h-6 text-[var(--feature-blue)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-              </div>
-              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-3">Collaborative Lab</h3>
-              <p className="text-[var(--text-secondary)] text-sm mb-6 leading-relaxed">
-                Manage student projects, share feedback, and build a portfolio that stands out to recruiters.
-              </p>
-            </div>
+                <div className="flex items-center justify-between">
+
+                  <span className="text-xs font-medium text-[var(--text-muted)]">
+                    {feature.number}
+                  </span>
+
+                  <span className="text-lg text-[var(--primary)]">
+                    ↗
+                  </span>
+
+                </div>
+
+                <h3 className="mt-12 text-xl font-semibold">
+                  {feature.title}
+                </h3>
+
+                <p className="mt-4 text-sm leading-6 text-[var(--text-secondary)]">
+                  {feature.description}
+                </p>
+
+                <div className="mt-7 space-y-3">
+
+                  {feature.points.map((point) => (
+                    <div
+                      key={point}
+                      className="flex items-center gap-3 text-sm"
+                    >
+
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--surface-alt)] text-[10px] text-[var(--primary)]">
+                        ✓
+                      </span>
+
+                      <span>{point}</span>
+
+                    </div>
+                  ))}
+
+                </div>
+
+              </article>
+            ))}
+
           </div>
         </div>
       </section>
 
-      {/* 5. STATS SECTION */}
-      <section className="py-16 border-y border-[var(--border)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-[var(--border)]">
-            <div>
-              <div className="text-3xl md:text-4xl font-black text-[var(--text-primary)] mb-2">92%</div>
-              <div className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Placements within 6mo</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-black text-[var(--text-primary)] mb-2">500+</div>
-              <div className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Partner Companies</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-black text-[var(--text-primary)] mb-2">1.2M</div>
-              <div className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">Tasks Completed</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-black text-[var(--text-primary)] mb-2">4.9/5</div>
-              <div className="text-xs text-[var(--text-muted)] font-medium uppercase tracking-wider">User Satisfaction</div>
-            </div>
+      {/* =====================================================
+          STATS
+      ====================================================== */}
+      <section className="bg-[var(--surface-alt)]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:px-10 lg:py-20">
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+            {stats.map(([value, label]) => (
+              <div
+                key={label}
+                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-7"
+              >
+
+                <p className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+                  {value}
+                </p>
+
+                <p className="mt-2 max-w-[140px] text-xs leading-5 text-[var(--text-secondary)] sm:text-sm">
+                  {label}
+                </p>
+
+              </div>
+            ))}
+
           </div>
         </div>
       </section>
 
-      {/* 6. TESTIMONIALS SECTION */}
-      <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-12">
-          <span className="text-[var(--primary)] font-semibold tracking-wider text-sm uppercase">Success Stories</span>
-          <h2 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mt-2">
-            Built by students, <br /> for the future of work.
-          </h2>
-        </div>
+      {/* =====================================================
+          TESTIMONIALS
+      ====================================================== */}
+      <section>
+        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-24 lg:px-10 lg:py-28">
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[var(--surface)] p-8 rounded-3xl shadow-sm border border-[var(--border)]">
-            <p className="text-[var(--text-secondary)] text-sm leading-relaxed mb-6">
-              "UniOS transformed how I approach my engineering projects. The AI roadmap actually understood my goals and provided resources I couldn't find anywhere else."
+          <div className="max-w-2xl">
+
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
+              Success Stories
             </p>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[var(--surface-muted)] overflow-hidden">
-                <img src="https://i.pravatar.cc/150?img=47" alt="Sarah Chen" className="w-full h-full object-cover" />
-              </div>
-              <div>
-                <h4 className="font-bold text-[var(--text-primary)] text-sm">Sarah Chen</h4>
-                <p className="text-xs text-[var(--text-muted)]">CS Student at Stanford</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-[var(--surface)] p-8 rounded-3xl shadow-sm border border-[var(--border)]">
-            <p className="text-[var(--text-secondary)] text-sm leading-relaxed mb-6">
-              "Managing internship applications used to be a nightmare. Now I have a centralized hub that tracks everything and gives me feedback on my CV in real-time."
-            </p>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[var(--surface-muted)] overflow-hidden">
-                <img src="https://i.pravatar.cc/150?img=11" alt="Marcus Rodriguez" className="w-full h-full object-cover" />
-              </div>
-              <div>
-                <h4 className="font-bold text-[var(--text-primary)] text-sm">Marcus Rodriguez</h4>
-                <p className="text-xs text-[var(--text-muted)]">Software Eng. Intern</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-[var(--surface)] p-8 rounded-3xl shadow-sm border border-[var(--border)]">
-            <p className="text-[var(--text-secondary)] text-sm leading-relaxed mb-6">
-              "The best tool for student teams. We built our entire final year project using UniOS labs. The collaborative features are smoother than any Enterprise tool we tried."
-            </p>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[var(--surface-muted)] overflow-hidden">
-                <img src="https://i.pravatar.cc/150?img=5" alt="Laila Ahmed" className="w-full h-full object-cover" />
-              </div>
-              <div>
-                <h4 className="font-bold text-[var(--text-primary)] text-sm">Laila Ahmed</h4>
-                <p className="text-xs text-[var(--text-muted)]">Design at NYU</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. CTA BANNER */}
-      <section className="pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="bg-[var(--primary)] rounded-[40px] p-12 md:p-20 text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-          
-          <div className="relative z-10 max-w-2xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-              Ready to supercharge your career?
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+              Built by students, for the future of work.
             </h2>
-            <p className="text-[var(--primary-soft)] text-lg mb-10">
-              Join thousands of students who are building their future with the power of UniOS. Start for free today.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register" className="w-full sm:w-auto px-8 py-4 bg-[var(--surface)] text-[var(--primary)] hover:bg-[var(--surface-alt)] font-bold rounded-xl transition-all shadow-lg hover:-translate-y-0.5">
+
+          </div>
+
+          <div className="mt-12 grid gap-5 md:grid-cols-3">
+
+            {testimonials.map((testimonial) => (
+              <article
+                key={testimonial.name}
+                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-8"
+              >
+
+                <div className="flex items-center gap-3">
+
+                  <img
+                    src={testimonial.avatar}
+                    alt={testimonial.name}
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+
+                  <div>
+
+                    <p className="text-sm font-semibold">
+                      {testimonial.name}
+                    </p>
+
+                    <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                      {testimonial.role}
+                    </p>
+
+                  </div>
+                </div>
+
+                <p className="mt-7 text-sm leading-7 text-[var(--text-secondary)]">
+                  “{testimonial.text}”
+                </p>
+
+              </article>
+            ))}
+
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          CTA
+      ====================================================== */}
+      <section>
+        <div className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 sm:pb-24 lg:px-10 lg:pb-28">
+
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-alt)] px-6 py-14 shadow-sm sm:px-10 sm:py-16">
+
+            <div className="mx-auto max-w-3xl text-center">
+
+              <h2 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl lg:text-5xl">
+                Ready to supercharge your career?
+              </h2>
+
+              <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-[var(--text-secondary)] sm:text-base">
+                Join thousands of students who are building their future with
+                the power of UniOS. Start for free today.
+              </p>
+
+              <Link
+                href="/register"
+                className="mt-8 inline-flex h-12 items-center justify-center rounded-lg bg-[var(--primary)] px-7 text-sm font-semibold text-white transition-colors hover:bg-[var(--primary-hover)]"
+              >
                 Get Started for Free
               </Link>
+
             </div>
           </div>
         </div>
       </section>
 
-    </div>
+    </main>
   );
 }
