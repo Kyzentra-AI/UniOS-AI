@@ -64,7 +64,7 @@ async def test_register_success(mock_supabase_api):
         password="SecurePassword123!",
         full_name="John Doe",
         terms_accepted=True,
-        redirect_to=None
+        redirect_to="http://localhost:3000/auth/callback"
     )
 
 @pytest.mark.asyncio
@@ -129,9 +129,9 @@ async def test_login_unverified_email(mock_supabase_api, mock_supabase_admin):
 
 @pytest.mark.asyncio
 async def test_login_success(mock_supabase_api, mock_supabase_admin):
-    # Mock profile fetch (no lockout)
+    # Mock profile fetch (no lockout, mfa disabled)
     mock_db_res = MagicMock()
-    mock_db_res.data = [{"user_id": "user-uuid-123", "failed_login_attempts": 0, "account_locked_until": None}]
+    mock_db_res.data = [{"user_id": "user-uuid-123", "failed_login_attempts": 0, "account_locked_until": None, "mfa_enabled": False}]
     mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_db_res
 
     # Mock sign_in response
@@ -154,9 +154,9 @@ async def test_login_success(mock_supabase_api, mock_supabase_admin):
 
 @pytest.mark.asyncio
 async def test_login_requires_mfa(mock_supabase_api, mock_supabase_admin):
-    # Mock profile fetch (no lockout)
+    # Mock profile fetch (no lockout, mfa disabled in profile but factor in gotrue)
     mock_db_res = MagicMock()
-    mock_db_res.data = [{"user_id": "user-uuid-123", "failed_login_attempts": 0, "account_locked_until": None}]
+    mock_db_res.data = [{"user_id": "user-uuid-123", "failed_login_attempts": 0, "account_locked_until": None, "mfa_enabled": False}]
     mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_db_res
 
     # Mock sign_in response with verified TOTP factor
@@ -165,6 +165,27 @@ async def test_login_requires_mfa(mock_supabase_api, mock_supabase_admin):
         "refresh_token": "valid-refresh",
         "expires_in": 3600,
         "user": {"id": "user-uuid-123", "factors": [{"factor_type": "totp", "status": "verified"}]}
+    })
+
+    payload = {"email": "john@example.com", "password": "SecurePassword123!"}
+    response = client.post("/api/v1/auth/login", json=payload)
+    assert response.status_code == 200
+    assert response.json()["requires_mfa"] is True
+    assert response.json()["user_id"] == "user-uuid-123"
+
+@pytest.mark.asyncio
+async def test_login_requires_mfa_from_db(mock_supabase_api, mock_supabase_admin):
+    # Mock profile fetch: mfa_enabled is True in users table even if GoTrue token user object doesn't list factors
+    mock_db_res = MagicMock()
+    mock_db_res.data = [{"user_id": "user-uuid-123", "failed_login_attempts": 0, "account_locked_until": None, "mfa_enabled": True}]
+    mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_db_res
+
+    # Mock sign_in response without factors array
+    mock_supabase_api.sign_in = AsyncMock(return_value={
+        "access_token": "aal1-jwt",
+        "refresh_token": "valid-refresh",
+        "expires_in": 3600,
+        "user": {"id": "user-uuid-123"}
     })
 
     payload = {"email": "john@example.com", "password": "SecurePassword123!"}
@@ -216,7 +237,7 @@ async def test_forgot_password_success(mock_supabase_api):
     response = client.post("/api/v1/auth/forgot-password", json=payload)
     assert response.status_code == 200
     assert "recovery email has been sent" in response.json()["message"]
-    mock_supabase_api.forgot_password.assert_called_once_with("john@example.com")
+    mock_supabase_api.forgot_password.assert_called_once_with("john@example.com", redirect_to="http://localhost:3000/reset-password")
 
 @pytest.mark.asyncio
 async def test_reset_password_success(mock_supabase_api):
@@ -255,8 +276,8 @@ async def test_mfa_verify_enroll_success(mock_supabase_api, mock_supabase_admin)
     mock_supabase_api.mfa_challenge = AsyncMock(return_value={"id": "challenge-uuid-123"})
     mock_supabase_api.mfa_verify = AsyncMock(return_value={"access_token": "aal2-jwt"})
     
-    # Mock jwt decode to get user_id
-    with patch("jose.jwt.decode", return_value={"sub": "user-uuid-123"}):
+    # Mock jwt decode and get_unverified_claims to get user_id
+    with patch("jose.jwt.get_unverified_claims", return_value={"sub": "user-uuid-123"}), patch("jose.jwt.decode", return_value={"sub": "user-uuid-123"}):
         payload = {"factor_id": "factor-uuid-123", "code": "123456"}
         headers = {"Authorization": "Bearer active-user-token"}
         response = client.post("/api/v1/auth/mfa/verify-enroll", json=payload, headers=headers)

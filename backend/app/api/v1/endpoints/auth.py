@@ -85,7 +85,7 @@ async def login(request: LoginRequest):
     # Lockout Guard: Check if the user account is locked
     profile = None
     try:
-        res = supabase_admin.table("users").select("user_id, failed_login_attempts, account_locked_until").eq("email", request.email).execute()
+        res = supabase_admin.table("users").select("user_id, failed_login_attempts, account_locked_until, mfa_enabled").eq("email", request.email).execute()
         if res.data:
             profile = res.data[0]
     except Exception:
@@ -119,6 +119,7 @@ async def login(request: LoginRequest):
         # Check if MFA is required
         factors = user_info.get("factors", []) or []
         active_totp = [f for f in factors if f.get("factor_type") == "totp" and f.get("status") == "verified"]
+        is_mfa_enabled = profile.get("mfa_enabled", False) if profile else False
 
         clean_session = {
             "access_token": session_data.get("access_token"),
@@ -127,7 +128,7 @@ async def login(request: LoginRequest):
             "token_type": session_data.get("token_type", "bearer")
         }
 
-        if active_totp:
+        if active_totp or is_mfa_enabled:
             return {
                 "requires_mfa": True,
                 "user_id": user_id,
@@ -232,6 +233,23 @@ async def mfa_verify(request: MFAVerifyRequest, credentials: HTTPAuthorizationCr
 async def mfa_enroll(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
+        try:
+            from jose import jwt
+            payload = jwt.get_unverified_claims(token)
+            user_id = payload.get("sub")
+            if user_id:
+                admin_res = supabase_admin.auth.admin.get_user_by_id(user_id)
+                factors = getattr(admin_res.user, "factors", []) or []
+                for f in factors:
+                    friendly_name = getattr(f, "friendly_name", None) or getattr(f, "friendlyName", None)
+                    status_val = getattr(f, "status", None)
+                    if friendly_name == "UniOS Authenticator" and status_val == "unverified":
+                        factor_id = getattr(f, "id", None)
+                        if factor_id:
+                            await supabase_auth_api.mfa_unenroll(token, factor_id)
+        except Exception:
+            pass
+
         res = await supabase_auth_api.mfa_enroll(token)
         return res
     except Exception as e:
