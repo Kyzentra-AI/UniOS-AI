@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -11,15 +12,9 @@ import {
   getRememberMe,
 } from '@/lib/auth';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
-
-interface MFASetupData {
-  factorId: string;
-  secret: string;
-  qrCode: string;
-}
 
 export default function MFASetup() {
   const router = useRouter();
@@ -33,7 +28,14 @@ export default function MFASetup() {
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
 
+  // Prevent duplicate MFA enrollment requests in development
+  const hasInitialized = useRef(false);
+
   useEffect(() => {
+    if (hasInitialized.current) return;
+
+    hasInitialized.current = true;
+
     const setupMFA = async () => {
       const accessToken = getAccessToken();
 
@@ -63,20 +65,23 @@ export default function MFASetup() {
 
         setSecret(returnedSecret);
 
-        if (data.totp?.qr_code) {
-          setQrCode(data.totp.qr_code);
-        } else if (uri) {
+        // Generate a browser-compatible QR image
+        // from the otpauth:// URI returned by Supabase.
+        if (uri) {
           const generatedQRCode =
             await QRCode.toDataURL(uri);
 
           setQrCode(generatedQRCode);
         } else {
           throw new Error(
-            'MFA setup failed because no QR code or setup URI was returned.'
+            'MFA setup failed because no setup URI was returned.'
           );
         }
       } catch (err) {
-        console.error('MFA enrollment failed:', err);
+        console.error(
+          'MFA enrollment failed:',
+          err
+        );
 
         setError(
           err instanceof Error
@@ -201,7 +206,7 @@ export default function MFASetup() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1.7}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v2h8z"
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2h12V9a4 4 0 00-8 0v2h8z"
               />
             </svg>
           </div>
@@ -341,7 +346,7 @@ export default function MFASetup() {
                       <path
                         className="opacity-75"
                         fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12 0h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
 
@@ -363,3 +368,4 @@ export default function MFASetup() {
     </section>
   );
 }
+

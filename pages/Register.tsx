@@ -488,7 +488,7 @@ export default function Register() {
         </div>
 
         {/* Platform Preview */}
-        <div className="hidden md:flex md:w-2/5 bg-[var(--surface-muted)] p-10 flex-col justify-center relative overflow-hidden border-l border-[var(--border)]">
+        <div className="hidden md:flex md:w-2/5 bg-[var(--primary-soft)] p-10 flex-col justify-center relative overflow-hidden border-l border-[var(--border)]">
           <div className="relative z-10 w-full max-w-sm mx-auto">
             <div className="mb-8">
               <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">

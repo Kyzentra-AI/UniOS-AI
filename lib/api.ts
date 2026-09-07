@@ -241,14 +241,14 @@ export const verifyMFA = (
     }
   );
 };
-
 //Forgot and reset password
+
 export interface ForgotPasswordRequest {
   email: string;
 }
 
 export interface ResetPasswordRequest {
-  reset_token: string;
+  access_token: string;
   new_password: string;
 }
 
@@ -271,7 +271,12 @@ export const resetPassword = (
     '/api/v1/auth/reset-password',
     {
       method: 'POST',
-      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${payload.access_token}`,
+      },
+      body: JSON.stringify({
+        new_password: payload.new_password,
+      }),
     }
   );
 };

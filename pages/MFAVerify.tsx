@@ -8,12 +8,22 @@ import {
   clearMfaSession,
 } from '@/lib/auth';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function MFAVerify() {
   const router = useRouter();
+
+  useEffect(() => {
+  const userId = sessionStorage.getItem('mfa_user_id');
+  const accessToken = sessionStorage.getItem('mfa_access_token');
+
+  if (!userId || !accessToken) {
+    router.replace('/login');
+  }
+}, [router]);
+  
 
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -82,6 +92,20 @@ export default function MFAVerify() {
         data.session,
         rememberMe
       );
+      console.log(
+  'SESSION SAVED:',
+  data.session
+);
+
+console.log(
+  'LOCAL SESSION:',
+  localStorage.getItem('unios_session')
+);
+
+console.log(
+  'SESSION STORAGE:',
+  sessionStorage.getItem('unios_session')
+);
 
       clearMfaSession();
 

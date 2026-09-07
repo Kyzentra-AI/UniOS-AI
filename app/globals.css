@@ -2,79 +2,64 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F7F1E7;
+  --foreground: #18343A;
 
   /* =====================================================
      UNIOS AUTH & GLOBAL THEME
      Existing variable names preserved
   ====================================================== */
 
-  --auth-bg: #eae9e5;
+  --auth-bg: #F8F1E7;
 
-  --surface: #FFF8EE;
+  /* Main cards / surfaces */
+  --surface: #FFF9F0;
+  --surface-alt: #F8F1E7;
+  --surface-muted: #F8F1E7;
 
-  --surface-alt: #f8f9fb;
+  /* Warm neutral borders */
+  --border: #D8CCBA;
 
-  --surface-muted: #f3f4f6;
+  /* Text */
+  --text-primary: #18343A;
+  --text-secondary: #5F6D6D;
+  --text-label: #344C50;
+  --text-muted: #87918F;
 
-  --border: #e5e7eb;
+  /* Primary green */
+  --primary: #0C3A47;
+  --primary-hover: #092F39;
+  --primary-soft: #DCE8E6;
+  --primary-shadow: rgba(12, 58, 71, 0.18);
 
-  --text-primary: #111827;
-
-  --text-secondary: #6b7280;
-
-  --text-label: #374151;
-
-  --text-muted: #9ca3af;
-
-  --primary:rgb(12, 58, 71);
-
-  
-
-  --primary-hover: #4f46e5;
-
-  --primary-soft: #eef2ff;
-
-  --primary-shadow: rgba(99, 102, 241, 0.39);
-
-  --danger: #dc2626;
-
-  --danger-soft: #fef2f2;
-
-  --danger-border: #fecaca;
-
-  --danger-text: #b91c1c;
+  /* Status */
+  --danger: #B94A48;
+  --danger-soft: #F8E8E5;
+  --danger-border: #E7C3BD;
+  --danger-text: #9F3836;
 
   /* Feature card accents */
+  --feature-purple-soft: #F1E8DC;
+  --feature-purple: #735B45;
 
-  --feature-purple-soft: #faf5ff;
+  --feature-orange-soft: #F8F1E7;
+  --feature-orange: #B86B32;
 
-  --feature-purple: #9333ea;
-
-  --feature-orange-soft: #fff7ed;
-
-  --feature-orange: #f97316;
-
-  --feature-blue-soft: #eff6ff;
-
-  --feature-blue: #3b82f6;
+  --feature-blue-soft: #E1ECEA;
+  --feature-blue: #35656A;
 }
 
 @theme inline {
   --color-background: var(--background);
-
   --color-foreground: var(--foreground);
-
   --font-sans: var(--font-geist-sans);
-
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0F2428;
+    --foreground: #F7F1E7;
   }
 }
 

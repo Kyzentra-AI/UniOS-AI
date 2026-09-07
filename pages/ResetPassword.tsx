@@ -1,9 +1,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 
 import { useMutation } from '@tanstack/react-query';
 
@@ -22,11 +21,8 @@ import {
 } from '@/app/validations/auth';
 
 export default function ResetPassword() {
-  const searchParams =
-    useSearchParams();
-
-  const resetToken =
-    searchParams.get('token');
+  const [resetToken, setResetToken] =
+    useState<string | null>(null);
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -38,6 +34,45 @@ export default function ResetPassword() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    const hash = window.location.hash;
+
+    if (!hash) {
+      setError(
+        'Invalid or missing password reset link.'
+      );
+      return;
+    }
+
+    const params = new URLSearchParams(
+      hash.substring(1)
+    );
+
+    const accessToken =
+      params.get('access_token');
+
+    const recoveryError =
+      params.get('error_description');
+
+    if (recoveryError) {
+      setError(
+        decodeURIComponent(
+          recoveryError.replace(/\+/g, ' ')
+        )
+      );
+      return;
+    }
+
+    if (!accessToken) {
+      setError(
+        'Invalid or missing password reset link.'
+      );
+      return;
+    }
+
+    setResetToken(accessToken);
+  }, []);
 
   const {
     register,
@@ -66,6 +101,14 @@ export default function ResetPassword() {
           'Your password has been reset successfully. You can now sign in with your new password.'
         );
 
+        setResetToken(null);
+
+        window.history.replaceState(
+          null,
+          '',
+          window.location.pathname
+        );
+
         reset();
       },
 
@@ -88,13 +131,13 @@ export default function ResetPassword() {
 
     if (!resetToken) {
       setError(
-        'Invalid or missing password reset token.'
+        'Invalid or missing password reset link.'
       );
       return;
     }
 
     resetPasswordMutation.mutate({
-      reset_token: resetToken,
+      access_token: resetToken,
       new_password: formData.password,
     });
   };
@@ -115,10 +158,10 @@ export default function ResetPassword() {
     resetPasswordMutation.isPending;
 
   return (
-    <section className="min-h-screen flex items-center justify-center bg-[#eae9e5] p-4 sm:p-8 font-inter">
-      <div className="w-full max-w-[480px] bg-white rounded-[24px] shadow-sm border border-gray-100 p-8 sm:p-12">
+    <section className="min-h-screen flex items-center justify-center bg-[var(--surface-alt)] p-4 sm:p-8 font-inter">
+      <div className="w-full max-w-[480px] bg-[var(--surface)] rounded-[24px] shadow-sm border border-[var(--border)] p-8 sm:p-12">
 
-        {/** Header */}
+        {/* Header */}
         <div className="mb-8">
           <img
             className="h-8 w-auto mb-6"
@@ -126,38 +169,38 @@ export default function ResetPassword() {
             alt="UniOS.ai"
           />
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
             Reset Password
           </h1>
 
-          <p className="text-sm text-gray-500 leading-relaxed">
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
             Create a new password for your UniOS.ai account.
           </p>
         </div>
 
-        {/** Error */}
+        {/* Error */}
         {error && (
           <div
             role="alert"
-            className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+            className="mb-5 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger-text)]"
           >
             {error}
           </div>
         )}
 
-        {/** Success */}
+        {/* Success */}
         {success ? (
           <div>
             <div
               role="status"
-              className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+              className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--primary-soft)] px-4 py-3 text-sm text-[var(--text-primary)]"
             >
               {success}
             </div>
 
             <Link
               href="/login"
-              className="w-full bg-[#6366F1] hover:bg-indigo-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 flex justify-center items-center"
+              className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 flex justify-center items-center"
             >
               Back to Sign In
             </Link>
@@ -171,11 +214,11 @@ export default function ResetPassword() {
             className="space-y-5"
           >
 
-            {/** Password */}
+            {/* Password */}
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
+                className="block text-sm font-medium text-[var(--text-label)] mb-1.5"
               >
                 New Password
               </label>
@@ -196,10 +239,10 @@ export default function ResetPassword() {
                     },
                   })}
                   placeholder="••••••••"
-                  className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-[#6366F1] transition-colors pr-10 ${
+                  className={`w-full px-4 py-2.5 rounded-xl border bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-colors pr-10 ${
                     errors.password
-                      ? 'border-red-300'
-                      : 'border-gray-200'
+                      ? 'border-[var(--danger-border)]'
+                      : 'border-[var(--border)]'
                   }`}
                 />
 
@@ -210,7 +253,7 @@ export default function ResetPassword() {
                       !showPassword
                     )
                   }
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                   aria-label={
                     showPassword
                       ? 'Hide password'
@@ -223,16 +266,16 @@ export default function ResetPassword() {
                 </button>
               </div>
 
-              <p className="mt-1.5 text-xs text-gray-500">
+              <p className="mt-1.5 text-xs text-[var(--text-muted)]">
                 Minimum 8 characters with 1 uppercase letter, 1 number, and 1 special character.
               </p>
             </div>
 
-            {/** Confirm Password */}
+            {/* Confirm Password */}
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
+                className="block text-sm font-medium text-[var(--text-label)] mb-1.5"
               >
                 Confirm Password
               </label>
@@ -256,10 +299,10 @@ export default function ResetPassword() {
                     }
                   )}
                   placeholder="••••••••"
-                  className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-[#6366F1] transition-colors pr-10 ${
+                  className={`w-full px-4 py-2.5 rounded-xl border bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-colors pr-10 ${
                     errors.confirmPassword
-                      ? 'border-red-300'
-                      : 'border-gray-200'
+                      ? 'border-[var(--danger-border)]'
+                      : 'border-[var(--border)]'
                   }`}
                 />
 
@@ -270,7 +313,7 @@ export default function ResetPassword() {
                       !showConfirmPassword
                     )
                   }
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                   aria-label={
                     showConfirmPassword
                       ? 'Hide password'
@@ -284,11 +327,11 @@ export default function ResetPassword() {
               </div>
             </div>
 
-            {/** Submit */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#6366F1] hover:bg-indigo-600 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_0_rgba(99,102,241,0.39)]"
+              className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_var(--primary-shadow)]"
             >
               {isLoading
                 ? 'Resetting Password...'
@@ -297,12 +340,12 @@ export default function ResetPassword() {
           </form>
         )}
 
-        {/** Back to login */}
+        {/* Back to login */}
         {!success && (
           <div className="mt-8 text-center">
             <Link
               href="/login"
-              className="text-sm font-semibold text-[#6366F1] hover:text-indigo-600 transition-colors"
+              className="text-sm font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors"
             >
               Back to Sign In
             </Link>

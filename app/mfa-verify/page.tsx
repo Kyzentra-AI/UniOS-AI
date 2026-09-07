@@ -1,11 +1,6 @@
+
 import MFAVerify from '@/pages/MFAVerify';
 
-import ProtectedRoute from '@/components/ProtectedRoute';
 export default function MFAVerifyPage() {
-  return (
-  <ProtectedRoute>
-    <MFAVerify/>
-  </ProtectedRoute>
-  );
+  return <MFAVerify />;
 }
-       
