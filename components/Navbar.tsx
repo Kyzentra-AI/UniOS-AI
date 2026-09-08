@@ -5,14 +5,22 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 interface NavbarProps {
-  isLoggedIn?: boolean; 
+  isLoggedIn?: boolean;
 }
 
 export default function Navbar({ isLoggedIn = false }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  const isActive = (path: string) => pathname === path;
+if (
+  pathname &&
+  (pathname === '/onboarding' || pathname.startsWith('/onboarding/'))
+) {
+  return null;
+}
+
+const isActive = (path: string) => pathname === path;
+
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-[var(--surface)]/90 backdrop-blur-md border-b border-[var(--border)] font-inter">

@@ -386,28 +386,38 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/*CTA*/}
-      <section className="pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="bg-[var(--primary)] rounded-[40px] p-12 md:p-20 text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3"></div>
-          
-          <div className="relative z-10 max-w-2xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-              Ready to supercharge your career?
-            </h2>
-            <p className="text-[var(--primary-soft)] text-lg mb-10">
-              Join thousands of students who are building their future with the power of UniOS. Start for free today.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register" className="w-full sm:w-auto px-8 py-4 bg-[var(--surface)] text-[var(--primary)] hover:bg-[var(--surface-alt)] font-bold rounded-xl transition-all shadow-lg hover:-translate-y-0.5">
-                Get Started for Free
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+  
+{/* CTA */}
+<section className="pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+  <div className="bg-[rgba(24,52,58,0.08)] border border-[rgba(24,52,58,0.12)] rounded-[40px] p-12 md:p-20 text-center relative overflow-hidden">
+
+    {/* Visible dark circle - top right */}
+    <div className="absolute -top-20 -right-20 w-64 h-64 bg-[rgba(24,52,58,0.14)] rounded-full"></div>
+
+    {/* Subtle circle - bottom left */}
+    <div className="absolute -bottom-24 -left-20 w-56 h-56 bg-[rgba(24,52,58,0.06)] rounded-full"></div>
+
+    <div className="relative z-10 max-w-2xl mx-auto">
+      <h2 className="text-3xl md:text-5xl font-bold text-[var(--text-primary)] mb-6">
+        Ready to supercharge your career?
+      </h2>
+
+      <p className="text-[var(--text-secondary)] text-lg mb-10">
+        Join thousands of students who are building their future with the power of UniOS. Start for free today.
+      </p>
+
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <Link
+          href="/register"
+          className="w-full sm:w-auto px-8 py-4 bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] font-bold rounded-xl transition-all shadow-lg hover:-translate-y-0.5"
+        >
+          Get Started for Free
+        </Link>
+      </div>
+    </div>
+  </div>
+</section>
+
 
     </main>
   );
