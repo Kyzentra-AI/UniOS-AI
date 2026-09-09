@@ -240,6 +240,30 @@ async def test_forgot_password_success(mock_supabase_api):
     mock_supabase_api.forgot_password.assert_called_once_with("john@example.com", redirect_to="http://localhost:3000/reset-password")
 
 @pytest.mark.asyncio
+async def test_reset_password_status_check(mock_supabase_admin):
+    mock_factor = MagicMock()
+    mock_factor.factor_type = "totp"
+    mock_factor.status = "verified"
+    
+    mock_user_data = MagicMock()
+    mock_user_data.factors = [mock_factor]
+    
+    mock_admin_res = MagicMock()
+    mock_admin_res.user = mock_user_data
+    mock_supabase_admin.auth.admin.get_user_by_id.return_value = mock_admin_res
+    
+    mock_db_res = MagicMock()
+    mock_db_res.data = [{"mfa_enabled": True}]
+    mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_db_res
+    
+    with patch("jose.jwt.get_unverified_claims", return_value={"sub": "user-uuid-123"}):
+        headers = {"Authorization": "Bearer test-reset-token"}
+        response = client.get("/api/v1/auth/reset-password/status", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["requires_mfa"] is True
+        assert response.json()["user_id"] == "user-uuid-123"
+
+@pytest.mark.asyncio
 async def test_reset_password_success(mock_supabase_api):
     mock_supabase_api.update_password = AsyncMock()
     payload = {"new_password": "NewSecurePassword123!"}
@@ -248,6 +272,38 @@ async def test_reset_password_success(mock_supabase_api):
     assert response.status_code == 200
     assert "Password has been reset successfully" in response.json()["message"]
     mock_supabase_api.update_password.assert_called_once_with("test-reset-token", "NewSecurePassword123!")
+
+@pytest.mark.asyncio
+async def test_reset_password_with_totp_success(mock_supabase_api, mock_supabase_admin):
+    mock_factor = MagicMock()
+    mock_factor.factor_type = "totp"
+    mock_factor.status = "verified"
+    mock_factor.id = "factor-uuid-123"
+    
+    mock_user_data = MagicMock()
+    mock_user_data.factors = [mock_factor]
+    
+    mock_admin_res = MagicMock()
+    mock_admin_res.user = mock_user_data
+    mock_supabase_admin.auth.admin.get_user_by_id.return_value = mock_admin_res
+    
+    mock_supabase_api.mfa_challenge = AsyncMock(return_value={"id": "challenge-uuid-123"})
+    mock_supabase_api.mfa_verify = AsyncMock(return_value={"access_token": "aal2-jwt-token"})
+    mock_supabase_api.update_password = AsyncMock()
+
+    with patch("jose.jwt.get_unverified_claims", return_value={"sub": "user-uuid-123"}):
+        payload = {"new_password": "NewSecurePassword123!", "totp_code": "123456"}
+        headers = {"Authorization": "Bearer test-reset-token"}
+        response = client.post("/api/v1/auth/reset-password", json=payload, headers=headers)
+        assert response.status_code == 200
+        assert "Password has been reset successfully" in response.json()["message"]
+        mock_supabase_api.mfa_verify.assert_called_once_with(
+            token="test-reset-token",
+            factor_id="factor-uuid-123",
+            challenge_id="challenge-uuid-123",
+            code="123456"
+        )
+        mock_supabase_api.update_password.assert_called_once_with("aal2-jwt-token", "NewSecurePassword123!")
 
 # --- LOGOUT TESTS ---
 

@@ -279,6 +279,35 @@ async def mfa_verify_enroll(request: MFAEnrollVerifyRequest, credentials: HTTPAu
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/reset-password/status")
+async def check_reset_password_mfa_status(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        from jose import jwt
+        payload = jwt.get_unverified_claims(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        admin_res = supabase_admin.auth.admin.get_user_by_id(user_id)
+        user_data = getattr(admin_res, "user", None)
+        factors = getattr(user_data, "factors", []) or [] if user_data else []
+        totp_factor = next((f for f in factors if getattr(f, "factor_type", None) == "totp" and getattr(f, "status", None) == "verified"), None)
+
+        res = supabase_admin.table("users").select("mfa_enabled").eq("user_id", user_id).execute()
+        mfa_enabled_db = res.data[0].get("mfa_enabled", False) if res.data else False
+
+        requires_mfa = bool(totp_factor) or mfa_enabled_db
+
+        return {
+            "requires_mfa": requires_mfa,
+            "user_id": user_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest):
     try:
@@ -294,10 +323,44 @@ async def forgot_password(request: ForgotPasswordRequest):
 async def reset_password(request: ResetPasswordRequest, credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
+        if request.totp_code:
+            from jose import jwt
+            payload = jwt.get_unverified_claims(token)
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Invalid token")
+
+            admin_res = supabase_admin.auth.admin.get_user_by_id(user_id)
+            user_data = admin_res.user
+            factors = getattr(user_data, "factors", []) or []
+            totp_factor = next((f for f in factors if f.factor_type == "totp" and f.status == "verified"), None)
+
+            if not totp_factor:
+                raise HTTPException(status_code=400, detail="No verified TOTP factor found for this user.")
+
+            challenge = await supabase_auth_api.mfa_challenge(token, totp_factor.id)
+            challenge_id = challenge.get("id")
+
+            verified_session = await supabase_auth_api.mfa_verify(
+                token=token,
+                factor_id=totp_factor.id,
+                challenge_id=challenge_id,
+                code=request.totp_code
+            )
+            token = verified_session.get("access_token")
+
         await supabase_auth_api.update_password(token, request.new_password)
         return {"message": "Password has been reset successfully."}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        err_msg = str(e)
+        if "AAL2" in err_msg or "aal2" in err_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="MFA_REQUIRED: AAL2 session is required. Please provide a totp_code."
+            )
+        raise HTTPException(status_code=400, detail=err_msg)
 
 @router.post("/refresh")
 async def refresh_session(request: RefreshTokenRequest):

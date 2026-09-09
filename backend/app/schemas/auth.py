@@ -46,6 +46,7 @@ class ResetPasswordRequest(BaseModel):
     # In FastAPI, we can accept the token or just allow the request if they are authenticated.
     # If the client passes the token, we can use it to update the password.
     new_password: str
+    totp_code: str | None = None
 
     @field_validator("new_password")
     @classmethod
