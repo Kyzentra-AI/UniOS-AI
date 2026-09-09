@@ -247,9 +247,16 @@ export interface ForgotPasswordRequest {
   email: string;
 }
 
+
+export interface ResetPasswordStatusResponse {
+  requires_mfa: boolean;
+  user_id: string;
+}
+
 export interface ResetPasswordRequest {
   access_token: string;
   new_password: string;
+  totp_code?: string;
 }
 
 export const forgotPassword = (
@@ -276,7 +283,24 @@ export const resetPassword = (
       },
       body: JSON.stringify({
         new_password: payload.new_password,
+        ...(payload.totp_code
+          ? { totp_code: payload.totp_code }
+          : {}),
       }),
+    }
+  );
+};
+
+export const checkResetPasswordMFAStatus = (
+  accessToken: string
+) => {
+  return apiRequest<ResetPasswordStatusResponse>(
+    '/api/v1/auth/reset-password/status',
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     }
   );
 };

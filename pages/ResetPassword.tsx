@@ -13,7 +13,10 @@ import {
 
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { resetPassword } from '@/lib/api';
+import {
+  resetPassword,
+  checkResetPasswordMFAStatus,
+} from '@/lib/api';
 
 import {
   resetPasswordSchema,
@@ -23,6 +26,15 @@ import {
 export default function ResetPassword() {
   const [resetToken, setResetToken] =
     useState<string | null>(null);
+
+  const [requiresMFA, setRequiresMFA] =
+    useState(false);
+
+  const [checkingMFA, setCheckingMFA] =
+    useState(false);
+
+  const [totpCode, setTotpCode] =
+    useState('');
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -36,6 +48,29 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    const checkMFAStatus = async (
+      accessToken: string
+    ) => {
+      try {
+        setCheckingMFA(true);
+
+        const response =
+          await checkResetPasswordMFAStatus(
+            accessToken
+          );
+
+        setRequiresMFA(response.requires_mfa);
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to verify password reset requirements.'
+        );
+      } finally {
+        setCheckingMFA(false);
+      }
+    };
+
     const hash = window.location.hash;
 
     if (!hash) {
@@ -72,6 +107,8 @@ export default function ResetPassword() {
     }
 
     setResetToken(accessToken);
+
+    checkMFAStatus(accessToken);
   }, []);
 
   const {
@@ -102,6 +139,7 @@ export default function ResetPassword() {
         );
 
         setResetToken(null);
+        setTotpCode('');
 
         window.history.replaceState(
           null,
@@ -136,9 +174,19 @@ export default function ResetPassword() {
       return;
     }
 
+    if (requiresMFA && !totpCode.trim()) {
+      setError(
+        'Please enter your authenticator code.'
+      );
+      return;
+    }
+
     resetPasswordMutation.mutate({
       access_token: resetToken,
       new_password: formData.password,
+      ...(requiresMFA
+        ? { totp_code: totpCode.trim() }
+        : {}),
     });
   };
 
@@ -155,7 +203,8 @@ export default function ResetPassword() {
   };
 
   const isLoading =
-    resetPasswordMutation.isPending;
+    resetPasswordMutation.isPending ||
+    checkingMFA;
 
   return (
     <section className="min-h-screen flex items-center justify-center bg-[var(--surface-alt)] p-4 sm:p-8 font-inter">
@@ -327,15 +376,55 @@ export default function ResetPassword() {
               </div>
             </div>
 
+            {/* MFA / Authenticator Code */}
+            {requiresMFA && (
+              <div>
+                <label
+                  htmlFor="totpCode"
+                  className="block text-sm font-medium text-[var(--text-label)] mb-1.5"
+                >
+                  Authenticator Code
+                </label>
+
+                <input
+                  id="totpCode"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(event) => {
+                    const value =
+                      event.target.value.replace(
+                        /\D/g,
+                        ''
+                      );
+
+                    setTotpCode(value);
+                    setError('');
+                    setSuccess('');
+                  }}
+                  placeholder="Enter 6-digit code"
+                  className="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 focus:border-[var(--primary)] transition-colors"
+                />
+
+                <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                  Enter the 6-digit code from your authenticator app.
+                </p>
+              </div>
+            )}
+
             {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
               className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center shadow-[0_4px_14px_var(--primary-shadow)]"
             >
-              {isLoading
-                ? 'Resetting Password...'
-                : 'Reset Password'}
+              {checkingMFA
+                ? 'Checking Security...'
+                : isLoading
+                  ? 'Resetting Password...'
+                  : 'Reset Password'}
             </button>
           </form>
         )}
