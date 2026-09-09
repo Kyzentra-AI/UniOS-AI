@@ -127,7 +127,7 @@ export default function EducationOnboarding() {
     });
 
     setCurrentStep(2);
-    router.push('/onboarding/career-goals');
+    router.push('/onboarding/career');
   };
 
   return (
