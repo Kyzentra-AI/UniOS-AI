@@ -1,34 +1,31 @@
-# KIE Core API Contract
+# KIE Core API
 
 ## Overview
 
-The KIE Core API is the orchestration entry point for UniOS.ai.
+KIE Core is the intelligence and orchestration service for UniOS.ai.
 
-It receives a task request, processes intent, creates a plan, executes the plan, and returns a structured response.
+The KIE execution flow currently performs:
+
+1. Identity resolution
+2. Context resolution
+3. Intent recognition
+4. Planning
+5. Agent selection
+6. Execution
+7. Structured response generation
 
 ---
 
-## Endpoint
+## Health Check
 
-### POST `/kie/execute`
+### GET `/health`
 
-Processes a KIE request.
+Returns the health status of the KIE service.
 
----
-
-## Request
-
-Example:
+Example response:
 
 ```json
 {
-  "user_id": "user-001",
-  "session_id": "session-001",
-  "task": "Explain how binary search works",
-  "intent": null,
-  "context": {
-    "topic": "data structures"
-  },
-  "tools": [],
-  "constraints": {}
+  "status": "ok",
+  "service": "kie-core"
 }
