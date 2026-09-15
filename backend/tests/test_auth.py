@@ -20,7 +20,8 @@ def mock_supabase_admin():
 def test_root():
     response = client.get("/")
     assert response.status_code == 200
-    assert "Welcome to UniOS.ai Auth API" in response.json()["message"]
+    assert "Welcome to UniOS.ai" in response.json()["message"]
+
 
 # --- REGISTRATION TESTS ---
 
