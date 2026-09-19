@@ -8,11 +8,11 @@ security = HTTPBearer()
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     token = credentials.credentials
     try:
-        # Supabase JWTs are signed with the JWT Secret using HS256
+        # Supabase JWTs are signed with the JWT Secret using HS256 or ES256
         payload = jwt.decode(
             token, 
             settings.SUPABASE_JWT_SECRET, 
-            algorithms=["HS256"], 
+            algorithms=["HS256", "ES256"], 
             options={"verify_aud": False}
         )
         user_id = payload.get("sub")

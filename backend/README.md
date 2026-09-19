@@ -29,53 +29,61 @@ Once the server is running, interactive API documentation is available at:
 - Swagger UI: `http://localhost:8000/api/docs`
 - ReDoc: `http://localhost:8000/api/redoc`
 
+### 📚 Sprint 2 Developer Documentation Guides
+
+Dedicated guide documents are available in the [`docs/`](docs/) directory:
+- 📱 **[Sprint 2 Frontend API & Endpoint Guide](docs/sprint_2_frontend_endpoints.md)**: Onboarding flow, profile management, auth tokens, user memory reset, request/response models, and TypeScript/Fetch examples.
+- 🤖 **[Sprint 2 AI/ML API & Context Engine Guide](docs/sprint_2_aiml_endpoints.md)**: System Prompt context injection payload, implicit memory logging (concept friction tracking), automated feedback loops, and Python integration snippets.
+- 🧪 **[API Testing Guide](docs/api_testing_guide.md)**: Comprehensive testing workflows with cURL, Swagger, and Postman.
+- 🗄️ **[Supabase Setup Guide](docs/supabase_setup_guide.md)**: Database schema migration and configuration.
+
+---
+
 ## Endpoints
 
-All endpoints are prefixed with `/api/v1/auth` unless otherwise noted.
+All endpoints are versioned under `/api/v1`.
 
-### Authentication
+### 1. Authentication (`/api/v1/auth`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/register` | Register a new user. Requires email, password, full name, and acceptance of terms. Sends verification email. |
-| `POST` | `/login` | Authenticate user with email and password. Returns session tokens. May require MFA if enabled. |
-| `POST` | `/social` | Initiate social login (Google, GitHub, Facebook). Returns authorization URL for redirect. |
-| `GET/POST` | `/callback` | Handle callback from social provider. Exchanges authorization code for session. |
-| `POST` | `/logout` | Invalidate the current session (requires auth token). |
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|:-------------:|-------------|
+| `POST` | `/api/v1/auth/register` | No | Register a new user with email, password, full name. Sends verification email. |
+| `POST` | `/api/v1/auth/login` | No | Authenticate user with email and password. Returns session tokens or MFA requirement. |
+| `POST` | `/api/v1/auth/social` | No | Initiate social login (Google, GitHub, Facebook). Returns redirect URL. |
+| `GET/POST` | `/api/v1/auth/callback` | No | Handle OAuth callback from social provider. |
+| `POST` | `/api/v1/auth/logout` | **Yes** | Invalidate current user session. |
+| `POST` | `/api/v1/auth/refresh` | No | Refresh access token using valid `refresh_token`. |
+| `POST` | `/api/v1/auth/resend-verification` | No | Resend email verification link. |
+| `POST` | `/api/v1/auth/check-email-status` | No | Check if email is verified. |
+| `POST` | `/api/v1/auth/mfa/enroll` | **Yes** | Begin TOTP MFA enrollment. |
+| `POST` | `/api/v1/auth/mfa/verify-enroll` | **Yes** | Verify and activate TOTP MFA enrollment. |
+| `POST` | `/api/v1/auth/mfa/verify` | No | Verify TOTP code during 2FA login flow. |
+| `POST` | `/api/v1/auth/forgot-password` | No | Send password reset email. |
+| `POST` | `/api/v1/auth/reset-password` | **Yes** | Reset password using reset session token. |
 
-### Email Verification
+### 2. Student Profile & Onboarding (`/api/v1/profile`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/resend-verification` | Resend email verification link. |
-| `POST` | `/check-email-status` | Check if a given email address is verified. |
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|:-------------:|-------------|
+| `GET` | `/api/v1/profile` | **Yes** | Retrieve student profile and active explicit AI directives. |
+| `POST` | `/api/v1/profile` | **Yes** | Create or update profile preferences & explicit directives. |
+| `POST` | `/api/v1/profile/directives` | **Yes** | Add a single explicit AI custom instruction. |
+| `DELETE`| `/api/v1/profile/directives/{id}`| **Yes** | Delete an explicit AI directive by ID. |
 
-### Multi-Factor Authentication (MFA)
+### 3. AI Memory & Context Engine (`/api/v1`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/mfa/enroll` | Begin MFA enrollment (requires auth token). Returns secret for TOTP setup. |
-| `POST` | `/mfa/verify-enroll` | Verify and activate MFA enrollment (requires auth token and factor ID). |
-| `POST` | `/mfa/verify` | Verify MFA TOTP code during login (requires auth token). |
-
-### Password Recovery
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/forgot-password` | Send password reset email. |
-| `POST` | `/reset-password` | Reset password using a valid session token (from reset email link). |
-
-### Session Management
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/refresh` | Refresh access token using refresh token. |
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|:-------------:|-------------|
+| `GET` | `/api/v1/context/retrieve` | **Yes** | Retrieve compiled student context payload (preferences, friction points, directives) for LLM prompts. |
+| `POST` | `/api/v1/memory/logs` | **Yes** | Record or increment student concept friction log (implicit memory). |
+| `POST` | `/api/v1/memory/reset` | **Yes** | Reset implicit learning memory (all or concept-specific). |
+| `DELETE`| `/api/v1/memory/logs/{memory_id}`| **Yes** | Hard delete a specific memory log entry. |
 
 ### Root Endpoint
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Welcome message and pointer to documentation. |
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|:-------------:|-------------|
+| `GET` | `/` | No | Welcome message and pointer to documentation. |
 
 ## Request & Response Models
 
