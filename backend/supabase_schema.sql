@@ -183,3 +183,116 @@ CREATE POLICY "Users can delete their own explicit directives" ON public.ai_expl
 CREATE POLICY "Service role full access on ai_explicit_directives" ON public.ai_explicit_directives
     FOR ALL USING (true) WITH CHECK (true);
 
+
+-- ==============================================================================
+-- EPIC 3: PLANNING & MEMORY ENGINE
+-- ==============================================================================
+
+-- 1. Roadmaps
+CREATE TABLE IF NOT EXISTS public.roadmaps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL, -- 'semester', 'career'
+    title VARCHAR(255) NOT NULL,
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE public.roadmaps ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their roadmaps" ON public.roadmaps FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Service role full access on roadmaps" ON public.roadmaps FOR ALL USING (true) WITH CHECK (true);
+
+-- 2. Goals
+CREATE TABLE IF NOT EXISTS public.goals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    roadmap_id UUID REFERENCES public.roadmaps(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL, -- 'daily', 'weekly', 'monthly'
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    due_date DATE,
+    status VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their goals" ON public.goals FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Service role full access on goals" ON public.goals FOR ALL USING (true) WITH CHECK (true);
+
+-- 3. Missions
+CREATE TABLE IF NOT EXISTS public.missions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    goal_id UUID REFERENCES public.goals(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL, -- 'revision', 'assignment', 'practical', 'exam'
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    status VARCHAR(50) DEFAULT 'pending',
+    xp_reward INT DEFAULT 10,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE public.missions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their missions" ON public.missions FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Service role full access on missions" ON public.missions FOR ALL USING (true) WITH CHECK (true);
+
+-- 4. Learning History
+CREATE TABLE IF NOT EXISTS public.learning_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+    topic VARCHAR(255) NOT NULL,
+    mastery_level INT DEFAULT 0,
+    last_reviewed TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE public.learning_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their learning_history" ON public.learning_history FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Service role full access on learning_history" ON public.learning_history FOR ALL USING (true) WITH CHECK (true);
+
+-- 5. Project History
+CREATE TABLE IF NOT EXISTS public.project_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+    project_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    repo_url VARCHAR(255),
+    completed_date DATE
+);
+ALTER TABLE public.project_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their project_history" ON public.project_history FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Service role full access on project_history" ON public.project_history FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. Career History
+CREATE TABLE IF NOT EXISTS public.career_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+    company VARCHAR(255) NOT NULL,
+    role VARCHAR(255) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE
+);
+ALTER TABLE public.career_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their career_history" ON public.career_history FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Service role full access on career_history" ON public.career_history FOR ALL USING (true) WITH CHECK (true);
+
+-- 7. Achievements
+CREATE TABLE IF NOT EXISTS public.achievements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+    badge_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE public.achievements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their achievements" ON public.achievements FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Service role full access on achievements" ON public.achievements FOR ALL USING (true) WITH CHECK (true);
+
+-- 8. Conversations (Memory Persistence)
+CREATE TABLE IF NOT EXISTS public.conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(user_id) ON DELETE CASCADE,
+    session_id UUID NOT NULL,
+    message_role VARCHAR(50) NOT NULL, -- 'user' or 'ai'
+    content TEXT NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their conversations" ON public.conversations FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Service role full access on conversations" ON public.conversations FOR ALL USING (true) WITH CHECK (true);
