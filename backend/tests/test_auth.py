@@ -363,10 +363,11 @@ async def test_mfa_verify_success(mock_supabase_api, mock_supabase_admin):
     mock_supabase_api.mfa_challenge = AsyncMock(return_value={"id": "challenge-uuid-123"})
     mock_supabase_api.mfa_verify = AsyncMock(return_value={"access_token": "aal2-jwt"})
     
-    payload = {"user_id": "user-uuid-123", "totp_code": "123456"}
-    headers = {"Authorization": "Bearer aal1-jwt"}
-    response = client.post("/api/v1/auth/mfa/verify", json=payload, headers=headers)
-    assert response.status_code == 200
+    with patch("jose.jwt.decode", return_value={"sub": "user-uuid-123"}):
+        payload = {"user_id": "user-uuid-123", "totp_code": "123456"}
+        headers = {"Authorization": "Bearer aal1-jwt"}
+        response = client.post("/api/v1/auth/mfa/verify", json=payload, headers=headers)
+        assert response.status_code == 200
     assert response.json()["session"]["access_token"] == "aal2-jwt"
     
     mock_supabase_admin.auth.admin.get_user_by_id.assert_called_once_with("user-uuid-123")

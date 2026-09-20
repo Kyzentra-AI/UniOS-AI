@@ -18,6 +18,7 @@ from app.schemas.auth import (
 from app.core.supabase_api import supabase_auth_api
 from app.core.supabase import supabase_admin
 from app.core.deps import validate_redirect_url
+from app.core.config import settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 security = HTTPBearer()
@@ -205,6 +206,17 @@ async def callback(
 async def mfa_verify(request: MFAVerifyRequest, credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
+        from jose import jwt
+        payload = jwt.decode(
+            token, 
+            settings.SUPABASE_JWT_SECRET, 
+            algorithms=["HS256", "ES256"], 
+            options={"verify_aud": False}
+        )
+        token_user_id = payload.get("sub")
+        if token_user_id != request.user_id:
+            raise HTTPException(status_code=401, detail="User ID mismatch in token.")
+
         # Get user factors
         admin_res = supabase_admin.auth.admin.get_user_by_id(request.user_id)
         user_data = admin_res.user
@@ -235,7 +247,12 @@ async def mfa_enroll(credentials: HTTPAuthorizationCredentials = Depends(securit
     try:
         try:
             from jose import jwt
-            payload = jwt.get_unverified_claims(token)
+            payload = jwt.decode(
+                token, 
+                settings.SUPABASE_JWT_SECRET, 
+                algorithms=["HS256", "ES256"], 
+                options={"verify_aud": False}
+            )
             user_id = payload.get("sub")
             if user_id:
                 admin_res = supabase_admin.auth.admin.get_user_by_id(user_id)
@@ -269,7 +286,12 @@ async def mfa_verify_enroll(request: MFAEnrollVerifyRequest, credentials: HTTPAu
         # Update public.users record
         # Extract user_id from token
         from jose import jwt
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(
+            token, 
+            settings.SUPABASE_JWT_SECRET, 
+            algorithms=["HS256", "ES256"], 
+            options={"verify_aud": False}
+        )
         user_id = payload.get("sub")
         
         if user_id:
@@ -284,7 +306,12 @@ async def check_reset_password_mfa_status(credentials: HTTPAuthorizationCredenti
     token = credentials.credentials
     try:
         from jose import jwt
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(
+            token, 
+            settings.SUPABASE_JWT_SECRET, 
+            algorithms=["HS256", "ES256"], 
+            options={"verify_aud": False}
+        )
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -325,7 +352,12 @@ async def reset_password(request: ResetPasswordRequest, credentials: HTTPAuthori
     try:
         if request.totp_code:
             from jose import jwt
-            payload = jwt.get_unverified_claims(token)
+            payload = jwt.decode(
+                token, 
+                settings.SUPABASE_JWT_SECRET, 
+                algorithms=["HS256", "ES256"], 
+                options={"verify_aud": False}
+            )
             user_id = payload.get("sub")
             if not user_id:
                 raise HTTPException(status_code=401, detail="Invalid token")
