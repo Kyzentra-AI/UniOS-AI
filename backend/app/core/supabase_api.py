@@ -159,6 +159,14 @@ class SupabaseAuthAPI:
                 raise Exception(response.json().get("msg", "MFA unenroll failed"))
             return response.json()
 
+    async def get_user(self, token: str) -> dict:
+        url = f"{settings.SUPABASE_URL}/auth/v1/user"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=self._get_headers(token))
+            if response.status_code != 200:
+                raise Exception(response.json().get("msg", "Failed to fetch user data"))
+            return response.json()
+
     async def exchange_code_for_session(self, auth_code: str, code_verifier: str | None = None) -> dict:
         url = f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=pkce_code"
         body = {

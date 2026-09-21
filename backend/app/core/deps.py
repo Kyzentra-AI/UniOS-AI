@@ -8,23 +8,25 @@ security = HTTPBearer()
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     token = credentials.credentials
     try:
-        # Supabase JWTs are signed with the JWT Secret using HS256 or ES256
-        payload = jwt.decode(
-            token, 
-            settings.SUPABASE_JWT_SECRET, 
-            algorithms=["HS256", "ES256"], 
-            options={"verify_aud": False}
-        )
-        user_id = payload.get("sub")
-        email = payload.get("email")
-        if user_id is None:
+        from app.core.supabase_api import supabase_auth_api
+        
+        # Verify token securely via Supabase Auth API
+        # This natively handles ES256/HS256 tokens and JWKS rotation.
+        user_data = await supabase_auth_api.get_user(token)
+        
+        user_id = user_data.get("id")
+        email = user_data.get("email")
+        if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload"
+                detail="Invalid token or user not found"
             )
+            
+        # Extract the payload claims unverified to maintain interface compatibility
+        payload = jwt.get_unverified_claims(token)
         
-        app_metadata = payload.get("app_metadata", {})
-        user_metadata = payload.get("user_metadata", {})
+        app_metadata = user_data.get("app_metadata", {})
+        user_metadata = user_data.get("user_metadata", {})
         role = app_metadata.get("role") or user_metadata.get("role") or "user"
 
         return {
@@ -33,7 +35,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "role": role,
             "payload": payload
         }
-    except JWTError as e:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Could not validate credentials: {str(e)}"

@@ -206,14 +206,8 @@ async def callback(
 async def mfa_verify(request: MFAVerifyRequest, credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
-        from jose import jwt
-        payload = jwt.decode(
-            token, 
-            settings.SUPABASE_JWT_SECRET, 
-            algorithms=["HS256", "ES256"], 
-            options={"verify_aud": False}
-        )
-        token_user_id = payload.get("sub")
+        user_data = await supabase_auth_api.get_user(token)
+        token_user_id = user_data.get("id")
         if token_user_id != request.user_id:
             raise HTTPException(status_code=401, detail="User ID mismatch in token.")
 
@@ -246,14 +240,8 @@ async def mfa_enroll(credentials: HTTPAuthorizationCredentials = Depends(securit
     token = credentials.credentials
     try:
         try:
-            from jose import jwt
-            payload = jwt.decode(
-                token, 
-                settings.SUPABASE_JWT_SECRET, 
-                algorithms=["HS256", "ES256"], 
-                options={"verify_aud": False}
-            )
-            user_id = payload.get("sub")
+            user_data = await supabase_auth_api.get_user(token)
+            user_id = user_data.get("id")
             if user_id:
                 admin_res = supabase_admin.auth.admin.get_user_by_id(user_id)
                 factors = getattr(admin_res.user, "factors", []) or []
@@ -285,14 +273,8 @@ async def mfa_verify_enroll(request: MFAEnrollVerifyRequest, credentials: HTTPAu
 
         # Update public.users record
         # Extract user_id from token
-        from jose import jwt
-        payload = jwt.decode(
-            token, 
-            settings.SUPABASE_JWT_SECRET, 
-            algorithms=["HS256", "ES256"], 
-            options={"verify_aud": False}
-        )
-        user_id = payload.get("sub")
+        user_data = await supabase_auth_api.get_user(token)
+        user_id = user_data.get("id")
         
         if user_id:
             supabase_admin.table("users").update({"mfa_enabled": True}).eq("user_id", user_id).execute()
@@ -305,14 +287,8 @@ async def mfa_verify_enroll(request: MFAEnrollVerifyRequest, credentials: HTTPAu
 async def check_reset_password_mfa_status(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
-        from jose import jwt
-        payload = jwt.decode(
-            token, 
-            settings.SUPABASE_JWT_SECRET, 
-            algorithms=["HS256", "ES256"], 
-            options={"verify_aud": False}
-        )
-        user_id = payload.get("sub")
+        user_data = await supabase_auth_api.get_user(token)
+        user_id = user_data.get("id")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
 
@@ -351,14 +327,8 @@ async def reset_password(request: ResetPasswordRequest, credentials: HTTPAuthori
     token = credentials.credentials
     try:
         if request.totp_code:
-            from jose import jwt
-            payload = jwt.decode(
-                token, 
-                settings.SUPABASE_JWT_SECRET, 
-                algorithms=["HS256", "ES256"], 
-                options={"verify_aud": False}
-            )
-            user_id = payload.get("sub")
+            user_data = await supabase_auth_api.get_user(token)
+            user_id = user_data.get("id")
             if not user_id:
                 raise HTTPException(status_code=401, detail="Invalid token")
 
