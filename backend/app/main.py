@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import auth, profile, memory, planning, history, chat
+from app.api.v1.endpoints import auth, onboarding
 
 app = FastAPI(
     title="UniOS.ai Backend API",
-    description="FastAPI Backend for User Authentication, Student Profile & AI Memory System (Epic 1 & Epic 2)",
+    description="FastAPI Backend for User Authentication",
     version="1.1.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -22,11 +22,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(auth.router)
-app.include_router(profile.router)
-app.include_router(memory.router)
-app.include_router(planning.router)
-app.include_router(history.router)
-app.include_router(chat.router)
+app.include_router(onboarding.router)
 
 @app.get("/")
 async def root():
