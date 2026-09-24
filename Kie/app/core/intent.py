@@ -3,26 +3,58 @@ from app.schemas.response import IntentResult
 
 class IntentEngine:
     """
-    Basic intent recognition engine for Sprint 1.
+    KIE Intent Engine.
 
-    This is the initial KIE foundation.
-    A model-based intent classifier can replace this
-    implementation in a later sprint.
+    Identifies the primary intent of a learner request
+    so the Planning Engine and Agent Orchestrator can
+    select the appropriate execution path.
     """
 
     def recognize(self, task: str) -> IntentResult:
         task_lower = task.lower()
 
-        if any(word in task_lower for word in ["learn", "explain", "teach"]):
+        if any(
+            word in task_lower
+            for word in [
+                "learn",
+                "explain",
+                "teach",
+            ]
+        ):
             intent = "LEARN"
 
-        elif any(word in task_lower for word in ["build", "code", "debug"]):
+        elif any(
+            word in task_lower
+            for word in [
+                "build",
+                "code",
+                "debug",
+                "develop",
+                "project",
+            ]
+        ):
             intent = "BUILD"
 
-        elif any(word in task_lower for word in ["competition", "hackathon"]):
+        elif any(
+            word in task_lower
+            for word in [
+                "competition",
+                "hackathon",
+            ]
+        ):
             intent = "COMPETE"
 
-        elif any(word in task_lower for word in ["resume", "interview", "job"]):
+        elif any(
+            word in task_lower
+            for word in [
+                "resume",
+                "interview",
+                "job",
+                "career",
+                "placement",
+                "career roadmap",
+            ]
+        ):
             intent = "LAUNCH"
 
         else:

@@ -1,0 +1,49 @@
+[1mdiff --git a/Kie/docs/UNIOS_KIE_INTEGRATION.md b/Kie/docs/UNIOS_KIE_INTEGRATION.md[m
+[1mindex 86525e4..7af1c23 100644[m
+[1m--- a/Kie/docs/UNIOS_KIE_INTEGRATION.md[m
+[1m+++ b/Kie/docs/UNIOS_KIE_INTEGRATION.md[m
+[36m@@ -1,31 +1,20 @@[m
+[31m-# UniOS → KIE Integration Contract[m
+[32m+[m[32m# UniOS ↔ KIE Integration Contract[m
+ [m
+[31m-## Purpose[m
+[32m+[m[32m## 1. Purpose[m
+ [m
+[31m-This document defines the integration contract between the[m
+[31m-UniOS Backend and KIE Core for learner identity, context,[m
+[31m-intent, planning, orchestration, tools, and model routing.[m
+[32m+[m[32mThis document defines the integration contract between the UniOS Backend and[m
+[32m+[m[32mKIE Core.[m
+ [m
+[31m-UniOS Backend owns persistent learner profile and onboarding state.[m
+[32m+[m[32mKIE is responsible for intelligence and orchestration.[m
+ [m
+[31m-KIE consumes normalized learner information and uses it[m
+[31m-during intelligence and orchestration.[m
+[32m+[m[32mBackend is responsible for persistent application data, authentication,[m
+[32m+[m[32mstorage, and external system integration.[m
+ [m
+ ---[m
+ [m
+[31m-## Endpoint[m
+[32m+[m[32m## 2. KIE Service Endpoints[m
+ [m
+[31m-POST `/kie/execute`[m
+[32m+[m[32m### Health Check[m
+ [m
+[31m----[m
+[31m-[m
+[31m-## Identity[m
+[31m-[m
+[31m-UniOS provides:[m
+[31m-[m
+[31m-```json[m
+[31m-{[m
+[31m-  "user_id": "unios-user-001",[m
+[31m-  "session_id": "unios-session-001",[m
+[31m-  "role": "student"[m
+[31m-}[m
+\ No newline at end of file[m
+[32m+[m[32m```http[m
+[32m+[m[32mGET /health[m
+\ No newline at end of file[m
