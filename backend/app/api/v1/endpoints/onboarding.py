@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status, Header, BackgroundTasks
+from typing import Dict, Any, Optional
 from app.core.deps import get_current_user
 from app.core.supabase import supabase_admin
 from app.schemas.onboarding import OnboardingRequest, OnboardingCompleteValidator
+from app.schemas.kie import OnboardingAnswersRequest, KIEWebhookQuestionsPayload, KIEWebhookResolvedPayload
+from app.services.kie_service import kie_service
 from app.core.kie_assembler import LearnerContextAssembler
+from app.core.config import settings
 from datetime import datetime
 
 router = APIRouter(prefix="/api/v1/onboarding", tags=["Onboarding"])
@@ -156,3 +159,104 @@ async def complete_onboarding(current_user: dict = Depends(get_current_user)):
     }).eq("id", learner["id"]).execute()
     
     return {"message": "Onboarding successfully completed."}
+
+# =============================================================================
+# KIE Integration Endpoints
+# =============================================================================
+
+@router.get("/questions")
+async def get_kie_questions(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
+    learner = _get_learner_profile(user_id)
+    
+    if not learner:
+        raise HTTPException(status_code=404, detail="Onboarding not started.")
+        
+    # If questions already exist, return them
+    if learner.get("pending_kie_questions"):
+        return {
+            "status": "pending_context",
+            "questions": learner["pending_kie_questions"]
+        }
+        
+    # Otherwise, trigger analysis
+    academic = _get_academic_profile(learner["id"])
+    preferences = _get_learning_preferences(learner["id"])
+    context = LearnerContextAssembler.assemble(learner, academic, preferences)
+    
+    background_tasks.add_task(kie_service.analyze_context, context)
+    
+    return {
+        "status": "processing",
+        "message": "KIE is analyzing your profile."
+    }
+
+@router.post("/answers")
+async def submit_kie_answers(request: OnboardingAnswersRequest, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
+    learner = _get_learner_profile(user_id)
+    
+    if not learner:
+        raise HTTPException(status_code=404, detail="Onboarding not started.")
+        
+    # Clear pending questions
+    supabase_admin.table("learner_profiles").update({
+        "pending_kie_questions": None,
+        "updated_at": datetime.utcnow().isoformat()
+    }).eq("id", learner["id"]).execute()
+    
+    background_tasks.add_task(kie_service.resolve_context, user_id, request.answers)
+    
+    return {
+        "status": "processing",
+        "message": "Answers submitted to KIE."
+    }
+
+def verify_kie_webhook_secret(x_kie_signature: str = Header(...)):
+    if x_kie_signature != settings.KIE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+@router.post("/kie/webhook/questions")
+async def kie_webhook_questions(payload: KIEWebhookQuestionsPayload, _: None = Depends(verify_kie_webhook_secret)):
+    # Save the questions back to the user's profile
+    learner = _get_learner_profile(payload.user_id)
+    if not learner:
+        raise HTTPException(status_code=404, detail="User profile not found")
+        
+    questions_data = [q.model_dump() for q in payload.questions]
+    
+    supabase_admin.table("learner_profiles").update({
+        "pending_kie_questions": questions_data,
+        "updated_at": datetime.utcnow().isoformat()
+    }).eq("id", learner["id"]).execute()
+    
+    return {"status": "ok"}
+
+@router.post("/kie/webhook/resolved")
+async def kie_webhook_resolved(payload: KIEWebhookResolvedPayload, _: None = Depends(verify_kie_webhook_secret)):
+    learner = _get_learner_profile(payload.user_id)
+    if not learner:
+        raise HTTPException(status_code=404, detail="User profile not found")
+        
+    new_context = payload.new_context
+    update_data = {"updated_at": datetime.utcnow().isoformat()}
+    
+    # Example mapping logic:
+    # Append new skills
+    if "primary_languages" in new_context:
+        existing_skills = learner.get("skills") or []
+        new_skills = [s for s in new_context["primary_languages"] if s not in existing_skills]
+        update_data["skills"] = existing_skills + new_skills
+        
+    # Update experience level text if provided
+    if "experience_level" in new_context:
+        update_data["experience"] = new_context["experience_level"]
+        
+    # Save unstructured data to inferred_context
+    existing_inferred = learner.get("inferred_context") or {}
+    existing_inferred.update(new_context)
+    update_data["inferred_context"] = existing_inferred
+    
+    supabase_admin.table("learner_profiles").update(update_data).eq("id", learner["id"]).execute()
+    
+    return {"status": "ok"}

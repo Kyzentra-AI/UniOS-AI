@@ -206,3 +206,12 @@ CREATE POLICY "Users can update their own learning preferences" ON public.learni
 CREATE POLICY "Service role full access on learning_preferences" ON public.learning_preferences
     FOR ALL USING (true) WITH CHECK (true);
 
+-- ==============================================================================
+-- KIE INTEGRATION EXTENSIONS
+-- ==============================================================================
+
+ALTER TABLE public.learner_profiles
+ADD COLUMN IF NOT EXISTS pending_kie_questions JSONB DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS inferred_context JSONB DEFAULT '{}'::jsonb;
+
+
