@@ -241,7 +241,7 @@ async def test_forgot_password_success(mock_supabase_api):
     mock_supabase_api.forgot_password.assert_called_once_with("john@example.com", redirect_to="http://localhost:3000/reset-password")
 
 @pytest.mark.asyncio
-async def test_reset_password_status_check(mock_supabase_admin):
+async def test_reset_password_status_check(mock_supabase_admin, mock_supabase_api):
     mock_factor = MagicMock()
     mock_factor.factor_type = "totp"
     mock_factor.status = "verified"
@@ -256,6 +256,7 @@ async def test_reset_password_status_check(mock_supabase_admin):
     mock_db_res = MagicMock()
     mock_db_res.data = [{"mfa_enabled": True}]
     mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_db_res
+    mock_supabase_api.get_user = AsyncMock(return_value={"id": "user-uuid-123"})
     
     with patch("jose.jwt.get_unverified_claims", return_value={"sub": "user-uuid-123"}):
         headers = {"Authorization": "Bearer test-reset-token"}
@@ -291,6 +292,7 @@ async def test_reset_password_with_totp_success(mock_supabase_api, mock_supabase
     mock_supabase_api.mfa_challenge = AsyncMock(return_value={"id": "challenge-uuid-123"})
     mock_supabase_api.mfa_verify = AsyncMock(return_value={"access_token": "aal2-jwt-token"})
     mock_supabase_api.update_password = AsyncMock()
+    mock_supabase_api.get_user = AsyncMock(return_value={"id": "user-uuid-123"})
 
     with patch("jose.jwt.get_unverified_claims", return_value={"sub": "user-uuid-123"}):
         payload = {"new_password": "NewSecurePassword123!", "totp_code": "123456"}
@@ -332,6 +334,7 @@ async def test_mfa_enroll_success(mock_supabase_api):
 async def test_mfa_verify_enroll_success(mock_supabase_api, mock_supabase_admin):
     mock_supabase_api.mfa_challenge = AsyncMock(return_value={"id": "challenge-uuid-123"})
     mock_supabase_api.mfa_verify = AsyncMock(return_value={"access_token": "aal2-jwt"})
+    mock_supabase_api.get_user = AsyncMock(return_value={"id": "user-uuid-123"})
     
     # Mock jwt decode and get_unverified_claims to get user_id
     with patch("jose.jwt.get_unverified_claims", return_value={"sub": "user-uuid-123"}), patch("jose.jwt.decode", return_value={"sub": "user-uuid-123"}):
@@ -362,6 +365,7 @@ async def test_mfa_verify_success(mock_supabase_api, mock_supabase_admin):
     
     mock_supabase_api.mfa_challenge = AsyncMock(return_value={"id": "challenge-uuid-123"})
     mock_supabase_api.mfa_verify = AsyncMock(return_value={"access_token": "aal2-jwt"})
+    mock_supabase_api.get_user = AsyncMock(return_value={"id": "user-uuid-123"})
     
     with patch("jose.jwt.decode", return_value={"sub": "user-uuid-123"}):
         payload = {"user_id": "user-uuid-123", "totp_code": "123456"}

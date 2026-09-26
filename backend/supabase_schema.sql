@@ -214,4 +214,194 @@ ALTER TABLE public.learner_profiles
 ADD COLUMN IF NOT EXISTS pending_kie_questions JSONB DEFAULT NULL,
 ADD COLUMN IF NOT EXISTS inferred_context JSONB DEFAULT '{}'::jsonb;
 
+-- ==============================================================================
+-- EPIC 3: SPRINT 3 - SYLLABUS, ROADMAPS, MISSIONS, EVENTS
+-- ==============================================================================
+
+-- 1. Syllabus Documents Table
+CREATE TABLE IF NOT EXISTS public.syllabus_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    learner_id UUID REFERENCES public.learner_profiles(id) ON DELETE CASCADE,
+    file_name VARCHAR(255) NOT NULL,
+    storage_key VARCHAR(512) NOT NULL,
+    file_type VARCHAR(50) DEFAULT 'application/pdf',
+    status VARCHAR(50) DEFAULT 'PROCESSING', -- PROCESSING, WAITING_FOR_CONFIRMATION, CONFIRMED, FAILED
+    version INT DEFAULT 1,
+    parsed_content JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    confirmed_at TIMESTAMP WITH TIME ZONE
+);
+
+ALTER TABLE public.syllabus_documents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own syllabus" ON public.syllabus_documents
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = syllabus_documents.learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert their own syllabus" ON public.syllabus_documents
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can update their own syllabus" ON public.syllabus_documents
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = syllabus_documents.learner_id AND user_id = auth.uid()
+        )
+    ) WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Service role full access on syllabus_documents" ON public.syllabus_documents
+    FOR ALL USING (true) WITH CHECK (true);
+
+
+-- 2. Roadmaps Table
+CREATE TABLE IF NOT EXISTS public.roadmaps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    learner_id UUID REFERENCES public.learner_profiles(id) ON DELETE CASCADE,
+    version INT DEFAULT 1,
+    scope VARCHAR(50) NOT NULL, -- ACADEMIC, CAREER, BOTH
+    status VARCHAR(50) DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
+    plan_data JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.roadmaps ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own roadmaps" ON public.roadmaps
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = roadmaps.learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert their own roadmaps" ON public.roadmaps
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can update their own roadmaps" ON public.roadmaps
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = roadmaps.learner_id AND user_id = auth.uid()
+        )
+    ) WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Service role full access on roadmaps" ON public.roadmaps
+    FOR ALL USING (true) WITH CHECK (true);
+
+
+-- 3. Missions Table
+CREATE TABLE IF NOT EXISTS public.missions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    roadmap_id UUID REFERENCES public.roadmaps(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    mission_type VARCHAR(50) NOT NULL, -- LEARNING, REVISION, ASSIGNMENT, PRACTICAL, ARTIFACT, CAREER
+    subject VARCHAR(255),
+    priority VARCHAR(50),
+    estimated_minutes INT,
+    week INT,
+    sequence INT,
+    status VARCHAR(50) DEFAULT 'PENDING', -- PENDING, IN_PROGRESS, COMPLETED, DEFERRED, SKIPPED
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+ALTER TABLE public.missions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own missions" ON public.missions
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.roadmaps 
+            JOIN public.learner_profiles ON roadmaps.learner_id = learner_profiles.id
+            WHERE roadmaps.id = missions.roadmap_id AND learner_profiles.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert their own missions" ON public.missions
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.roadmaps 
+            JOIN public.learner_profiles ON roadmaps.learner_id = learner_profiles.id
+            WHERE roadmaps.id = roadmap_id AND learner_profiles.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can update their own missions" ON public.missions
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.roadmaps 
+            JOIN public.learner_profiles ON roadmaps.learner_id = learner_profiles.id
+            WHERE roadmaps.id = missions.roadmap_id AND learner_profiles.user_id = auth.uid()
+        )
+    ) WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.roadmaps 
+            JOIN public.learner_profiles ON roadmaps.learner_id = learner_profiles.id
+            WHERE roadmaps.id = roadmap_id AND learner_profiles.user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Service role full access on missions" ON public.missions
+    FOR ALL USING (true) WITH CHECK (true);
+
+
+-- 4. Learner Events Table
+CREATE TABLE IF NOT EXISTS public.learner_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    learner_id UUID REFERENCES public.learner_profiles(id) ON DELETE CASCADE,
+    event_type VARCHAR(100) NOT NULL, -- e.g., SYLLABUS_CONFIRMED, MISSION_COMPLETED
+    entity_type VARCHAR(100) NOT NULL, -- e.g., SYLLABUS, MISSION
+    entity_id UUID NOT NULL,
+    payload JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.learner_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own events" ON public.learner_events
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_events.learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert their own events" ON public.learner_events
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Service role full access on learner_events" ON public.learner_events
+    FOR ALL USING (true) WITH CHECK (true);
+
 
