@@ -172,6 +172,12 @@ async def get_kie_questions(background_tasks: BackgroundTasks, current_user: dic
     if not learner:
         raise HTTPException(status_code=404, detail="Onboarding not started.")
         
+    ob_status = learner.get("onboarding_status")
+    if ob_status == "KIE_RESOLVING":
+        return {"status": "processing", "message": "KIE is resolving your answers."}
+    if ob_status in ["KIE_COMPLETED", "COMPLETED"]:
+        return {"status": "success", "message": "KIE has finished processing."}
+        
     # If questions already exist, return them
     if learner.get("pending_kie_questions"):
         return {
@@ -179,12 +185,18 @@ async def get_kie_questions(background_tasks: BackgroundTasks, current_user: dic
             "questions": learner["pending_kie_questions"]
         }
         
-    # Otherwise, trigger analysis
-    academic = _get_academic_profile(learner["id"])
-    preferences = _get_learning_preferences(learner["id"])
-    context = LearnerContextAssembler.assemble(learner, academic, preferences)
-    
-    background_tasks.add_task(kie_service.analyze_context, context)
+    # Otherwise, trigger analysis if we haven't already
+    if ob_status != "KIE_ANALYZING":
+        supabase_admin.table("learner_profiles").update({
+            "onboarding_status": "KIE_ANALYZING",
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", learner["id"]).execute()
+        
+        academic = _get_academic_profile(learner["id"])
+        preferences = _get_learning_preferences(learner["id"])
+        context = LearnerContextAssembler.assemble(learner, academic, preferences)
+        
+        background_tasks.add_task(kie_service.analyze_context, context)
     
     return {
         "status": "processing",
@@ -199,9 +211,10 @@ async def submit_kie_answers(request: OnboardingAnswersRequest, background_tasks
     if not learner:
         raise HTTPException(status_code=404, detail="Onboarding not started.")
         
-    # Clear pending questions
+    # Clear pending questions and transition to resolving state
     supabase_admin.table("learner_profiles").update({
         "pending_kie_questions": None,
+        "onboarding_status": "KIE_RESOLVING",
         "updated_at": datetime.utcnow().isoformat()
     }).eq("id", learner["id"]).execute()
     
@@ -227,6 +240,7 @@ async def kie_webhook_questions(payload: KIEWebhookQuestionsPayload, _: None = D
     
     supabase_admin.table("learner_profiles").update({
         "pending_kie_questions": questions_data,
+        "onboarding_status": "KIE_QUESTIONS_READY",
         "updated_at": datetime.utcnow().isoformat()
     }).eq("id", learner["id"]).execute()
     
@@ -256,6 +270,7 @@ async def kie_webhook_resolved(payload: KIEWebhookResolvedPayload, _: None = Dep
     existing_inferred = learner.get("inferred_context") or {}
     existing_inferred.update(new_context)
     update_data["inferred_context"] = existing_inferred
+    update_data["onboarding_status"] = "KIE_COMPLETED"
     
     supabase_admin.table("learner_profiles").update(update_data).eq("id", learner["id"]).execute()
     
