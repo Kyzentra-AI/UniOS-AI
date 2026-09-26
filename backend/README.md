@@ -29,11 +29,13 @@ Once the server is running, interactive API documentation is available at:
 - Swagger UI: `http://localhost:8000/api/docs`
 - ReDoc: `http://localhost:8000/api/redoc`
 
-### 📚 Sprint 2 Developer Documentation Guides
+### 📚 Developer Documentation Guides
 
 Dedicated guide documents are available in the [`docs/`](docs/) directory:
-- 📱 **[Sprint 2 Frontend API & Endpoint Guide](docs/sprint_2_frontend_endpoints.md)**: Onboarding flow, profile management, auth tokens, user memory reset, request/response models, and TypeScript/Fetch examples.
-- 🤖 **[Sprint 2 AI/ML API & Context Engine Guide](docs/sprint_2_aiml_endpoints.md)**: System Prompt context injection payload, implicit memory logging (concept friction tracking), automated feedback loops, and Python integration snippets.
+- 📱 **[Sprint 2 Frontend API & Endpoint Guide](docs/sprint_2_frontend_endpoints.md)**: Onboarding flow, profile management, auth tokens, user memory reset.
+- 🤖 **[Sprint 2 AI/ML API & Context Engine Guide](docs/sprint_2_aiml_endpoints.md)**: System Prompt context injection payload, implicit memory logging.
+- 📱 **[Sprint 3 Frontend Integration Guide](docs/sprint3_frontend_integration_guide.md)**: Syllabi uploads, Roadmap AI generation polling, Mission state machine.
+- 🤖 **[Sprint 3 KIE AI/ML Integration Guide](docs/sprint3_kie_integration_guide.md)**: AI/ML schema expectations for Roadmap, Syllabus extraction, and Memory generation.
 - 🧪 **[API Testing Guide](docs/api_testing_guide.md)**: Comprehensive testing workflows with cURL, Swagger, and Postman.
 - 🗄️ **[Supabase Setup Guide](docs/supabase_setup_guide.md)**: Database schema migration and configuration.
 
@@ -78,6 +80,28 @@ All endpoints are versioned under `/api/v1`.
 | `POST` | `/api/v1/memory/logs` | **Yes** | Record or increment student concept friction log (implicit memory). |
 | `POST` | `/api/v1/memory/reset` | **Yes** | Reset implicit learning memory (all or concept-specific). |
 | `DELETE`| `/api/v1/memory/logs/{memory_id}`| **Yes** | Hard delete a specific memory log entry. |
+
+### 4. Syllabus & Roadmaps (`/api/v1/syllabi`, `/api/v1/roadmaps`)
+
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|:-------------:|-------------|
+| `POST` | `/api/v1/syllabi` | **Yes** | Upload syllabus PDF. Returns ID and processing status. |
+| `GET` | `/api/v1/syllabi/{id}/status` | **Yes** | Poll for AI extraction status. |
+| `GET` | `/api/v1/syllabi/{id}` | **Yes** | Fetch parsed syllabus content (WAITING_FOR_CONFIRMATION). |
+| `PUT` | `/api/v1/syllabi/{id}/parsed-content` | **Yes** | Update AI parsed content. |
+| `POST` | `/api/v1/syllabi/{id}/reprocess` | **Yes** | Retry AI extraction on failure. |
+| `POST` | `/api/v1/syllabi/{id}/confirm` | **Yes** | Confirm parsed syllabus, enabling roadmap generation. |
+| `POST` | `/api/v1/roadmaps` | **Yes** | Generate new roadmap + missions via KIE from a confirmed syllabus. |
+
+### 5. Missions (`/api/v1/missions`)
+
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|:-------------:|-------------|
+| `GET` | `/api/v1/missions` | **Yes** | List missions (optional `?roadmap_id=xxx` filter). |
+| `POST` | `/api/v1/missions/{id}/start` | **Yes** | Transition mission from PENDING -> IN_PROGRESS. |
+| `POST` | `/api/v1/missions/{id}/complete`| **Yes** | Transition mission from IN_PROGRESS -> COMPLETED. |
+| `POST` | `/api/v1/missions/{id}/defer` | **Yes** | Defer a mission. |
+| `POST` | `/api/v1/missions/{id}/skip` | **Yes** | Skip a mission. |
 
 ### Root Endpoint
 
@@ -166,14 +190,30 @@ backend/
 │   ├── api/
 │   │   └── v1/
 │   │       └── endpoints/
-│   │           └── auth.py     # Authentication endpoints
+│   │           ├── auth.py         # Authentication endpoints
+│   │           ├── onboarding.py   # Learner onboarding
+│   │           ├── syllabus.py     # Syllabus upload & parsing
+│   │           ├── roadmaps.py     # AI Roadmap generation
+│   │           └── missions.py     # Mission lifecycle management
 │   ├── core/
 │   │   ├── config.py           # Configuration settings
 │   │   ├── deps.py             # Dependencies (e.g., Supabase clients)
 │   │   ├── supabase.py         # Supabase client initialization
+│   │   ├── context_v2_assembler.py # Context orchestration
 │   │   └── supabase_api.py     # Wrapper for Supabase Auth API
+│   ├── services/               # Core business logic
+│   │   ├── event_service.py
+│   │   ├── kie_service.py
+│   │   ├── pdf_service.py
+│   │   ├── storage_service.py
+│   │   ├── roadmap_service.py
+│   │   └── syllabus_service.py
 │   └── schemas/
-│       └── auth.py             # Pydantic models for requests/responses
+│       ├── auth.py             # Auth schemas
+│       ├── events.py
+│       ├── mission.py
+│       ├── roadmap.py
+│       └── syllabus.py
 ├── docs/                       # Additional documentation
 ├── tests/                      # Test files
 ├── requirements.txt            # Python dependencies
