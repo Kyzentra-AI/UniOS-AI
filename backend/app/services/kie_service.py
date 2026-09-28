@@ -22,8 +22,24 @@ class KIEService:
                 response.raise_for_status()
             except httpx.RequestError as exc:
                 logger.error(f"An error occurred while requesting KIE analyze: {exc}")
+                KIEService._reset_status_on_failure(context_payload.get("learner_id"))
             except httpx.HTTPStatusError as exc:
                 logger.error(f"Error response {exc.response.status_code} while requesting KIE analyze.")
+                KIEService._reset_status_on_failure(context_payload.get("learner_id"))
+
+    @staticmethod
+    def _reset_status_on_failure(learner_id: str | None) -> None:
+        if not learner_id:
+            return
+        try:
+            from app.core.supabase import supabase_admin
+            from datetime import datetime
+            supabase_admin.table("learner_profiles").update({
+                "onboarding_status": "IN_PROGRESS",
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", learner_id).execute()
+        except Exception as e:
+            logger.error(f"Failed to reset onboarding status for learner {learner_id}: {e}")
 
     @staticmethod
     async def resolve_context(user_id: str, answers: list) -> None:

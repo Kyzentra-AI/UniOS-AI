@@ -7,6 +7,7 @@ class LearnerContextAssembler:
         Assembles a normalized Learner Context from raw database rows.
         """
         return {
+            "user_id": learner_data.get("user_id"),
             "learner_id": learner_data.get("id"),
             
             "education": {
