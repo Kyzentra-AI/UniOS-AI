@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -44,101 +45,117 @@ export default function ProfileOnboarding() {
     onboarding,
     initializeOnboarding,
     updateOnboarding,
+    isLoading: isOnboardingLoading,
     isSaving,
     saveError,
   } = useOnboarding();
 
   const handleContinue = async () => {
-  if (!education.academicStatus) {
-    console.error('Academic status is missing.');
-    return;
-  }
-
-  if (!preferences.dailyStudyHours) {
-    console.error('Daily study hours are missing.');
-    return;
-  }
-
-  if (!preferences.learningDepth) {
-    console.error('Learning depth is missing.');
-    return;
-  }
-
-  const payload = {
-    learner_profile: {
-      primary_goal: careerGoals.primaryGoal,
-      target_skills: careerGoals.targetSkills,
-      skills: skills.skills,
-      projects: skills.projects,
-      research: skills.research || null,
-      experience: skills.experience || null,
-    },
-
-    academic_profile: {
-      academic_status: education.academicStatus,
-
-      university:
-        education.academicStatus === 'RECENT_GRADUATE'
-          ? null
-          : education.university,
-
-      degree_program:
-        education.academicStatus === 'RECENT_GRADUATE'
-          ? education.degree
-          : education.degreeProgram,
-
-      domain: education.domain,
-
-      current_year:
-        education.academicStatus === 'BACHELOR' ||
-        education.academicStatus === 'MASTER'
-          ? education.currentYear
-          : null,
-
-      graduation_year:
-        education.academicStatus === 'RECENT_GRADUATE'
-          ? Number(education.graduationYear)
-          : null,
-
-      subjects:
-        education.academicStatus === 'BACHELOR' ||
-        education.academicStatus === 'MASTER'
-          ? education.subjects
-          : [],
-    },
-
-    learning_preferences: {
-      daily_study_hours: preferences.dailyStudyHours,
-      learning_depth: preferences.learningDepth,
-    },
-  };
-
-  try {
-    const onboardingStatus = onboarding?.status as string | undefined;
-
-    if (onboardingStatus === 'IN_PROGRESS') {
-      await updateOnboarding(payload);
-    } else if (onboardingStatus === 'NOT_STARTED') {
-      await initializeOnboarding(payload);
-    } else {
-      console.error('Onboarding is already completed.');
+    // Wait until the existing onboarding state has been loaded.
+    if (isOnboardingLoading) {
       return;
     }
 
-    setCurrentStep(6);
-    router.push('/onboarding/assessment');
-  } catch (error) {
-    console.error(
-      'Failed to save onboarding:',
-      error
-    );
-  }
-};
+    if (!education.academicStatus) {
+      console.error('Academic status is missing.');
+      return;
+    }
 
+    if (!preferences.dailyStudyHours) {
+      console.error('Daily study hours are missing.');
+      return;
+    }
+
+    if (!preferences.learningDepth) {
+      console.error('Learning depth is missing.');
+      return;
+    }
+
+    const payload = {
+      learner_profile: {
+        primary_goal: careerGoals.primaryGoal,
+        target_skills: careerGoals.targetSkills,
+        skills: skills.skills,
+        projects: skills.projects,
+        research: skills.research || null,
+        experience: skills.experience || null,
+      },
+
+      academic_profile: {
+        academic_status: education.academicStatus,
+
+        university:
+          education.academicStatus === 'RECENT_GRADUATE'
+            ? null
+            : education.university,
+
+        degree_program:
+          education.academicStatus === 'RECENT_GRADUATE'
+            ? education.degree
+            : education.degreeProgram,
+
+        domain: education.domain,
+
+        current_year:
+          education.academicStatus === 'BACHELOR' ||
+          education.academicStatus === 'MASTER'
+            ? education.currentYear
+            : null,
+
+        graduation_year:
+          education.academicStatus === 'RECENT_GRADUATE'
+            ? Number(education.graduationYear)
+            : null,
+
+        subjects:
+          education.academicStatus === 'BACHELOR' ||
+          education.academicStatus === 'MASTER'
+            ? education.subjects
+            : [],
+      },
+
+      learning_preferences: {
+        daily_study_hours: preferences.dailyStudyHours,
+        learning_depth: preferences.learningDepth,
+      },
+    };
+
+    try {
+      const onboardingStatus = onboarding?.status as string | undefined;
+
+      if (onboardingStatus === 'NOT_STARTED') {
+        await initializeOnboarding(payload);
+      } else if (
+        onboardingStatus === 'IN_PROGRESS' ||
+        onboardingStatus === 'KIE_ANALYZING' ||
+        onboardingStatus === 'KIE_RESOLVING'
+      ) {
+        await updateOnboarding(payload);
+      } else if (onboardingStatus === 'COMPLETED') {
+        console.error('Onboarding is already completed.');
+        return;
+      } else {
+        console.error(
+          'Unexpected onboarding status:',
+          onboardingStatus
+        );
+        return;
+      }
+
+      setCurrentStep(6);
+      router.push('/onboarding/assessment');
+    } catch (error) {
+      console.error(
+        'Failed to save onboarding:',
+        error
+      );
+    }
+  };
 
   const isStudent =
     education.academicStatus === 'BACHELOR' ||
     education.academicStatus === 'MASTER';
+
 
   return (
     <div className="min-h-[calc(100vh-4rem)] px-4 py-10 sm:px-6 lg:px-8">

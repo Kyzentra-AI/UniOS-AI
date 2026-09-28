@@ -117,7 +117,7 @@ export default function AssessmentPage() {
 
         await completeOnboarding();
 
-        router.push('/onboarding');
+        router.push('/syllabus');
       } catch (error) {
         console.error(
           'Failed to complete onboarding:',

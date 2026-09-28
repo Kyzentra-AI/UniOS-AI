@@ -1,6 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { getProfile } from '@/services/profileServices';
+
+import { ApiError} from '@/lib/api';
 
 export default function MFAChoice() {
   const router = useRouter();
@@ -9,9 +12,17 @@ export default function MFAChoice() {
     router.push('/mfa-setup');
   };
 
-  const handleSkipMFA = () => {
-    router.push('/onboarding/education');
-  };
+  const handleSkipMFA = async () => {
+  try {
+    await getProfile();
+    router.replace('/dashboard');
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      router.replace('/onboarding/education');
+      return;
+    }
+  }
+};
 
   return (
     <section className="min-h-screen flex items-center justify-center bg-[var(--auth-bg)] p-4 sm:p-8 font-inter">
