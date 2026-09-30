@@ -22,6 +22,12 @@ def mock_kie_service():
     with patch("app.api.v1.endpoints.onboarding.kie_service") as mock:
         yield mock
 
+@pytest.fixture
+def mock_context_assembler():
+    with patch("app.api.v1.endpoints.onboarding.ContextV2Assembler.assemble") as mock:
+        mock.return_value = {"learner_id": "l-123", "education": {}, "career": {}}
+        yield mock
+
 def test_get_kie_questions_existing(mock_supabase_admin, mock_kie_service):
     # Mock learner profile with pending questions
     mock_res = MagicMock()
@@ -37,7 +43,7 @@ def test_get_kie_questions_existing(mock_supabase_admin, mock_kie_service):
     assert len(response.json()["questions"]) == 1
     assert mock_kie_service.analyze_context.call_count == 0
 
-def test_get_kie_questions_triggers_analysis(mock_supabase_admin, mock_kie_service):
+def test_get_kie_questions_triggers_analysis(mock_supabase_admin, mock_kie_service, mock_context_assembler):
     # Mock learner profile with NO pending questions
     mock_res = MagicMock()
     mock_res.data = [{

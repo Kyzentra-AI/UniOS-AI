@@ -5,7 +5,7 @@ from app.core.supabase import supabase_admin
 from app.schemas.onboarding import OnboardingRequest, OnboardingCompleteValidator
 from app.schemas.kie import OnboardingAnswersRequest, KIEWebhookQuestionsPayload, KIEWebhookResolvedPayload
 from app.services.kie_service import kie_service
-from app.core.kie_assembler import LearnerContextAssembler
+from app.core.context_v2_assembler import ContextV2Assembler
 from app.core.config import settings
 from datetime import datetime
 
@@ -39,8 +39,9 @@ async def get_onboarding_state(current_user: dict = Depends(get_current_user)):
     if learner:
         academic = _get_academic_profile(learner["id"])
         preferences = _get_learning_preferences(learner["id"])
-        
-    context = LearnerContextAssembler.assemble(learner, academic, preferences)
+        context = await ContextV2Assembler.assemble(learner["id"])
+    else:
+        context = {}
     
     # Return both raw and context to be helpful
     return {
@@ -192,9 +193,7 @@ async def get_kie_questions(background_tasks: BackgroundTasks, current_user: dic
             "updated_at": datetime.utcnow().isoformat()
         }).eq("id", learner["id"]).execute()
         
-        academic = _get_academic_profile(learner["id"])
-        preferences = _get_learning_preferences(learner["id"])
-        context = LearnerContextAssembler.assemble(learner, academic, preferences)
+        context = await ContextV2Assembler.assemble(learner["id"])
         
         background_tasks.add_task(kie_service.analyze_context, context)
     

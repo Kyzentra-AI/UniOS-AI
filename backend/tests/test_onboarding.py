@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from app.main import app
 from app.schemas.onboarding import OnboardingCompleteValidator, AcademicStatus, DailyStudyHours, LearningDepth
-from app.core.kie_assembler import LearnerContextAssembler
+
 
 client = TestClient(app)
 
@@ -21,35 +21,13 @@ def mock_supabase_admin():
     with patch("app.api.v1.endpoints.onboarding.supabase_admin") as mock:
         yield mock
 
-# --- KIE CONTEXT ASSEMBLER TESTS ---
+@pytest.fixture
+def mock_context_assembler():
+    with patch("app.api.v1.endpoints.onboarding.ContextV2Assembler.assemble") as mock:
+        mock.return_value = {"learner_id": "l-123", "education": {}, "career": {}}
+        yield mock
 
-def test_kie_context_assembler():
-    learner = {
-        "id": "l-123", "user_id": "user-123", "primary_goal": "Learn AI",
-        "target_skills": ["Python"], "skills": ["Java"], "projects": [],
-        "research": None, "experience": "1 yr", "onboarding_status": "IN_PROGRESS"
-    }
-    academic = {
-        "academic_status": "BACHELOR", "university": "MIT", "degree_program": "CS",
-        "domain": "Tech", "current_year": "Year 2", "graduation_year": None, "subjects": ["Math"]
-    }
-    prefs = {
-        "daily_study_hours": "2_3", "learning_depth": "DEEP"
-    }
-    
-    context = LearnerContextAssembler.assemble(learner, academic, prefs)
-    
-    assert context["learner_id"] == "l-123"
-    assert context["education"]["academic_status"] == "BACHELOR"
-    assert context["career"]["target_skills"] == ["Python"]
-    assert context["preferences"]["learning_depth"] == "DEEP"
 
-def test_kie_context_assembler_missing_data():
-    context = LearnerContextAssembler.assemble({}, {}, {})
-    assert context["learner_id"] is None
-    assert context["education"] == {}
-    assert context["career"]["target_skills"] == []
-    assert context["preferences"] == {}
 
 # --- VALIDATION SCHEMAS TESTS ---
 
@@ -119,7 +97,7 @@ def override_get_current_user():
 
 app.dependency_overrides[get_current_user] = override_get_current_user
 
-def test_init_onboarding(mock_supabase_admin):
+def test_init_onboarding(mock_supabase_admin, mock_context_assembler):
     # Mock that learner does not exist
     mock_response = MagicMock()
     mock_response.data = []
@@ -140,7 +118,7 @@ def test_init_onboarding(mock_supabase_admin):
     assert response.status_code == 200
     assert mock_supabase_admin.table.return_value.insert.call_count == 3
 
-def test_patch_onboarding(mock_supabase_admin):
+def test_patch_onboarding(mock_supabase_admin, mock_context_assembler):
     # Mock that learner exists
     mock_learner_res = MagicMock()
     mock_learner_res.data = [{"id": "l-123"}]
