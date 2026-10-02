@@ -405,3 +405,52 @@ CREATE POLICY "Service role full access on learner_events" ON public.learner_eve
     FOR ALL USING (true) WITH CHECK (true);
 
 
+-- ==============================================================================
+-- EPIC 4: SPRINT 4 - LEARNING SESSIONS, ASSESSMENTS & MASTERY
+-- ==============================================================================
+
+CREATE TYPE session_status AS ENUM ('IN_PROGRESS', 'PAUSED', 'COMPLETED');
+CREATE TYPE mastery_status AS ENUM ('NOVICE', 'DEVELOPING', 'PROFICIENT', 'MASTERED');
+
+CREATE TABLE IF NOT EXISTS learning_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    learner_id UUID NOT NULL REFERENCES learner_profiles(id) ON DELETE CASCADE,
+    roadmap_id UUID REFERENCES roadmaps(id) ON DELETE SET NULL,
+    mission_id UUID REFERENCES missions(id) ON DELETE SET NULL,
+    topic VARCHAR NOT NULL,
+    lesson_id VARCHAR NOT NULL,
+    status session_status NOT NULL DEFAULT 'IN_PROGRESS',
+    checkpoint_block_id VARCHAR,
+    progress_percentage INTEGER DEFAULT 0,
+    lesson_data JSONB,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS assessment_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES learning_sessions(id) ON DELETE CASCADE,
+    learner_id UUID NOT NULL REFERENCES learner_profiles(id) ON DELETE CASCADE,
+    assessment_id VARCHAR NOT NULL,
+    topic VARCHAR NOT NULL,
+    answers JSONB NOT NULL,
+    score NUMERIC,
+    total_time_spent_seconds INTEGER NOT NULL,
+    hints_used_count INTEGER DEFAULT 0,
+    is_completed BOOLEAN DEFAULT FALSE,
+    mastery_updates JSONB,
+    feedback TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS learner_mastery (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    learner_id UUID NOT NULL REFERENCES learner_profiles(id) ON DELETE CASCADE,
+    subject VARCHAR NOT NULL,
+    topic VARCHAR NOT NULL,
+    mastery_score NUMERIC CHECK (mastery_score >= 0.0 AND mastery_score <= 1.0) NOT NULL,
+    status mastery_status NOT NULL,
+    last_assessed_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE (learner_id, subject, topic)
+);
