@@ -11,7 +11,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 #remove in production
-from app.core.request_logger_middleware import RequestLoggerMiddleware
+#from app.core.request_logger_middleware import RequestLoggerMiddleware
 
 # Configure CORS for frontend access
 app.add_middleware(
@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 # Add custom standalone logger middleware remove in production
-app.add_middleware(RequestLoggerMiddleware)
+#app.add_middleware(RequestLoggerMiddleware)
 
 # Include Routers
 app.include_router(auth.router)
