@@ -10,6 +10,8 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json"
 )
+#remove in production
+from app.core.request_logger_middleware import RequestLoggerMiddleware
 
 # Configure CORS for frontend access
 app.add_middleware(
@@ -19,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add custom standalone logger middleware remove in production
+app.add_middleware(RequestLoggerMiddleware)
 
 # Include Routers
 app.include_router(auth.router)

@@ -17,6 +17,12 @@ def _get_learner_profile(user_id: str) -> dict:
         return {}
     return response.data[0]
 
+def _get_learner_profile_by_id(learner_id: str) -> dict:
+    response = supabase_admin.table("learner_profiles").select("*").eq("id", learner_id).execute()
+    if not response.data:
+        return {}
+    return response.data[0]
+
 def _get_academic_profile(learner_profile_id: str) -> dict:
     response = supabase_admin.table("academic_profiles").select("*").eq("learner_profile_id", learner_profile_id).execute()
     if not response.data:
@@ -231,7 +237,7 @@ def verify_kie_webhook_secret(x_kie_signature: str = Header(...)):
 @router.post("/kie/webhook/questions")
 async def kie_webhook_questions(payload: KIEWebhookQuestionsPayload, _: None = Depends(verify_kie_webhook_secret)):
     # Save the questions back to the user's profile
-    learner = _get_learner_profile(payload.user_id)
+    learner = _get_learner_profile_by_id(payload.user_id)
     if not learner:
         raise HTTPException(status_code=404, detail="User profile not found")
         
