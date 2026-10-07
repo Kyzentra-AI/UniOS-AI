@@ -7,7 +7,7 @@ from app.schemas.kie import OnboardingAnswersRequest, KIEWebhookQuestionsPayload
 from app.services.kie_service import kie_service
 from app.core.context_v2_assembler import ContextV2Assembler
 from app.core.config import settings
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="/api/v1/onboarding", tags=["Onboarding"])
 
@@ -102,14 +102,14 @@ async def update_onboarding(request: OnboardingRequest, current_user: dict = Dep
     if request.learner_profile:
         update_data = request.learner_profile.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updated_at"] = datetime.utcnow().isoformat()
+            update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
             supabase_admin.table("learner_profiles").update(update_data).eq("id", learner_id).execute()
             
     # Update Academic Profile
     if request.academic_profile:
         update_data = request.academic_profile.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updated_at"] = datetime.utcnow().isoformat()
+            update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
             academic = _get_academic_profile(learner_id)
             if academic:
                 supabase_admin.table("academic_profiles").update(update_data).eq("learner_profile_id", learner_id).execute()
@@ -121,7 +121,7 @@ async def update_onboarding(request: OnboardingRequest, current_user: dict = Dep
     if request.learning_preferences:
         update_data = request.learning_preferences.model_dump(exclude_unset=True)
         if update_data:
-            update_data["updated_at"] = datetime.utcnow().isoformat()
+            update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
             prefs = _get_learning_preferences(learner_id)
             if prefs:
                 supabase_admin.table("learning_preferences").update(update_data).eq("learner_profile_id", learner_id).execute()
@@ -158,7 +158,7 @@ async def complete_onboarding(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail=str(e))
         
     # Mark as completed
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     supabase_admin.table("learner_profiles").update({
         "onboarding_status": "COMPLETED",
         "completed_at": now,
@@ -180,6 +180,23 @@ async def get_kie_questions(background_tasks: BackgroundTasks, current_user: dic
         raise HTTPException(status_code=404, detail="Onboarding not started.")
         
     ob_status = learner.get("onboarding_status")
+    
+    if ob_status in ["KIE_ANALYZING", "KIE_RESOLVING"]:
+        updated_at_str = learner.get("updated_at")
+        if updated_at_str:
+            try:
+                updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+                if updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) - updated_at > timedelta(minutes=5):
+                    ob_status = "KIE_QUESTIONS_READY" if ob_status == "KIE_RESOLVING" else "IN_PROGRESS"
+                    supabase_admin.table("learner_profiles").update({
+                        "onboarding_status": ob_status,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }).eq("id", learner["id"]).execute()
+            except Exception:
+                pass
+
     if ob_status == "KIE_RESOLVING":
         return {"status": "processing", "message": "KIE is resolving your answers."}
     if ob_status in ["KIE_COMPLETED", "COMPLETED"]:
@@ -196,7 +213,7 @@ async def get_kie_questions(background_tasks: BackgroundTasks, current_user: dic
     if ob_status != "KIE_ANALYZING":
         supabase_admin.table("learner_profiles").update({
             "onboarding_status": "KIE_ANALYZING",
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", learner["id"]).execute()
         
         context = await ContextV2Assembler.assemble(learner["id"])
@@ -220,7 +237,7 @@ async def submit_kie_answers(request: OnboardingAnswersRequest, background_tasks
     supabase_admin.table("learner_profiles").update({
         "pending_kie_questions": None,
         "onboarding_status": "KIE_RESOLVING",
-        "updated_at": datetime.utcnow().isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }).eq("id", learner["id"]).execute()
     
     background_tasks.add_task(kie_service.resolve_context, user_id, request.answers)
@@ -246,7 +263,7 @@ async def kie_webhook_questions(payload: KIEWebhookQuestionsPayload, _: None = D
     supabase_admin.table("learner_profiles").update({
         "pending_kie_questions": questions_data,
         "onboarding_status": "KIE_QUESTIONS_READY",
-        "updated_at": datetime.utcnow().isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }).eq("id", learner["id"]).execute()
     
     return {"status": "ok"}
@@ -258,7 +275,7 @@ async def kie_webhook_resolved(payload: KIEWebhookResolvedPayload, _: None = Dep
         raise HTTPException(status_code=404, detail="User profile not found")
         
     new_context = payload.new_context
-    update_data = {"updated_at": datetime.utcnow().isoformat()}
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
     
     # Example mapping logic:
     # Append new skills

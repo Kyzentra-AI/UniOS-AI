@@ -42,6 +42,20 @@ class KIEService:
             logger.error(f"Failed to reset onboarding status for learner {learner_id}: {e}")
 
     @staticmethod
+    def _reset_status_on_failure_by_user_id(user_id: str | None) -> None:
+        if not user_id:
+            return
+        try:
+            from app.core.supabase import supabase_admin
+            from datetime import datetime
+            supabase_admin.table("learner_profiles").update({
+                "onboarding_status": "IN_PROGRESS",
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("user_id", user_id).execute()
+        except Exception as e:
+            logger.error(f"Failed to reset onboarding status for user {user_id}: {e}")
+
+    @staticmethod
     async def resolve_context(user_id: str, answers: list) -> None:
         """
         Sends the user answers to KIE for resolution asynchronously.
@@ -61,8 +75,10 @@ class KIEService:
                 response.raise_for_status()
             except httpx.RequestError as exc:
                 logger.error(f"An error occurred while requesting KIE resolve: {exc}")
+                KIEService._reset_status_on_failure_by_user_id(user_id)
             except httpx.HTTPStatusError as exc:
                 logger.error(f"Error response {exc.response.status_code} while requesting KIE resolve.")
+                KIEService._reset_status_on_failure_by_user_id(user_id)
 
     @staticmethod
     async def extract_syllabus(syllabus_id: str, text: str) -> dict | None:
