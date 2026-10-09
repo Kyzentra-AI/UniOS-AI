@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import auth, onboarding, syllabus, roadmaps, missions, learning, assessments
+from app.api.v1.endpoints import auth, onboarding, syllabus, roadmaps, missions, learning, assessments, build
 
 app = FastAPI(
     title="UniOS.ai Backend API",
@@ -33,6 +33,7 @@ app.include_router(roadmaps.router)
 app.include_router(missions.router)
 app.include_router(learning.router)
 app.include_router(assessments.router)
+app.include_router(build.router)
 
 @app.get("/")
 async def root():
