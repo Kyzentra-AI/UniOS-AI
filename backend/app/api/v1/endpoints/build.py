@@ -25,12 +25,12 @@ def _get_learner_id(user_id: str) -> str:
 
 @router.get("/recommendations", response_model=ProjectRecommendationResponse)
 async def get_recommendations(current_user: dict = Depends(get_current_user)):
-    learner_id = _get_learner_id(current_user["id"])
+    learner_id = _get_learner_id(current_user["user_id"])
     return await build_kie_client.get_recommendations(learner_id)
 
 @router.get("/projects", response_model=List[Project])
 async def list_projects(current_user: dict = Depends(get_current_user)):
-    learner_id = _get_learner_id(current_user["id"])
+    learner_id = _get_learner_id(current_user["user_id"])
     return build_workspace_service.list_projects(learner_id)
 
 @router.post("/projects", response_model=Project)
@@ -38,7 +38,7 @@ async def create_project(
     input_data: CreateProjectInput, 
     current_user: dict = Depends(get_current_user)
 ):
-    learner_id = _get_learner_id(current_user["id"])
+    learner_id = _get_learner_id(current_user["user_id"])
     return build_workspace_service.create_project(learner_id, input_data)
 
 @router.get("/projects/{id}", response_model=Project)
@@ -139,5 +139,5 @@ async def complete_project(
     id: str, 
     current_user: dict = Depends(get_current_user)
 ):
-    learner_id = _get_learner_id(current_user["id"])
+    learner_id = _get_learner_id(current_user["user_id"])
     return build_workspace_service.complete_project(id, learner_id)
