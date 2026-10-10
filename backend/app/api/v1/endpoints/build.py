@@ -51,6 +51,38 @@ async def get_project(
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
+@router.get("/projects/{id}/milestones", response_model=List[Milestone])
+async def get_project_milestones(
+    id: str, 
+    current_user: dict = Depends(get_current_user)
+):
+    learner_id = _get_learner_id(current_user["user_id"])
+    return build_workspace_service.get_milestones(id, learner_id)
+
+@router.get("/projects/{id}/tasks", response_model=List[Task])
+async def get_project_tasks(
+    id: str, 
+    current_user: dict = Depends(get_current_user)
+):
+    learner_id = _get_learner_id(current_user["user_id"])
+    return build_workspace_service.get_tasks(id, learner_id)
+
+@router.get("/projects/{id}/artifacts", response_model=List[Artifact])
+async def get_project_artifacts(
+    id: str, 
+    current_user: dict = Depends(get_current_user)
+):
+    learner_id = _get_learner_id(current_user["user_id"])
+    return build_workspace_service.get_artifacts(id, learner_id)
+
+@router.get("/projects/{id}/evidence", response_model=List[Evidence])
+async def get_project_evidence(
+    id: str, 
+    current_user: dict = Depends(get_current_user)
+):
+    learner_id = _get_learner_id(current_user["user_id"])
+    return build_workspace_service.get_evidence(id, learner_id)
+
 @router.patch("/projects/{id}", response_model=Project)
 async def update_project(
     id: str, 

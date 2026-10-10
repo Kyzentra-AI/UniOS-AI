@@ -21,6 +21,43 @@ class BuildWorkspaceService:
         return Project(**res.data[0])
 
     @staticmethod
+    def _verify_project_ownership(project_id: str, learner_id: str):
+        res = supabase_admin.table("build_projects").select("id").eq("id", project_id).eq("learner_id", learner_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=403, detail="Forbidden or Project not found")
+
+    @staticmethod
+    def get_milestones(project_id: str, learner_id: str) -> List[Milestone]:
+        BuildWorkspaceService._verify_project_ownership(project_id, learner_id)
+        res = supabase_admin.table("build_milestones").select("*").eq("project_id", project_id).execute()
+        return [Milestone(**item) for item in res.data]
+
+    @staticmethod
+    def get_tasks(project_id: str, learner_id: str) -> List[Task]:
+        BuildWorkspaceService._verify_project_ownership(project_id, learner_id)
+        res = supabase_admin.table("build_tasks").select("*").eq("project_id", project_id).execute()
+        return [Task(**item) for item in res.data]
+
+    @staticmethod
+    def get_artifacts(project_id: str, learner_id: str) -> List[Artifact]:
+        BuildWorkspaceService._verify_project_ownership(project_id, learner_id)
+        res = supabase_admin.table("build_artifacts").select("*, build_artifact_versions(*)").eq("project_id", project_id).execute()
+        
+        artifacts = []
+        for item in res.data:
+            versions = item.pop("build_artifact_versions", [])
+            artifact = Artifact(**item)
+            artifact.versions = [ArtifactVersionResponse(**v) for v in versions]
+            artifacts.append(artifact)
+        return artifacts
+
+    @staticmethod
+    def get_evidence(project_id: str, learner_id: str) -> List[Evidence]:
+        BuildWorkspaceService._verify_project_ownership(project_id, learner_id)
+        res = supabase_admin.table("build_evidence").select("*").eq("project_id", project_id).execute()
+        return [Evidence(**item) for item in res.data]
+
+    @staticmethod
     def list_projects(learner_id: str) -> List[Project]:
         res = supabase_admin.table("build_projects").select("*").eq("learner_id", learner_id).execute()
         return [Project(**item) for item in res.data]
