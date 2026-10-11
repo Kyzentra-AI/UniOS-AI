@@ -454,3 +454,80 @@ CREATE TABLE IF NOT EXISTS learner_mastery (
     last_assessed_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE (learner_id, subject, topic)
 );
+
+-- ==============================================================================
+-- EPIC 5: SPRINT 5 - UNIVERSAL BUILD ENGINE
+-- ==============================================================================
+
+CREATE TYPE project_type AS ENUM ('CODING', 'RESEARCH', 'BUSINESS', 'ANALYSIS', 'DESIGN', 'OTHER');
+CREATE TYPE project_status AS ENUM ('DRAFT', 'ACTIVE', 'COMPLETED', 'ARCHIVED');
+CREATE TYPE milestone_status AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED');
+CREATE TYPE task_status AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'BLOCKED');
+CREATE TYPE artifact_type AS ENUM ('DOCUMENT', 'UPLOAD', 'DELIVERABLE', 'PRESENTATION', 'EVIDENCE');
+
+CREATE TABLE IF NOT EXISTS public.build_projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    learner_id UUID NOT NULL REFERENCES public.learner_profiles(id) ON DELETE CASCADE,
+    title VARCHAR NOT NULL,
+    description TEXT,
+    type project_type NOT NULL,
+    domain VARCHAR,
+    goal VARCHAR,
+    skills JSONB DEFAULT '[]'::jsonb,
+    status project_status DEFAULT 'DRAFT'::project_status,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.build_milestones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES public.build_projects(id) ON DELETE CASCADE,
+    title VARCHAR NOT NULL,
+    description TEXT,
+    status milestone_status DEFAULT 'PENDING'::milestone_status,
+    order_idx INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.build_tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES public.build_projects(id) ON DELETE CASCADE,
+    milestone_id UUID REFERENCES public.build_milestones(id) ON DELETE CASCADE,
+    title VARCHAR NOT NULL,
+    description TEXT,
+    status task_status DEFAULT 'PENDING'::task_status,
+    order_idx INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.build_artifacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES public.build_projects(id) ON DELETE CASCADE,
+    title VARCHAR NOT NULL,
+    description TEXT,
+    type artifact_type NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.build_artifact_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    artifact_id UUID NOT NULL REFERENCES public.build_artifacts(id) ON DELETE CASCADE,
+    version INTEGER DEFAULT 1,
+    file_name VARCHAR,
+    file_size INTEGER,
+    storage_key VARCHAR,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.build_evidence (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES public.build_projects(id) ON DELETE CASCADE,
+    artifact_id UUID REFERENCES public.build_artifacts(id) ON DELETE SET NULL,
+    title VARCHAR NOT NULL,
+    description TEXT,
+    skills JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+

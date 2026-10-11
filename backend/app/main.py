@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import auth, onboarding, syllabus, roadmaps, missions, learning, assessments
+from app.core.config import settings
+from app.api.v1.endpoints import auth, onboarding, syllabus, roadmaps, missions, learning, assessments, build
 
 app = FastAPI(
     title="UniOS.ai Backend API",
@@ -16,7 +17,7 @@ app = FastAPI(
 # Configure CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
+    allow_origins=settings.ALLOWED_REDIRECT_ORIGINS,  # Adjust for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,6 +34,7 @@ app.include_router(roadmaps.router)
 app.include_router(missions.router)
 app.include_router(learning.router)
 app.include_router(assessments.router)
+app.include_router(build.router)
 
 @app.get("/")
 async def root():
