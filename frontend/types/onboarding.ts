@@ -78,12 +78,20 @@ export interface OnboardingRawData {
 }
 
 export interface OnboardingState {
-  status: 'IN_PROGRESS' | 'COMPLETED';
+  status:
+  | 'NOT_STARTED'
+  | 'IN_PROGRESS'
+  | 'KIE_ANALYZING'
+  | 'KIE_QUESTIONS_READY'
+  | 'KIE_RESOLVING'
+  | 'KIE_COMPLETED'
+  | 'COMPLETED';
   raw_data: OnboardingRawData;
   context: Record<string, unknown>;
 }
 
 export interface CompleteOnboardingResponse {
+  status: 'success';
   message: string;
 }
 

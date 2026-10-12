@@ -530,11 +530,7 @@ export default function Syllabus() {
             You can try processing it again.
           </p>
 
-          {errorMessage && (
-            <p className="mt-3 text-sm text-[var(--danger-text)]">
-              {errorMessage}
-            </p>
-          )}
+          
 
           <button
             type="button"

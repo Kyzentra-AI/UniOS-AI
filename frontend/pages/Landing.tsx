@@ -159,7 +159,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/*Trust*/}
+      {/*Trust
       <section className="py-10 border-y border-[var(--border)] bg-[var(--surface-alt)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-xs font-bold text-[var(--text-muted)] tracking-[0.16em] uppercase mb-8">
@@ -173,7 +173,7 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </section>*/}
 
       {/*Advanced analytics*/}
       <section id="analytics" className="py-20 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
@@ -335,7 +335,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/*Stats*/}
+      {/*Stats
       <section className="py-16 border-y border-[var(--border)] bg-[var(--surface)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-[var(--border)]">
@@ -347,9 +347,9 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </section>*/}
 
-      {/*Testimonials section*/}
+      {/*Testimonials section*
       <section className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12">
           <span className="text-[var(--primary)] font-semibold tracking-wider text-sm uppercase">Success Stories</span>
@@ -384,7 +384,7 @@ export default function LandingPage() {
             </article>
           ))}
         </div>
-      </section>
+      </section>*/}
 
   
 {/* CTA */}

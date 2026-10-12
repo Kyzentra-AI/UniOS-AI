@@ -1,3 +1,6 @@
+
+import { apiRequest } from '@/lib/api';
+
 export interface Session {
   access_token?: string;
   refresh_token?: string;
@@ -139,4 +142,30 @@ export const clearSession = () => {
 
   // Notify the app that authentication state has changed.
   window.dispatchEvent(new Event('auth-change'));
+};
+
+// Logout
+
+export const logout = async (): Promise<void> => {
+  const token = getAccessToken();
+
+  try {
+    if (token) {
+      await apiRequest<{ message: string }>(
+        '/api/v1/auth/logout',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    }
+  } catch (error) {
+    // Local logout should still work if the backend request fails.
+    console.error('Backend logout failed:', error);
+  } finally {
+    // Always clear the local session and temporary MFA credentials.
+    clearSession();
+  }
 };

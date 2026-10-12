@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import type { OnboardingRawData } from '@/types/onboarding';
+
 export type AcademicStatus =
   | 'BACHELOR'
   | 'MASTER'
@@ -8,15 +10,11 @@ export type AcademicStatus =
 
 export interface EducationData {
   academicStatus: AcademicStatus | '';
-
-  // Bachelor / Master
   university: string;
   degreeProgram: string;
   domain: string;
   currentYear: string;
   subjects: string[];
-
-  // Recent Graduate
   graduationYear: string;
   degree: string;
 }
@@ -59,35 +57,23 @@ interface OnboardingState {
   preferences: PreferencesData;
 
   setCurrentStep: (step: number) => void;
+  setEducation: (data: Partial<EducationData>) => void;
+  setCareerGoals: (data: Partial<CareerGoalsData>) => void;
+  setSkills: (data: Partial<SkillsData>) => void;
+  setPreferences: (data: Partial<PreferencesData>) => void;
 
-  setEducation: (
-    data: Partial<EducationData>
-  ) => void;
-
-  setCareerGoals: (
-    data: Partial<CareerGoalsData>
-  ) => void;
-
-  setSkills: (
-    data: Partial<SkillsData>
-  ) => void;
-
-  setPreferences: (
-    data: Partial<PreferencesData>
-  ) => void;
+  hydrateFromBackend: (data: OnboardingRawData) => void;
 
   resetOnboarding: () => void;
 }
 
 const initialEducation: EducationData = {
   academicStatus: '',
-
   university: '',
   degreeProgram: '',
   domain: '',
   currentYear: '',
   subjects: [],
-
   graduationYear: '',
   degree: '',
 };
@@ -109,91 +95,113 @@ const initialPreferences: PreferencesData = {
   learningDepth: '',
 };
 
-export const useOnboardingStore =
-  create<OnboardingState>()(
-    persist(
-      (set) => ({
-        currentStep: 1,
+export const useOnboardingStore = create<OnboardingState>()(
+  persist(
+    (set) => ({
+      currentStep: 1,
 
-        education: {
-          ...initialEducation,
-        },
+      education: { ...initialEducation },
+      careerGoals: { ...initialCareerGoals },
+      skills: { ...initialSkills },
+      preferences: { ...initialPreferences },
 
-        careerGoals: {
-          ...initialCareerGoals,
-        },
+      setCurrentStep: (step) =>
+        set({
+          currentStep: Math.min(Math.max(step, 1), 6),
+        }),
 
-        skills: {
-          ...initialSkills,
-        },
+      setEducation: (data) =>
+        set((state) => ({
+          education: {
+            ...state.education,
+            ...data,
+          },
+        })),
 
-        preferences: {
-          ...initialPreferences,
-        },
+      setCareerGoals: (data) =>
+        set((state) => ({
+          careerGoals: {
+            ...state.careerGoals,
+            ...data,
+          },
+        })),
 
-        setCurrentStep: (step) =>
-          set({
-            currentStep: Math.min(
-              Math.max(step, 1),
-              6
-            ),
-          }),
+      setSkills: (data) =>
+        set((state) => ({
+          skills: {
+            ...state.skills,
+            ...data,
+          },
+        })),
 
-        setEducation: (data) =>
-          set((state) => ({
-            education: {
-              ...state.education,
-              ...data,
-            },
-          })),
+      setPreferences: (data) =>
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            ...data,
+          },
+        })),
 
-        setCareerGoals: (data) =>
-          set((state) => ({
-            careerGoals: {
-              ...state.careerGoals,
-              ...data,
-            },
-          })),
+      hydrateFromBackend: (data) =>
+        set({
+          education: {
+            academicStatus:
+              data.academic_profile.academic_status ?? '',
+            university:
+              data.academic_profile.university ?? '',
+            degreeProgram:
+              data.academic_profile.degree_program ?? '',
+            domain:
+              data.academic_profile.domain ?? '',
+            currentYear:
+              data.academic_profile.current_year ?? '',
+            subjects:
+              data.academic_profile.subjects ?? [],
+            graduationYear:
+              data.academic_profile.graduation_year
+                ? String(data.academic_profile.graduation_year)
+                : '',
+            degree:
+              data.academic_profile.degree_program ?? '',
+          },
 
-        setSkills: (data) =>
-          set((state) => ({
-            skills: {
-              ...state.skills,
-              ...data,
-            },
-          })),
+          careerGoals: {
+            primaryGoal:
+              data.learner_profile.primary_goal ?? '',
+            targetSkills:
+              data.learner_profile.target_skills ?? [],
+          },
 
-        setPreferences: (data) =>
-          set((state) => ({
-            preferences: {
-              ...state.preferences,
-              ...data,
-            },
-          })),
+          skills: {
+            skills:
+              data.learner_profile.skills ?? [],
+            projects:
+              data.learner_profile.projects ?? [],
+            research:
+              data.learner_profile.research ?? '',
+            experience:
+              data.learner_profile.experience ?? '',
+          },
 
-        resetOnboarding: () =>
-          set({
-            currentStep: 1,
+          preferences: {
+            dailyStudyHours:
+              data.learning_preferences.daily_study_hours ?? '',
+            learningDepth:
+              data.learning_preferences.learning_depth ?? '',
+          },
+        }),
 
-            education: {
-              ...initialEducation,
-            },
-
-            careerGoals: {
-              ...initialCareerGoals,
-            },
-
-            skills: {
-              ...initialSkills,
-            },
-
-            preferences: {
-              ...initialPreferences,
-            },
-          }),
-      }),
-      {
-        name: 'unios-onboarding',
-      }
-    )
-  );
+      resetOnboarding: () =>
+        set({
+          currentStep: 1,
+          education: { ...initialEducation },
+          careerGoals: { ...initialCareerGoals },
+          skills: { ...initialSkills },
+          preferences: { ...initialPreferences },
+        }),
+    }),
+    {
+      name: 'unios-onboarding',
+    }
+  )
+);
