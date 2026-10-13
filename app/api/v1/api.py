@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import learning, onboarding, memory
+from app.api.v1.endpoints import build
 
 api_router = APIRouter()
 api_router.include_router(
@@ -10,4 +11,8 @@ api_router.include_router(
 )
 api_router.include_router(
     memory.router, prefix="/memory", tags=["Memory Intelligence"]
+)
+# Sprint 5: Universal Build Engine — /api/v1/kie/build/*
+api_router.include_router(
+    build.router, prefix="/kie/build", tags=["Build Intelligence"]
 )

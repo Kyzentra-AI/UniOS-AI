@@ -1,4 +1,5 @@
 import json
+from typing import Dict as _Dict
 import re
 import time
 from abc import ABC, abstractmethod
@@ -291,6 +292,15 @@ class BaseLLMProvider(ABC):
         self, profile: OnboardingInputProfile, prompt: str
     ) -> LearnerIntelligenceReport:
         """Generate structured multi-dimensional Learner Intelligence from an onboarding profile."""
+        pass
+
+    @abstractmethod
+    def generate_build_coaching(self, prompt: str) -> _Dict[str, Any]:
+        """Generate structured build coaching response from a prompt.
+
+        Returns a raw dict that the build_coach_service validates against
+        BuildCoachResponse before returning to the caller.
+        """
         pass
 
 
@@ -700,6 +710,91 @@ class MockLLMProvider(BaseLLMProvider):
         )
 
 
+    def generate_build_coaching(self, prompt: str) -> _Dict[str, Any]:
+        """Deterministic mock build coaching response — domain-adaptive, zero external calls."""
+        prompt_lower = prompt.lower()
+
+        # Determine coaching tone from mastery evidence in prompt
+        if "weak" in prompt_lower and "proficient" not in prompt_lower:
+            tone = "encouraging"
+            remediation = True
+        elif "proficient" in prompt_lower:
+            tone = "challenging"
+            remediation = False
+        else:
+            tone = "instructive"
+            remediation = False
+
+        # Domain-adaptive example block content
+        if any(t in prompt_lower for t in ["commerce", "business_plan", "accounting", "finance"]):
+            example_content = "Worked example: Construct a break-even analysis table using fixed vs variable cost data from the provided scenario."
+        elif any(t in prompt_lower for t in ["law", "case_analysis", "legal"]):
+            example_content = "Worked example: Apply the IRAC structure to the leading precedent identified in your submission draft."
+        elif any(t in prompt_lower for t in ["science", "lab_notebook", "research_report", "biotech"]):
+            example_content = "Worked example: Structure your methodology section using hypothesis → variables → procedure → data collection format."
+        elif any(t in prompt_lower for t in ["humanities", "essay", "psychology", "history"]):
+            example_content = "Worked example: Anchor your argument using a primary source quotation followed by analytical commentary."
+        else:
+            example_content = "Worked example: Break the current milestone into three verifiable sub-tasks and complete each before moving to the next."
+
+        # Extract project title from prompt for personalisation
+        project_title = "your project"
+        for line in prompt.split("\n"):
+            if "Project Title:" in line:
+                project_title = line.split("Project Title:")[-1].strip()
+                break
+
+        return {
+            "coaching_tone": tone,
+            "coaching_blocks": [
+                {
+                    "block_type": "orientation",
+                    "title": "Where You Stand",
+                    "content": (
+                        f"This coaching session focuses on '{project_title}'. "
+                        "Based on your submission summary and mastery evidence, here is a structured review of your progress."
+                    ),
+                },
+                {
+                    "block_type": "gap_analysis",
+                    "title": "Identified Gaps",
+                    "content": (
+                        "Review the rubric criteria listed above. Your submission addresses the core requirements "
+                        "but may need deeper engagement with the analytical depth and citation rigor specified."
+                    ),
+                },
+                {
+                    "block_type": "guidance",
+                    "title": "Key Improvement Actions",
+                    "content": (
+                        "Focus on the following: (1) Strengthen your evidence with domain-specific references. "
+                        "(2) Make your argument or solution logic explicit and step-by-step. "
+                        "(3) Address any weak prerequisite concepts before advancing."
+                    ),
+                },
+                {
+                    "block_type": "example",
+                    "title": "Worked Example",
+                    "content": example_content,
+                },
+                {
+                    "block_type": "next_step",
+                    "title": "Recommended Next Action",
+                    "content": (
+                        "Complete the revision checklist above, then request a review of the updated milestone. "
+                        "If weak prerequisite topics remain unresolved, complete the associated remediation lesson first."
+                    ),
+                },
+            ],
+            "gap_summary": (
+                "The submission demonstrates effort but requires stronger alignment to rubric criteria, "
+                "particularly in analytical depth and evidence grounding."
+            ),
+            "next_milestone_hint": "Revise the current section addressing the identified gaps, then submit for re-evaluation.",
+            "remediation_recommended": remediation,
+        }
+
+
 class GroqLLMProvider(BaseLLMProvider):
     """Live LLM provider backed by Groq Cloud for fast inference.
     Only instantiated when live Groq is explicitly configured.
@@ -912,6 +1007,38 @@ class GroqLLMProvider(BaseLLMProvider):
         except Exception as err:
             raise LLMParseError(
                 f"LearnerIntelligenceReport validation failed on repaired LLM output: {str(err)}",
+                raw_content=raw_content,
+            )
+
+
+    def generate_build_coaching(self, prompt: str) -> _Dict[str, Any]:
+        """Calls Groq LLM to generate structured build coaching JSON."""
+        system_instruction = (
+            "You are the UniOS Universal Build Coach (AI/ML-2). "
+            "Generate structured, pedagogically sound coaching for a learner's build project. "
+            "CRITICAL: Output strictly valid JSON matching the schema in the user prompt. "
+            "Do NOT output raw HTML, JSX, or React UI code. "
+            "Target output under 700 tokens."
+        )
+        raw_content = self._safe_chat_completion(
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=700,
+            temperature=settings.LLM_TEMPERATURE,
+        )
+        json_text = extract_json_payload(raw_content)
+        try:
+            data = json.loads(json_text)
+            if not isinstance(data, dict) or "coaching_blocks" not in data:
+                raise ValueError("Response missing required 'coaching_blocks' key.")
+            if not isinstance(data["coaching_blocks"], list) or len(data["coaching_blocks"]) == 0:
+                raise ValueError("'coaching_blocks' must be a non-empty list.")
+            return data
+        except Exception as e:
+            raise LLMParseError(
+                f"Failed to parse build coaching response from LLM: {str(e)}",
                 raw_content=raw_content,
             )
 
