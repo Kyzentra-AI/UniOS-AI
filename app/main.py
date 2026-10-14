@@ -16,6 +16,10 @@ tags_metadata = [
         "description": "AI/ML-2 Capabilities: Pedagogy Decision & Structured Lesson Generation.",
     },
     {
+        "name": "Build Intelligence",
+        "description": "AI/ML-2 Capabilities: Universal Build Coach & Domain-Adaptive Project Recommendations.",
+    },
+    {
         "name": "Health",
         "description": "System readiness and health check operations.",
     },
@@ -23,8 +27,8 @@ tags_metadata = [
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="UniOS AI/ML-2 Learning Intelligence Service. Exposes structured intelligence contracts to AI/ML-1 and Backend.",
-    version="1.0.0",
+    description="UniOS AI/ML-2 Learning Intelligence Service. Exposes structured intelligence contracts to AI/ML-1 and Backend. Sprint 5: Universal Build Engine.",
+    version="1.1.0",
     openapi_tags=tags_metadata,
 )
 

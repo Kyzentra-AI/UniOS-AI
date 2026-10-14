@@ -32,6 +32,15 @@ from app.services.remediation_service import (
     RemediationLoopService,
     get_remediation_service,
 )
+from app.services.build_coach_service import (
+    BuildCoachService,
+    get_build_coach_service,
+    coaching_response_to_public,
+)
+from app.services.build_prompt_builder import (
+    build_coach_prompt,
+    build_recommend_prompt,
+)
 
 
 
@@ -59,5 +68,10 @@ __all__ = [
     "get_mastery_engine",
     "RemediationLoopService",
     "get_remediation_service",
+    "BuildCoachService",
+    "get_build_coach_service",
+    "coaching_response_to_public",
+    "build_coach_prompt",
+    "build_recommend_prompt",
 ]
 

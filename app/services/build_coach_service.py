@@ -12,7 +12,9 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from app.schemas.build import (
+    ActionItem,
     ArtifactType,
+    BuildCoachPublicResponse,
     BuildCoachRequest,
     BuildCoachResponse,
     BuildDifficulty,
@@ -106,6 +108,87 @@ def _determine_coaching_tone_from_mastery(request: BuildCoachRequest) -> Coachin
     if mastery_scores and all(s >= 0.80 for s in mastery_scores):
         return CoachingTone.CHALLENGING
     return CoachingTone.INSTRUCTIVE
+
+
+# ---------------------------------------------------------------------------
+# Public response mapper
+# ---------------------------------------------------------------------------
+
+def coaching_response_to_public(internal: BuildCoachResponse) -> BuildCoachPublicResponse:
+    """
+    Maps the internal rich BuildCoachResponse to the Backend-approved public
+    wire format (reply, suggestions, action_items).
+
+    Mapping strategy:
+      reply        ← orientation block content + gap_summary (or first substantive block)
+      suggestions  ← content of guidance and next_step blocks (as list items)
+      action_items ← next_milestone_hint as NEXT_STEP, remediation as REMEDIATION,
+                     weak topics as DOCUMENTATION_LINK stubs
+    """
+    # 1. Build reply: orientation + gap summary (or fallback to first block)
+    reply_parts = []
+    for block in internal.coaching_blocks:
+        if block.block_type in ("orientation", "gap_analysis"):
+            if block.content:
+                reply_parts.append(block.content)
+    if not reply_parts and internal.coaching_blocks:
+        reply_parts.append(internal.coaching_blocks[0].content)
+    if internal.gap_summary:
+        reply_parts.append(internal.gap_summary)
+    reply = "\n\n".join(reply_parts) if reply_parts else "Coaching is ready. Please see suggestions below."
+
+    # 2. Build suggestions: guidance, example, encouragement, next_step block contents
+    suggestions: List[str] = []
+    for block in internal.coaching_blocks:
+        if block.block_type in ("guidance", "example", "encouragement", "next_step"):
+            text = block.content.strip()
+            if text:
+                suggestions.append(text)
+
+    # 3. Build action_items
+    action_items: List[ActionItem] = []
+
+    # Next milestone hint → NEXT_STEP
+    if internal.next_milestone_hint:
+        action_items.append(
+            ActionItem(
+                type="NEXT_STEP",
+                label=internal.next_milestone_hint,
+                url=None,
+            )
+        )
+
+    # Remediation flag → REMEDIATION action
+    if internal.remediation_recommended:
+        action_items.append(
+            ActionItem(
+                type="REMEDIATION",
+                label=(
+                    f"Complete remediation for '{internal.project_title}' before advancing. "
+                    "A targeted lesson will be generated for your weak topics."
+                ),
+                url=None,
+            )
+        )
+
+    # Coaching blocks with block_type=next_step title → NEXT_STEP actions
+    for block in internal.coaching_blocks:
+        if block.block_type == "next_step" and block.title:
+            # Avoid duplicate if already captured from next_milestone_hint
+            if not any(ai.label == block.title for ai in action_items):
+                action_items.append(
+                    ActionItem(
+                        type="NEXT_STEP",
+                        label=block.title,
+                        url=None,
+                    )
+                )
+
+    return BuildCoachPublicResponse(
+        reply=reply,
+        suggestions=suggestions,
+        action_items=action_items,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -291,16 +374,17 @@ class BuildCoachService:
 
         for i, rec_data in enumerate(rec_bank[:count]):
             rec_id = f"rec_{uuid.uuid4().hex[:6]}"
+            artifact = rec_data["artifact_type"]
             recs.append(
                 ProjectRecommendation(
                     recommendation_id=rec_id,
                     title=rec_data["title"],
-                    artifact_type=rec_data["artifact_type"],
+                    type=artifact.value if hasattr(artifact, "value") else str(artifact),
                     difficulty=rec_data.get("difficulty", primary_difficulty),
                     academic_domain=domain,
                     description=rec_data["description"],
                     rationale=rec_data["rationale"],
-                    key_skills_targeted=rec_data.get("skills", []),
+                    skills=rec_data.get("skills", []),
                     estimated_effort_hours=rec_data.get("hours"),
                     prerequisite_topics=rec_data.get("prerequisites", []),
                 )
@@ -519,12 +603,12 @@ class BuildCoachService:
         return ProjectRecommendation(
             recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
             title=f"Foundational {role} Build Project",
-            artifact_type=ArtifactType.GENERAL,
+            type=ArtifactType.GENERAL.value,
             difficulty=difficulty,
             academic_domain=domain,
             description=f"Complete a structured build project demonstrating core {role} competencies in the {domain} domain.",
             rationale="Targeted at building core domain competency through applied project work.",
-            key_skills_targeted=[role, "Critical Thinking", "Applied Practice"],
+            skills=[role, "Critical Thinking", "Applied Practice"],
             estimated_effort_hours=10.0,
             prerequisite_topics=[],
         )
@@ -532,7 +616,7 @@ class BuildCoachService:
     def _parse_recommendations(
         self, raw: Dict[str, Any], context: BuildRecommendContext
     ) -> List[ProjectRecommendation]:
-        """Defensively parse LLM recommendation list."""
+        """Defensively parse LLM recommendation list. Handles both old and new field names."""
         raw_recs = raw.get("recommendations", [])
         if not isinstance(raw_recs, list):
             return []
@@ -541,16 +625,21 @@ class BuildCoachService:
             if not isinstance(item, dict):
                 continue
             try:
+                # Accept both 'type' (new contract) and 'artifact_type' (LLM legacy)
+                raw_type = item.get("type") or item.get("artifact_type")
+                artifact = _artifact_type_from_str(raw_type)
+                # Accept both 'skills' (new contract) and 'key_skills_targeted' (LLM legacy)
+                skills = item.get("skills") or item.get("key_skills_targeted") or []
                 result.append(
                     ProjectRecommendation(
                         recommendation_id=str(item.get("recommendation_id", uuid.uuid4().hex[:6])),
                         title=str(item.get("title", "Project")).strip(),
-                        artifact_type=_artifact_type_from_str(item.get("artifact_type")),
+                        type=artifact.value,
                         difficulty=_difficulty_from_str(item.get("difficulty")),
                         academic_domain=str(item.get("academic_domain", context.academic_domain or "general")).strip(),
                         description=str(item.get("description", "")).strip(),
                         rationale=str(item.get("rationale", "")).strip(),
-                        key_skills_targeted=item.get("key_skills_targeted", []),
+                        skills=skills if isinstance(skills, list) else [],
                         estimated_effort_hours=float(item["estimated_effort_hours"]) if item.get("estimated_effort_hours") else None,
                         prerequisite_topics=item.get("prerequisite_topics", []),
                     )
