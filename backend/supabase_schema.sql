@@ -531,3 +531,110 @@ CREATE TABLE IF NOT EXISTS public.build_evidence (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- ==============================================================================
+-- EPIC 7: SPRINT 7 - AI RESUME BUILDER & ATS RESUME CHECKER (LAUNCH V1)
+-- ==============================================================================
+
+CREATE TYPE resume_source AS ENUM ('profile', 'manual');
+CREATE TYPE resume_status AS ENUM ('draft', 'generated');
+CREATE TYPE ats_analysis_status AS ENUM ('completed', 'failed');
+CREATE TYPE ats_file_type AS ENUM ('pdf', 'docx');
+
+CREATE TABLE IF NOT EXISTS public.launch_resumes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    learner_id UUID NOT NULL REFERENCES public.learner_profiles(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    source resume_source NOT NULL DEFAULT 'manual',
+    status resume_status NOT NULL DEFAULT 'draft',
+    content JSONB NOT NULL DEFAULT '{}'::jsonb,
+    preferences JSONB DEFAULT '{}'::jsonb,
+    provider VARCHAR(50) DEFAULT 'template',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.launch_ats_analyses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    learner_id UUID NOT NULL REFERENCES public.learner_profiles(id) ON DELETE CASCADE,
+    status ats_analysis_status NOT NULL DEFAULT 'completed',
+    file_name VARCHAR(255) NOT NULL,
+    file_type ats_file_type NOT NULL,
+    storage_key VARCHAR(512) NULL,
+    page_count INT NULL,
+    extracted_character_count INT NOT NULL DEFAULT 0,
+    score JSONB DEFAULT NULL,
+    summary TEXT NOT NULL DEFAULT '',
+    findings JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Row Level Security (RLS)
+ALTER TABLE public.launch_resumes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own resumes" ON public.launch_resumes
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = launch_resumes.learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert their own resumes" ON public.launch_resumes
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can update their own resumes" ON public.launch_resumes
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = launch_resumes.learner_id AND user_id = auth.uid()
+        )
+    ) WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Service role full access on launch_resumes" ON public.launch_resumes
+    FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.launch_ats_analyses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own ats analyses" ON public.launch_ats_analyses
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = launch_ats_analyses.learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can insert their own ats analyses" ON public.launch_ats_analyses
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Users can update their own ats analyses" ON public.launch_ats_analyses
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = launch_ats_analyses.learner_id AND user_id = auth.uid()
+        )
+    ) WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.learner_profiles 
+            WHERE id = learner_id AND user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Service role full access on launch_ats_analyses" ON public.launch_ats_analyses
+    FOR ALL USING (true) WITH CHECK (true);
+
+
