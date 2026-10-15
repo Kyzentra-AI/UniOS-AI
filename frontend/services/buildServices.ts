@@ -1,252 +1,87 @@
-
 import { apiRequest } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
-
 import type {
-  Artifact,
-  ArtifactVersion,
-  BuildCoachRequest,
-  BuildCoachResponse,
-  CreateArtifactInput,
-  CreateArtifactVersionInput,
-  CreateEvidenceInput,
-  CreateMilestoneInput,
-  CreateProjectInput,
-  CreateTaskInput,
-  Evidence,
-  Milestone,
-  Project,
-  RecommendedProject,
-  Task,
-  UpdateMilestoneInput,
-  UpdateProjectInput,
-  UpdateTaskInput,
+  Artifact, ArtifactVersion, BuildCoachRequest, BuildCoachResponse, CreateArtifactInput,
+  CreateArtifactVersionInput, CreateEvidenceInput, CreateMilestoneInput, CreateProjectInput,
+  CreateTaskInput, Evidence, Milestone, Project, ProjectRecommendationResponse,
+  RecommendedProject, Task, UpdateMilestoneInput, UpdateProjectInput, UpdateTaskInput,
 } from '@/types/build';
 
 const BASE = '/api/v1/build';
-
 function getAuthHeaders(): HeadersInit {
-  const accessToken = getAccessToken();
-
-  if (!accessToken) {
-    throw new Error('Authentication required. Please log in again.');
-  }
-
-  return {
-    Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-  };
+  const token = getAccessToken();
+  if (!token) throw new Error('Authentication required. Please log in again.');
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
-
-function jsonBody(body: unknown) {
-  return {
-    headers: getAuthHeaders(),
-    body: JSON.stringify(body),
-  };
-}
+function jsonBody(value: unknown): string { return JSON.stringify(value); }
 
 export const buildServices = {
-  async listProjects(): Promise<Project[]> {
-    return apiRequest<Project[]>(`${BASE}/projects`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
-  },
-
-  async getProject(id: string): Promise<Project> {
-    return apiRequest<Project>(`${BASE}/projects/${id}`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
-  },
-
-  async createProject(input: CreateProjectInput): Promise<Project> {
-    return apiRequest<Project>(`${BASE}/projects`, {
-      method: 'POST',
-      ...jsonBody(input),
-    });
-  },
-
-  async updateProject(
-    id: string,
-    input: UpdateProjectInput,
-  ): Promise<Project> {
-    return apiRequest<Project>(`${BASE}/projects/${id}`, {
-      method: 'PATCH',
-      ...jsonBody(input),
-    });
-  },
-
   async getRecommendations(): Promise<RecommendedProject[]> {
-    const result = await apiRequest<
-      { recommendations: RecommendedProject[] } | RecommendedProject[]
-    >(`${BASE}/recommendations`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
-
-    return Array.isArray(result)
-      ? result
-      : result.recommendations ?? [];
+    const response = await apiRequest<ProjectRecommendationResponse>(`${BASE}/recommendations`, { method: 'GET', headers: getAuthHeaders() });
+    return Array.isArray(response?.recommendations) ? response.recommendations : [];
   },
-
-  async listMilestones(projectId: string): Promise<Milestone[]> {
-    return apiRequest<Milestone[]>(
-      `${BASE}/projects/${projectId}/milestones`,
-      {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      },
-    );
+  async listProjects(): Promise<Project[]> {
+    const response = await apiRequest<Project[] | { projects?: Project[] }>(`${BASE}/projects`, { method: 'GET', headers: getAuthHeaders() });
+    return Array.isArray(response) ? response : response?.projects ?? [];
   },
-
-  async listTasks(projectId: string): Promise<Task[]> {
-    return apiRequest<Task[]>(
-      `${BASE}/projects/${projectId}/tasks`,
-      {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      },
-    );
+  createProject(payload: CreateProjectInput): Promise<Project> {
+    return apiRequest<Project>(`${BASE}/projects`, { method: 'POST', headers: getAuthHeaders(), body: jsonBody(payload) });
   },
-
-  async listArtifacts(projectId: string): Promise<Artifact[]> {
-    return apiRequest<Artifact[]>(
-      `${BASE}/projects/${projectId}/artifacts`,
-      {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      },
-    );
+  getProject(projectId: string): Promise<Project> {
+    return apiRequest<Project>(`${BASE}/projects/${encodeURIComponent(projectId)}`, { method: 'GET', headers: getAuthHeaders() });
   },
-
-  async listEvidence(projectId: string): Promise<Evidence[]> {
-    return apiRequest<Evidence[]>(
-      `${BASE}/projects/${projectId}/evidence`,
-      {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      },
-    );
+  updateProject(projectId: string, payload: UpdateProjectInput): Promise<Project> {
+    return apiRequest<Project>(`${BASE}/projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', headers: getAuthHeaders(), body: jsonBody(payload) });
   },
-
-  async generatePlan(id: string): Promise<unknown> {
-    return apiRequest<unknown>(
-      `${BASE}/projects/${id}/plan-generate`,
-      {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      },
-    );
+  async getMilestones(projectId: string): Promise<Milestone[]> {
+    const response = await apiRequest<Milestone[] | { milestones?: Milestone[] }>(`${BASE}/projects/${encodeURIComponent(projectId)}/milestones`, { method: 'GET', headers: getAuthHeaders() });
+    return Array.isArray(response) ? response : response?.milestones ?? [];
   },
-
-  async createMilestone(
-    input: CreateMilestoneInput,
-  ): Promise<Milestone> {
-    const { projectId, ...body } = input;
-
-    return apiRequest<Milestone>(
-      `${BASE}/projects/${projectId}/milestones`,
-      {
-        method: 'POST',
-        ...jsonBody(body),
-      },
-    );
+  async getTasks(projectId: string): Promise<Task[]> {
+    const response = await apiRequest<Task[] | { tasks?: Task[] }>(`${BASE}/projects/${encodeURIComponent(projectId)}/tasks`, { method: 'GET', headers: getAuthHeaders() });
+    return Array.isArray(response) ? response : response?.tasks ?? [];
   },
-
-  async updateMilestone(
-    id: string,
-    input: UpdateMilestoneInput,
-  ): Promise<Milestone> {
-    return apiRequest<Milestone>(`${BASE}/milestones/${id}`, {
-      method: 'PATCH',
-      ...jsonBody(input),
-    });
+  async getArtifacts(projectId: string): Promise<Artifact[]> {
+    const response = await apiRequest<Artifact[] | { artifacts?: Artifact[] }>(`${BASE}/projects/${encodeURIComponent(projectId)}/artifacts`, { method: 'GET', headers: getAuthHeaders() });
+    return Array.isArray(response) ? response : response?.artifacts ?? [];
   },
-
-  async createTask(input: CreateTaskInput): Promise<Task> {
-    const { projectId, ...body } = input;
-
-    return apiRequest<Task>(
-      `${BASE}/projects/${projectId}/tasks`,
-      {
-        method: 'POST',
-        ...jsonBody(body),
-      },
-    );
+  async getEvidence(projectId: string): Promise<Evidence[]> {
+    const response = await apiRequest<Evidence[] | { evidence?: Evidence[] }>(`${BASE}/projects/${encodeURIComponent(projectId)}/evidence`, { method: 'GET', headers: getAuthHeaders() });
+    return Array.isArray(response) ? response : response?.evidence ?? [];
   },
-
-  async updateTask(
-    id: string,
-    input: UpdateTaskInput,
-  ): Promise<Task> {
-    return apiRequest<Task>(`${BASE}/tasks/${id}`, {
-      method: 'PATCH',
-      ...jsonBody(input),
-    });
+  generatePlan(projectId: string): Promise<unknown> {
+    return apiRequest(`${BASE}/projects/${encodeURIComponent(projectId)}/plan-generate`, { method: 'POST', headers: getAuthHeaders() });
   },
-
-  async createArtifact(input: CreateArtifactInput): Promise<Artifact> {
-    const { projectId, ...body } = input;
-
-    return apiRequest<Artifact>(
-      `${BASE}/projects/${projectId}/artifacts`,
-      {
-        method: 'POST',
-        ...jsonBody(body),
-      },
-    );
+  createMilestone(input: CreateMilestoneInput): Promise<Milestone> {
+    const { projectId, ...payload } = input;
+    return apiRequest<Milestone>(`${BASE}/projects/${encodeURIComponent(projectId)}/milestones`, { method: 'POST', headers: getAuthHeaders(), body: jsonBody(payload) });
   },
-
-  async createArtifactVersion(
-    artifactId: string,
-    input: CreateArtifactVersionInput,
-  ): Promise<ArtifactVersion> {
-    return apiRequest<ArtifactVersion>(
-      `${BASE}/artifacts/${artifactId}/versions`,
-      {
-        method: 'POST',
-        ...jsonBody({
-          file_name: input.fileName,
-          file_size: input.fileSize,
-          storage_key: input.storageKey,
-        }),
-      },
-    );
+  updateMilestone(milestoneId: string, payload: UpdateMilestoneInput): Promise<Milestone> {
+    return apiRequest<Milestone>(`${BASE}/milestones/${encodeURIComponent(milestoneId)}`, { method: 'PATCH', headers: getAuthHeaders(), body: jsonBody(payload) });
   },
-
-  async createEvidence(input: CreateEvidenceInput): Promise<Evidence> {
-    const { projectId, ...body } = input;
-
-    return apiRequest<Evidence>(
-      `${BASE}/projects/${projectId}/evidence`,
-      {
-        method: 'POST',
-        ...jsonBody(body),
-      },
-    );
+  createTask(input: CreateTaskInput): Promise<Task> {
+    const { projectId, ...payload } = input;
+    return apiRequest<Task>(`${BASE}/projects/${encodeURIComponent(projectId)}/tasks`, { method: 'POST', headers: getAuthHeaders(), body: jsonBody(payload) });
   },
-
-  async askCoach(
-    projectId: string,
-    input: BuildCoachRequest,
-  ): Promise<BuildCoachResponse> {
-    return apiRequest<BuildCoachResponse>(
-      `${BASE}/projects/${projectId}/coach`,
-      {
-        method: 'POST',
-        ...jsonBody(input),
-      },
-    );
+  updateTask(taskId: string, payload: UpdateTaskInput): Promise<Task> {
+    return apiRequest<Task>(`${BASE}/tasks/${encodeURIComponent(taskId)}`, { method: 'PATCH', headers: getAuthHeaders(), body: jsonBody(payload) });
   },
-
-  async completeProject(id: string): Promise<Project> {
-    return apiRequest<Project>(
-      `${BASE}/projects/${id}/complete`,
-      {
-        method: 'POST',
-        ...jsonBody({}),
-      },
-    );
+  createArtifact(input: CreateArtifactInput): Promise<Artifact> {
+    const { projectId, ...payload } = input;
+    return apiRequest<Artifact>(`${BASE}/projects/${encodeURIComponent(projectId)}/artifacts`, { method: 'POST', headers: getAuthHeaders(), body: jsonBody(payload) });
+  },
+  createArtifactVersion(artifactId: string, payload: CreateArtifactVersionInput): Promise<ArtifactVersion> {
+    const body = { file_name: payload.fileName, file_size: payload.fileSize, storage_key: payload.storageKey };
+    return apiRequest<ArtifactVersion>(`${BASE}/artifacts/${encodeURIComponent(artifactId)}/versions`, { method: 'POST', headers: getAuthHeaders(), body: jsonBody(body) });
+  },
+  createEvidence(input: CreateEvidenceInput): Promise<Evidence> {
+    const { projectId, ...payload } = input;
+    return apiRequest<Evidence>(`${BASE}/projects/${encodeURIComponent(projectId)}/evidence`, { method: 'POST', headers: getAuthHeaders(), body: jsonBody(payload) });
+  },
+  askCoach(projectId: string, payload: BuildCoachRequest): Promise<BuildCoachResponse> {
+    return apiRequest<BuildCoachResponse>(`${BASE}/projects/${encodeURIComponent(projectId)}/coach`, { method: 'POST', headers: getAuthHeaders(), body: jsonBody(payload) });
+  },
+  completeProject(projectId: string): Promise<Project> {
+    return apiRequest<Project>(`${BASE}/projects/${encodeURIComponent(projectId)}/complete`, { method: 'POST', headers: getAuthHeaders() });
   },
 };

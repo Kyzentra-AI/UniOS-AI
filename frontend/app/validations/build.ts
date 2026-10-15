@@ -1,133 +1,23 @@
-
 import { z } from 'zod';
 
-const optionalTrimmedString = (max: number, message: string) =>
-  z.string().trim().max(max, message).optional();
+const optionalText = z.string().trim().optional().or(z.literal(''));
+export const projectTypes = ['CODING', 'RESEARCH', 'BUSINESS', 'ANALYSIS', 'DESIGN', 'OTHER'] as const;
+export const projectStatuses = ['DRAFT', 'ACTIVE', 'COMPLETED', 'ARCHIVED'] as const;
+export const artifactTypes = ['DOCUMENT', 'UPLOAD', 'DELIVERABLE', 'PRESENTATION', 'EVIDENCE'] as const;
 
 export const createProjectSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(3, 'Project title must be at least 3 characters.')
-    .max(100, 'Project title cannot exceed 100 characters.'),
-
-  description: optionalTrimmedString(
-    1000,
-    'Description cannot exceed 1000 characters.',
-  ),
-
-  type: z.enum([
-    'CODING',
-    'RESEARCH',
-    'BUSINESS',
-    'ANALYSIS',
-    'DESIGN',
-    'OTHER',
-  ]),
-
-  domain: optionalTrimmedString(
-    100,
-    'Domain cannot exceed 100 characters.',
-  ),
-
-  goal: optionalTrimmedString(
-    500,
-    'Goal cannot exceed 500 characters.',
-  ),
-
-  skills: z
-    .array(z.string().trim().min(1, 'Skill cannot be empty.'))
-    .max(20, 'Maximum 20 skills allowed.')
-    .default([]),
+  title: z.string().trim().min(3, 'Enter a project title of at least 3 characters.').max(120, 'Keep the title under 120 characters.'),
+  description: optionalText,
+  type: z.enum(projectTypes),
+  domain: optionalText,
+  goal: optionalText,
+  skills: z.array(z.string().trim().min(1)).default([]),
 });
+export const updateProjectSchema = createProjectSchema.partial().extend({ status: z.enum(projectStatuses).optional() });
+export const createMilestoneSchema = z.object({ title: z.string().trim().min(2).max(160), description: optionalText, orderIdx: z.number().int().min(0).optional() });
+export const createTaskSchema = z.object({ title: z.string().trim().min(2).max(160), description: optionalText, milestoneId: z.string().optional(), orderIdx: z.number().int().min(0).optional() });
+export const createArtifactSchema = z.object({ title: z.string().trim().min(2).max(160), description: optionalText, type: z.enum(artifactTypes) });
+export const createEvidenceSchema = z.object({ title: z.string().trim().min(2).max(160), description: optionalText, artifactId: z.string().optional(), skills: z.array(z.string().trim().min(1)).default([]) });
+export const buildCoachSchema = z.object({ intent: z.string().trim().min(1), message: z.string().trim().min(1).max(5000) });
 
-export const createMilestoneSchema = z.object({
-  projectId: z.string().min(1, 'Project ID is required.'),
-
-  title: z
-    .string()
-    .trim()
-    .min(3, 'Milestone title must be at least 3 characters.')
-    .max(150, 'Milestone title cannot exceed 150 characters.'),
-
-  description: optionalTrimmedString(
-    500,
-    'Description cannot exceed 500 characters.',
-  ),
-});
-
-export const createTaskSchema = z.object({
-  projectId: z.string().min(1, 'Project ID is required.'),
-
-  milestoneId: z.string().optional(),
-
-  title: z
-    .string()
-    .trim()
-    .min(3, 'Task title must be at least 3 characters.')
-    .max(150, 'Task title cannot exceed 150 characters.'),
-
-  description: optionalTrimmedString(
-    500,
-    'Description cannot exceed 500 characters.',
-  ),
-});
-
-export const createArtifactSchema = z.object({
-  projectId: z.string().min(1, 'Project ID is required.'),
-
-  title: z
-    .string()
-    .trim()
-    .min(3, 'Artifact title must be at least 3 characters.')
-    .max(150, 'Artifact title cannot exceed 150 characters.'),
-
-  description: optionalTrimmedString(
-    1000,
-    'Description cannot exceed 1000 characters.',
-  ),
-
-  type: z.enum([
-    'DOCUMENT',
-    'UPLOAD',
-    'DELIVERABLE',
-    'PRESENTATION',
-    'EVIDENCE',
-  ]),
-
-  fileName: z.string().optional(),
-
-  fileSize: z
-    .number()
-    .int()
-    .nonnegative('File size cannot be negative.')
-    .optional(),
-});
-
-export const createEvidenceSchema = z.object({
-  projectId: z.string().min(1, 'Project ID is required.'),
-
-  artifactId: z.string().optional(),
-
-  title: z
-    .string()
-    .trim()
-    .min(3, 'Evidence title must be at least 3 characters.')
-    .max(150, 'Evidence title cannot exceed 150 characters.'),
-
-  description: optionalTrimmedString(
-    1000,
-    'Description cannot exceed 1000 characters.',
-  ),
-
-  skills: z
-    .array(z.string().trim().min(1, 'Skill cannot be empty.'))
-    .max(20, 'Maximum 20 skills allowed.')
-    .default([]),
-});
-
-export type CreateProjectForm = z.infer<typeof createProjectSchema>;
-export type CreateMilestoneForm = z.infer<typeof createMilestoneSchema>;
-export type CreateTaskForm = z.infer<typeof createTaskSchema>;
-export type CreateArtifactForm = z.infer<typeof createArtifactSchema>;
-export type CreateEvidenceForm = z.infer<typeof createEvidenceSchema>;
+export type CreateProjectFormValues = z.infer<typeof createProjectSchema>;
