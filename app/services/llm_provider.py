@@ -303,6 +303,15 @@ class BaseLLMProvider(ABC):
         """
         pass
 
+    @abstractmethod
+    def generate_career_response(self, prompt: str) -> _Dict[str, Any]:
+        """Generate structured career response (resume draft or ATS analysis) from a prompt.
+
+        Returns a raw dict that the career_service validates against
+        ResumeDraft or ATSAnalyzeResponse before returning to the caller.
+        """
+        pass
+
 
 class MockLLMProvider(BaseLLMProvider):
     """Deterministic, contract-compliant provider for testing and zero-cost local development.
@@ -794,6 +803,109 @@ class MockLLMProvider(BaseLLMProvider):
             "remediation_recommended": remediation,
         }
 
+    def generate_career_response(self, prompt: str) -> _Dict[str, Any]:
+        """Deterministic mock career response (resume generation & ATS analysis) — zero external calls."""
+        prompt_lower = prompt.lower()
+        if "ats intelligence engine" in prompt_lower or "deterministic rule score" in prompt_lower or "rule findings from engine" in prompt_lower:
+            finding_ids = re.findall(r"Finding ID:\s*([^\s\n]+)", prompt)
+            findings = []
+            for fid in finding_ids:
+                findings.append({
+                    "id": fid,
+                    "category": "ats_optimization",
+                    "severity": "suggestion",
+                    "title": f"Actionable ATS enhancement for {fid}",
+                    "description": f"Enriched critique for {fid}: Recruiters and ATS screening engines require higher metric density and active verbs.",
+                    "recommendation": "Use the Google XYZ formula: 'Accomplished [X], as measured by [Y], by doing [Z]'.",
+                })
+            return {
+                "summary": "Candidate displays strong technical foundations and software development background. However, the resume exhibits critical ATS filter liabilities including missing metrics, lack of quantified project impact, and unformatted contact links. Addressing these gaps will improve candidate screening rates.",
+                "findings": findings,
+            }
+        else:
+            target_role_match = re.search(r"Target Role:\s*'([^']+)'", prompt)
+            target_role = target_role_match.group(1) if target_role_match else "Software Engineer"
+
+            phone_match = re.search(r"- Phone:\s*([^\n]+)", prompt)
+            email_match = re.search(r"- Email:\s*([^\n]+)", prompt)
+            full_name_match = re.search(r"- Full Name:\s*([^\n]+)", prompt)
+            location_match = re.search(r"- Location:\s*([^\n]+)", prompt)
+            linkedin_match = re.search(r"- LinkedIn:\s*([^\n]+)", prompt)
+            github_match = re.search(r"- GitHub:\s*([^\n]+)", prompt)
+            portfolio_match = re.search(r"- Portfolio:\s*([^\n]+)", prompt)
+
+            no_edu = "[no education entries provided" in prompt_lower
+            no_exp = "[no work experience provided" in prompt_lower
+            no_proj = "[no projects provided" in prompt_lower
+            no_ach = "[no achievements provided" in prompt_lower
+
+            edu_ids = re.findall(r"\(ID:\s*([^)]+)\)", prompt)
+            
+            education = []
+            if not no_edu:
+                education.append({
+                    "id": edu_ids[0] if edu_ids else "edu-001",
+                    "institution": "University of Technology",
+                    "degree": "Bachelor of Science",
+                    "fieldOfStudy": "Computer Science",
+                    "startDate": "2020-09",
+                    "endDate": "2024-05",
+                    "grade": "3.8 GPA",
+                })
+
+            experience = []
+            if not no_exp:
+                experience.append({
+                    "id": "exp-001",
+                    "company": "Acme Innovations",
+                    "role": f"Backend Engineer ({target_role})",
+                    "location": "Remote",
+                    "startDate": "2023-06",
+                    "endDate": "2023-09",
+                    "isCurrent": False,
+                    "description": "Architected distributed message processing queue handling 100k events/sec with 99.99% availability.",
+                })
+
+            projects = []
+            if not no_proj:
+                projects.append({
+                    "id": "proj-001",
+                    "name": "Cloud Ledger System",
+                    "description": "Engineered event-driven ledger system with automated reconciliation and real-time auditing.",
+                    "technologies": ["Python", "FastAPI", "PostgreSQL", "Docker"],
+                    "projectUrl": "https://github.com/example/ledger",
+                    "startDate": "2023-01",
+                    "endDate": "2023-05",
+                })
+
+            achievements = []
+            if not no_ach:
+                achievements.append({
+                    "id": "ach-001",
+                    "title": "AWS Certified Solutions Architect",
+                    "description": "Demonstrated mastery of distributed cloud architecture and security principles.",
+                    "date": "2024-01",
+                })
+
+            return {
+                "contact": {
+                    "fullName": full_name_match.group(1).strip() if full_name_match else "Jane Doe",
+                    "email": email_match.group(1).strip() if email_match else "jane.doe@example.com",
+                    "phone": phone_match.group(1).strip() if phone_match else None,
+                    "location": location_match.group(1).strip() if location_match else "San Francisco, CA",
+                    "linkedInUrl": linkedin_match.group(1).strip() if linkedin_match else None,
+                    "githubUrl": github_match.group(1).strip() if github_match else None,
+                    "portfolioUrl": portfolio_match.group(1).strip() if portfolio_match else None,
+                },
+                "headline": f"Impact-Driven {target_role}",
+                "summary": f"Results-focused software engineering specialist targeting {target_role} with strong background in distributed systems and performance optimization.",
+                "skills": ["Python", "FastAPI", "Docker", "PostgreSQL", "System Design"],
+                "education": education,
+                "experience": experience,
+                "projects": projects,
+                "achievements": achievements,
+            }
+
 
 class GroqLLMProvider(BaseLLMProvider):
     """Live LLM provider backed by Groq Cloud for fast inference.
@@ -1039,6 +1151,33 @@ class GroqLLMProvider(BaseLLMProvider):
         except Exception as e:
             raise LLMParseError(
                 f"Failed to parse build coaching response from LLM: {str(e)}",
+                raw_content=raw_content,
+            )
+
+    def generate_career_response(self, prompt: str) -> _Dict[str, Any]:
+        """Calls Groq LLM to generate structured career response JSON."""
+        system_instruction = (
+            "You are the UniOS Career Intelligence Engine (AI/ML-2 KIE). "
+            "Output strictly valid JSON matching the schema specified in the user prompt. "
+            "Do NOT output conversational preamble, markdown outside the JSON block, or HTML/JSX code."
+        )
+        raw_content = self._safe_chat_completion(
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=1500,
+            temperature=settings.LLM_TEMPERATURE,
+        )
+        json_text = extract_json_payload(raw_content)
+        try:
+            data = json.loads(json_text)
+            if not isinstance(data, dict):
+                raise ValueError("Parsed JSON response is not an object dictionary.")
+            return data
+        except Exception as e:
+            raise LLMParseError(
+                f"Failed to parse career response from LLM: {str(e)}",
                 raw_content=raw_content,
             )
 

@@ -44,6 +44,16 @@ from app.services.build_prompt_builder import (
 
 
 
+from app.services.career_service import (
+    CareerService,
+    get_career_service,
+)
+from app.services.career_prompt_builder import (
+    build_resume_generation_prompt,
+    build_ats_analysis_prompt,
+)
+
+
 __all__ = [
     "BaseLLMProvider",
     "MockLLMProvider",
@@ -73,5 +83,9 @@ __all__ = [
     "coaching_response_to_public",
     "build_coach_prompt",
     "build_recommend_prompt",
+    "CareerService",
+    "get_career_service",
+    "build_resume_generation_prompt",
+    "build_ats_analysis_prompt",
 ]
 
