@@ -22,45 +22,45 @@ export default function RoadmapSummary() {
   }
 
   if (isError || !roadmap) {
-    return (
-      <section
-        className="rounded-2xl border p-6"
-        style={{
-          backgroundColor: 'var(--surface)',
-          borderColor: 'var(--border)',
-        }}
+  return (
+    <section
+      className="rounded-2xl border p-6"
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--surface)",
+      }}
+    >
+      <h2
+        className="text-lg font-semibold"
+        style={{ color: "var(--text-primary)" }}
       >
-        <h2
-          className="text-xl font-semibold"
-          style={{
-            color: 'var(--text-primary)',
-          }}
-        >
-          Your Roadmap
-        </h2>
+        Your Roadmap
+      </h2>
 
-        <p
-          className="mt-2 text-sm"
-          style={{
-            color: 'var(--text-secondary)',
-          }}
-        >
-          Your roadmap is not available yet.
-        </p>
+      <p
+        className="mt-2 text-sm"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        {isError
+          ? "We couldn’t load your roadmap right now."
+          : "Your roadmap hasn’t been generated yet. Upload your syllabus to get started."}
+      </p>
 
+      {!isError && (
         <Link
-          href="/roadmap"
-          className="mt-4 inline-block text-sm font-medium"
+          href="/syllabus"
+          className="mt-4 inline-flex rounded-lg px-4 py-2 text-sm font-medium"
           style={{
-            color: 'var(--primary)',
+            backgroundColor: "var(--text-primary)",
+            color: "var(--background)",
           }}
         >
-          Open roadmap →
+          Upload Syllabus →
         </Link>
-      </section>
-    );
-  }
-
+      )}
+    </section>
+  );
+}
   const completedMissions =
     roadmap.missions.filter(
       (mission) =>

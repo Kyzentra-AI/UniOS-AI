@@ -11,6 +11,7 @@ import {
   saveSession,
   getRememberMe,
 } from '@/lib/auth';
+import { getOnboardingState } from '@/services/onboardingServices';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -162,6 +163,36 @@ export default function MFASetup() {
       );
 
       setCode('');
+
+      try {
+  const onboarding = await getOnboardingState();
+
+  switch (onboarding.status) {
+    case 'COMPLETED':
+      router.replace('/dashboard');
+      break;
+
+    case 'KIE_ANALYZING':
+    case 'KIE_QUESTIONS_READY':
+    case 'KIE_RESOLVING':
+    case 'KIE_COMPLETED':
+      router.replace('/onboarding/assessment');
+      break;
+
+    case 'NOT_STARTED':
+    case 'IN_PROGRESS':
+    default:
+      router.replace('/onboarding/education');
+      break;
+  }
+} catch (error) {
+  console.error(
+    'Failed to determine onboarding status:',
+    error
+  );
+
+  router.replace('/onboarding/education');
+}
 
       router.replace('/onboarding/education');
     } catch (err) {

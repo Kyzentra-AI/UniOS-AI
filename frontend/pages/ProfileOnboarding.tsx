@@ -125,12 +125,14 @@ export default function ProfileOnboarding() {
 
       if (onboardingStatus === 'NOT_STARTED') {
         await initializeOnboarding(payload);
-      } else if (
-        onboardingStatus === 'IN_PROGRESS' ||
-        onboardingStatus === 'KIE_ANALYZING' ||
-        onboardingStatus === 'KIE_RESOLVING'
-      ) {
-        await updateOnboarding(payload);
+      }  else if (
+  onboardingStatus === 'IN_PROGRESS' ||
+  onboardingStatus === 'KIE_ANALYZING' ||
+  onboardingStatus === 'KIE_QUESTIONS_READY' ||
+  onboardingStatus === 'KIE_RESOLVING' ||
+  onboardingStatus === 'KIE_COMPLETED'
+) {
+  await updateOnboarding(payload);
       } else if (onboardingStatus === 'COMPLETED') {
         console.error('Onboarding is already completed.');
         return;

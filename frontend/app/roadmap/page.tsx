@@ -2,8 +2,10 @@
 
 import Roadmap from "@/components/roadmap/Roadmap";
 import { useRoadmap } from "@/hooks/useRoadmap";
+import { useRouter } from "next/navigation";
 
 export default function RoadmapPage() {
+  const router = useRouter();
   const {
     roadmap,
     isLoading,
@@ -78,14 +80,11 @@ export default function RoadmapPage() {
     <main className="min-h-screen px-6 py-8">
       <div className="mx-auto max-w-6xl">
         <Roadmap
-          roadmap={roadmap}
-          onMissionClick={(mission) => {
-            console.log(
-              "Selected mission:",
-              mission.id
-            );
-          }}
-        />
+  roadmap={roadmap}
+  onMissionClick={(mission) => {
+    router.push(`/missions/${mission.id}`);
+  }}
+/>
       </div>
     </main>
   );

@@ -131,116 +131,115 @@ export default function Assessment({
   const selectedOptions = Array.isArray(selectedAnswer)
     ? selectedAnswer
     : [];
+return (
+  <div className="mx-auto w-full max-w-3xl">
+    <div className="mb-8">
+      <p className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
+        Getting to know you
+      </p>
 
-  return (
-    <div className="mx-auto w-full max-w-3xl">
-      <div className="mb-8">
-        <p className="mb-2 text-sm font-medium text-neutral-500">
-          Getting to know you
-        </p>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
+          A few questions about you
+        </h1>
 
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-neutral-900">
-            A few questions about you
-          </h1>
-
-          <span className="text-sm text-neutral-500">
-            {currentIndex + 1} / {questions.length}
-          </span>
-        </div>
-
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
-          <div
-            className="h-full rounded-full bg-neutral-900 transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        <span className="text-sm text-[var(--text-secondary)]">
+          {currentIndex + 1} / {questions.length}
+        </span>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-6 text-lg font-medium leading-7 text-neutral-900">
-          {currentQuestion.text}
-        </h2>
-
-        {isTextQuestion && (
-          <textarea
-            value={
-              typeof selectedAnswer === 'string'
-                ? selectedAnswer
-                : ''
-            }
-            onChange={(event) =>
-              handleTextChange(event.target.value)
-            }
-            placeholder="Type your answer..."
-            disabled={isSubmitting}
-            rows={5}
-            className="w-full resize-none rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none transition focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 disabled:cursor-not-allowed disabled:bg-neutral-100"
-          />
-        )}
-
-        {(isSingleSelect || isMultiSelect) && (
-          <div className="space-y-3">
-            {currentQuestion.options.map((option) => {
-              const isSelected = isMultiSelect
-                ? selectedOptions.includes(option)
-                : selectedAnswer === option;
-
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() =>
-                    isMultiSelect
-                      ? handleMultiSelect(option)
-                      : handleSingleSelect(option)
-                  }
-                  disabled={isSubmitting}
-                  className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${
-                    isSelected
-                      ? 'border-neutral-900 bg-neutral-900 text-white'
-                      : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400'
-                  } disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  {option}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {!isTextQuestion &&
-          !isSingleSelect &&
-          !isMultiSelect && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              This question type is not supported yet.
-            </div>
-          )}
-      </div>
-
-      <div className="mt-6 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={handlePrevious}
-          disabled={currentIndex === 0 || isSubmitting}
-          className="rounded-xl border border-neutral-200 px-5 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Back
-        </button>
-
-        <button
-          type="button"
-          onClick={handleNext}
-          disabled={!hasAnswer || isSubmitting}
-          className="rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {isSubmitting
-            ? 'Submitting...'
-            : isLastQuestion
-              ? 'Submit'
-              : 'Next'}
-        </button>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]">
+        <div
+          className="h-full rounded-full bg-[var(--primary)] transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
       </div>
     </div>
-  );
+
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+      <h2 className="mb-6 text-lg font-medium leading-7 text-[var(--text-primary)]">
+        {currentQuestion.text}
+      </h2>
+
+      {isTextQuestion && (
+        <textarea
+          value={
+            typeof selectedAnswer === 'string'
+              ? selectedAnswer
+              : ''
+          }
+          onChange={(event) =>
+            handleTextChange(event.target.value)
+          }
+          placeholder="Type your answer..."
+          disabled={isSubmitting}
+          rows={5}
+          className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)]"
+        />
+      )}
+
+      {(isSingleSelect || isMultiSelect) && (
+        <div className="space-y-3">
+          {currentQuestion.options.map((option) => {
+            const isSelected = isMultiSelect
+              ? selectedOptions.includes(option)
+              : selectedAnswer === option;
+
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() =>
+                  isMultiSelect
+                    ? handleMultiSelect(option)
+                    : handleSingleSelect(option)
+                }
+                disabled={isSubmitting}
+                className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${
+                  isSelected
+                    ? 'border-[var(--primary)] bg-[var(--primary)] text-white'
+                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:border-[var(--primary)]'
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {option}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {!isTextQuestion &&
+        !isSingleSelect &&
+        !isMultiSelect && (
+          <div className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-soft)] p-4 text-sm text-[var(--danger-text)]">
+            This question type is not supported yet.
+          </div>
+        )}
+    </div>
+
+    <div className="mt-6 flex items-center justify-between">
+      <button
+        type="button"
+        onClick={handlePrevious}
+        disabled={currentIndex === 0 || isSubmitting}
+        className="rounded-xl border border-[var(--border)] px-5 py-2.5 text-sm font-medium text-[var(--text-label)] transition hover:border-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Back
+      </button>
+
+      <button
+        type="button"
+        onClick={handleNext}
+        disabled={!hasAnswer || isSubmitting}
+        className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {isSubmitting
+          ? 'Submitting...'
+          : isLastQuestion
+            ? 'Submit'
+            : 'Next'}
+      </button>
+    </div>
+  </div>
+);
 }

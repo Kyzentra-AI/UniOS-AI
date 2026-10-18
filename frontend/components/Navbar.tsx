@@ -1,334 +1,324 @@
+
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { usePathname, useRouter } from 'next/navigation';
+
+import { getSession, logout } from '@/lib/auth';
+
+const HIDDEN_ROUTES = [
+  '/login',
+  '/register',
+  '/mfa-verify',
+  '/mfa-enroll',
+  '/mfa-setup',
+  '/reset-password',
+  '/forgot-password',
+  '/verify-email',
+  '/onboarding',
+  '/syllabus',
+];
+
+const PUBLIC_LINKS = [
+  { label: 'Product', href: '/#product' },
+  { label: 'Solutions', href: '/#solutions' },
+  { label: 'Resources', href: '/#resources' },
+  { label: 'Pricing', href: '/#pricing' },
+];
+
+const AUTH_LINKS = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Roadmap', href: '/roadmap' },
+  { label: 'Build', href: '/build' },
+  { label: 'Launch', href: '/launch' },
+  { label: 'Compete', href: '/compete' },
+];
+
+interface JwtPayload {
+  email?: string;
+  name?: string;
+  full_name?: string;
+  user_metadata?: {
+    name?: string;
+    full_name?: string;
+    email?: string;
+  };
+}
+
+function getAvatarInitials(token: string | null): string {
+  if (!token) return 'U';
+
+  try {
+    const payloadPart = token.split('.')[1];
+
+    if (!payloadPart) return 'U';
+
+    const base64 = payloadPart
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    const decoded = atob(
+      base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+    );
+
+    const payload = JSON.parse(decoded) as JwtPayload;
+
+    const name =
+      payload.user_metadata?.full_name ||
+      payload.user_metadata?.name ||
+      payload.full_name ||
+      payload.name;
+
+    if (name?.trim()) {
+      const parts = name.trim().split(/\s+/);
+
+      return parts.length > 1
+        ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+        : parts[0].slice(0, 2).toUpperCase();
+    }
+
+    const email =
+      payload.user_metadata?.email || payload.email;
+
+    return email?.trim()
+      ? email.trim()[0].toUpperCase()
+      : 'U';
+  } catch {
+    return 'U';
+  }
+}
 
 export default function Navbar() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+  const pathname = usePathname() ?? '';
+  const router = useRouter();
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [avatarInitials, setAvatarInitials] = useState('U');
 
-  const pathname = usePathname();
+  const syncAuthState = useCallback(() => {
+    const session = getSession();
+    const token = session?.access_token || null;
 
-  useEffect(() => {
-    const checkSession = () => {
-      setIsLoggedIn(!!getSession()?.access_token);
-    };
-
-    checkSession();
-
-    window.addEventListener('auth-change', checkSession);
-
-    return () => {
-      window.removeEventListener('auth-change', checkSession);
-    };
+    setIsLoggedIn(Boolean(token));
+    setAvatarInitials(getAvatarInitials(token));
   }, []);
 
-  const hideNavbarRoutes = [
-    '/login',
-    '/register',
-    '/mfa-verify',
-    '/mfa-enroll',
-    '/mfa-setup',
-    '/reset-password',
-    '/forgot-password',
-    '/verify-email',
-    '/onboarding',
-    '/syllabus',
-  ];
+  useEffect(() => {
+    syncAuthState();
 
-  if (
-    pathname &&
-    hideNavbarRoutes.some(
-      (route) =>
-        pathname === route ||
-        pathname.startsWith(`${route}/`)
-    )
-  ) {
-    return null;
-  }
+    window.addEventListener('auth-change', syncAuthState);
 
-  const isActive = (path: string) => pathname === path;
+    return () => {
+      window.removeEventListener('auth-change', syncAuthState);
+    };
+  }, [syncAuthState]);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } finally {
+      setIsLoggedIn(false);
+      setAvatarInitials('U');
+      setIsMobileMenuOpen(false);
+      router.replace('/login');
+      setIsLoggingOut(false);
+    }
+  };
+
+  const hideNavbar = HIDDEN_ROUTES.some(
+    (route) =>
+      pathname === route || pathname.startsWith(`${route}/`)
+  );
+
+  if (hideNavbar) return null;
+
+  const linkClass = (href: string) =>
+    `text-sm font-medium transition-colors ${
+      pathname === href
+        ? 'text-[var(--primary)]'
+        : 'text-[var(--text-secondary)] hover:text-[var(--primary)]'
+    }`;
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-[var(--surface)]/90 backdrop-blur-md border-b border-[var(--border)] font-inter">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <header className="sticky top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-sm">
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Logo */}
+        <Link
+          href={isLoggedIn ? '/dashboard' : '/'}
+          className="flex shrink-0 items-center"
+          aria-label="UniOS.AI home"
+        >
+          <Image
+            src="/logo.svg"
+            alt="UniOS.AI"
+            width={120}
+            height={40}
+            priority
+            className="h-10 w-auto"
+          />
+        </Link>
 
-          {/* Logo */}
-          <div className="flex-shrink-0 flex items-center">
-            <Link href="/">
-              <img
-                className="h-7 w-auto"
-                src="/logo.svg"
-                alt="UniOS.ai"
-              />
-            </Link>
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex md:items-center md:space-x-8">
-            {!isLoggedIn ? (
-              <>
-                <Link
-                  href="#product"
-                  className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
-                >
-                  Product
-                </Link>
-
-                <Link
-                  href="#solutions"
-                  className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
-                >
-                  Solutions
-                </Link>
-
-                <Link
-                  href="#resources"
-                  className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
-                >
-                  Resources
-                </Link>
-
-                <Link
-                  href="#pricing"
-                  className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
-                >
-                  Pricing
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/dashboard"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/dashboard')
-                      ? 'text-[var(--primary)]'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--primary)]'
-                  }`}
-                >
-                  Dashboard
-                </Link>
-
-                <Link
-                  href="/roadmap"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/roadmap')
-                      ? 'text-[var(--primary)]'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--primary)]'
-                  }`}
-                >
-                  Roadmap
-                </Link>
-
-                <Link
-                  href="/projects"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/projects')
-                      ? 'text-[var(--primary)]'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--primary)]'
-                  }`}
-                >
-                  Projects
-                </Link>
-
-                <Link
-                  href="/jobs"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/jobs')
-                      ? 'text-[var(--primary)]'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--primary)]'
-                  }`}
-                >
-                  Jobs
-                </Link>
-              </>
-            )}
-          </div>
-
-          {/* Desktop Right Side */}
-          <div className="hidden md:flex items-center space-x-4">
-            {!isLoggedIn ? (
-              <>
-                <Link
-                  href="/login"
-                  className="text-sm font-semibold text-[var(--text-primary)] hover:text-[var(--primary)] transition-colors"
-                >
-                  Log in
-                </Link>
-
-                <Link
-                  href="/register"
-                  className="text-sm font-semibold bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-5 py-2.5 rounded-xl transition-all shadow-[0_4px_14px_0_var(--primary-shadow)] hover:-translate-y-0.5"
-                >
-                  Get Started Free
-                </Link>
-              </>
-            ) : (
-              <>
-                {/* Notifications */}
-                <button
-                  type="button"
-                  className="p-2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors relative"
-                  aria-label="Notifications"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                    />
-                  </svg>
-
-                  <span className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-                </button>
-
-              
-
-                {/* Profile */}
-                <Link
-                  className="w-9 h-9 rounded-full bg-[var(--surface-muted)] border-2 border-[var(--surface)] shadow-sm overflow-hidden cursor-pointer"
-                  href="/memory"
-                >
-                  <img
-                    src="https://i.pravatar.cc/150?img=11"
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                </Link>
-              </>
-            )}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className="flex items-center md:hidden">
-            <button
-              type="button"
-              onClick={() =>
-                setIsMobileMenuOpen(!isMobileMenuOpen)
-              }
-              className="text-[var(--text-muted)] p-2"
-              aria-label="Toggle menu"
+        {/* Desktop navigation */}
+        <div className="hidden items-center gap-7 md:flex">
+          {(isLoggedIn ? AUTH_LINKS : PUBLIC_LINKS).map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={linkClass(item.href)}
             >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {isMobileMenuOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
-              </svg>
-            </button>
-          </div>
+              {item.label}
+            </Link>
+          ))}
         </div>
-      </div>
 
-      {/* Mobile Menu */}
+        {/* Desktop actions */}
+        <div className="hidden items-center gap-3 md:flex">
+          {isLoggedIn ? (
+            <>
+              <Link
+                href="/memory"
+                aria-label="Open profile"
+                title="Profile"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--primary-soft)] text-sm font-semibold text-[var(--primary)] transition hover:border-[var(--primary)]"
+              >
+                {avatarInitials}
+              </Link>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--primary)] transition hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoggingOut ? 'Signing out...' : 'Sign Out'}
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="px-3 py-2 text-sm font-semibold text-[var(--text-secondary)] transition hover:text-[var(--primary)]"
+              >
+                Log In
+              </Link>
+
+              <Link
+                href="/register"
+                className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--surface)] transition hover:bg-[var(--primary-hover)]"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* Mobile menu toggle */}
+        <button
+          type="button"
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isMobileMenuOpen}
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)] transition hover:bg-[var(--primary-soft)] md:hidden"
+        >
+          {isMobileMenuOpen ? (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="h-6 w-6"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          ) : (
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="h-6 w-6"
+              aria-hidden="true"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+      </nav>
+
+      {/* Mobile navigation */}
       {isMobileMenuOpen && (
-        <div className="md:hidden bg-[var(--surface)] border-t border-[var(--border)] p-4 absolute w-full shadow-lg">
-          <div className="flex flex-col space-y-4">
-            {!isLoggedIn ? (
+        <div className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-4 shadow-md md:hidden">
+          <div className="flex flex-col gap-1">
+            {(isLoggedIn ? AUTH_LINKS : PUBLIC_LINKS).map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="rounded-lg px-3 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
+              >
+                {item.label}
+              </Link>
+            ))}
+
+            <div className="my-2 border-t border-[var(--border)]" />
+
+            {isLoggedIn ? (
               <>
                 <Link
-                  href="#product"
-                  className="text-base font-medium text-[var(--text-primary)]"
+                  href="/memory"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--primary-soft)]"
                 >
-                  Product
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--primary-soft)] font-semibold text-[var(--primary)]">
+                    {avatarInitials}
+                  </span>
+                  Profile
                 </Link>
 
-                <Link
-                  href="#pricing"
-                  className="text-base font-medium text-[var(--text-primary)]"
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="rounded-lg px-3 py-3 text-left text-sm font-semibold text-[var(--danger-text)] transition hover:bg-[var(--danger-soft)] disabled:opacity-60"
                 >
-                  Pricing
-                </Link>
-
-                <div className="h-px bg-[var(--border)] my-2" />
-
-                <Link
-                  href="/login"
-                  className="text-base font-semibold text-[var(--text-primary)]"
-                >
-                  Log in
-                </Link>
-
-                <Link
-                  href="/register"
-                  className="text-base text-center font-semibold bg-[var(--primary)] text-white px-5 py-3 rounded-xl"
-                >
-                  Get Started Free
-                </Link>
+                  {isLoggingOut ? 'Signing out...' : 'Sign Out'}
+                </button>
               </>
             ) : (
               <>
                 <Link
-                  href="/dashboard"
-                  className="text-base font-medium text-[var(--text-primary)]"
+                  href="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="rounded-lg px-3 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--primary-soft)]"
                 >
-                  Dashboard
+                  Log In
                 </Link>
 
                 <Link
-                  href="/roadmap"
-                  className="text-base font-medium text-[var(--text-primary)]"
+                  href="/register"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="rounded-lg bg-[var(--primary)] px-3 py-3 text-center text-sm font-semibold text-[var(--surface)] transition hover:bg-[var(--primary-hover)]"
                 >
-                  Roadmap
+                  Get Started
                 </Link>
-
-                <Link
-                  href="/projects"
-                  className="text-base font-medium text-[var(--text-primary)]"
-                >
-                  Projects
-                </Link>
-
-                <Link
-                  href="/jobs"
-                  className="text-base font-medium text-[var(--text-primary)]"
-                >
-                  Jobs
-                </Link>
-
-                
-
-                <div className="h-px bg-[var(--border)] my-2" />
-
-                <button
-                  type="button"
-                  className="text-left text-base font-semibold text-[var(--danger)]"
-                >
-                  Sign Out
-                </button>
               </>
             )}
           </div>
         </div>
       )}
-
-      
-    </nav>
+    </header>
   );
 }

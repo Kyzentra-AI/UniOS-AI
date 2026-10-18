@@ -7,6 +7,7 @@ import {
 
 import { ApiError, verifyMFA } from '@/lib/api';
 import { getProfile } from '@/services/profileServices';
+import { getOnboardingState } from '@/services/onboardingServices';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -96,15 +97,33 @@ export default function MFAVerify() {
       clearMfaSession();
 
 try {
-  await getProfile();
-  router.replace('/dashboard');
-} catch (error) {
-  if (error instanceof ApiError && error.status === 404) {
-    router.replace('/onboarding/education');
-    return;
-  }
+  const onboarding = await getOnboardingState();
 
-  throw error;
+  switch (onboarding.status) {
+    case 'COMPLETED':
+      router.replace('/dashboard');
+      break;
+
+    case 'KIE_ANALYZING':
+    case 'KIE_QUESTIONS_READY':
+    case 'KIE_RESOLVING':
+    case 'KIE_COMPLETED':
+      router.replace('/onboarding/assessment');
+      break;
+
+    case 'NOT_STARTED':
+    case 'IN_PROGRESS':
+    default:
+      router.replace('/onboarding/education');
+      break;
+  }
+} catch (error) {
+  console.error(
+    'Failed to determine onboarding status:',
+    error
+  );
+
+  router.replace('/onboarding/education');
 }
     } catch (err) {
       console.error(
