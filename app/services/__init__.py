@@ -52,6 +52,11 @@ from app.services.career_prompt_builder import (
     build_resume_generation_prompt,
     build_ats_analysis_prompt,
 )
+from app.services.interpret_engine import (
+    InterpretEngine,
+    get_interpret_engine,
+)
+
 
 
 __all__ = [

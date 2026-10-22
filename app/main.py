@@ -29,6 +29,8 @@ tags_metadata = [
     },
 ]
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="UniOS AI/ML-2 Learning Intelligence Service. Exposes structured intelligence contracts to AI/ML-1 and Backend. Sprint 7: Career Intelligence & ATS Engine.",
@@ -36,8 +38,37 @@ app = FastAPI(
     openapi_tags=tags_metadata,
 )
 
+# Enable CORS for external/backend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Include v1 API capability routes
 app.include_router(api_router, prefix="/api/v1")
+
+
+@app.get("/", tags=["Health"], summary="UniOS Service Root Index")
+def root_index():
+    return {
+        "service": settings.APP_NAME,
+        "status": "online",
+        "version": "1.2.0",
+        "documentation": "/docs",
+        "openapi_schema": "/openapi.json",
+        "health_check": "/health",
+        "primary_endpoints": {
+            "lesson_generation": "/api/v1/kie/lesson/generate",
+            "learning_plan": "/api/v1/learning/plan-lesson",
+            "onboarding": "/api/v1/onboarding/analyze",
+            "memory": "/api/v1/memory/relevant-context",
+            "build_coach": "/api/v1/kie/build/coach",
+            "career_ats": "/api/v1/kie/career/ats-analyze",
+        },
+    }
 
 
 @app.get("/health", tags=["Health"], summary="System Health Check")
@@ -48,3 +79,4 @@ def health_check():
         "provider": settings.LLM_PROVIDER,
         "model": settings.LLM_MODEL,
     }
+

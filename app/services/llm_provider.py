@@ -53,13 +53,24 @@ def extract_json_payload(raw_text: str) -> str:
 
     text = raw_text.strip()
 
-    # Strip markdown code blocks like ```json ... ``` or ``` ... ```
-    if "```" in text:
-        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
-        if match:
-            text = match.group(1).strip()
+    # 1. If text is already valid JSON, return directly (prevents stripping inner code blocks)
+    try:
+        json.loads(text)
+        return text
+    except Exception:
+        pass
 
-    # Locate outermost JSON object braces or array brackets
+    # 2. Strip outer markdown code blocks like ```json ... ``` or ``` ... ```
+    outer_match = re.search(r"^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$", text, re.IGNORECASE)
+    if outer_match:
+        unfenced = outer_match.group(1).strip()
+        try:
+            json.loads(unfenced)
+            return unfenced
+        except Exception:
+            text = unfenced
+
+    # 3. Locate outermost JSON object braces or array brackets
     first_brace = text.find("{")
     last_brace = text.rfind("}")
     first_bracket = text.find("[")
@@ -78,9 +89,15 @@ def extract_json_payload(raw_text: str) -> str:
             end_idx = last_bracket + 1
 
     if start_idx != -1 and end_idx != -1:
-        text = text[start_idx:end_idx].strip()
+        candidate = text[start_idx:end_idx].strip()
+        try:
+            json.loads(candidate)
+            return candidate
+        except Exception:
+            text = candidate
 
     return text
+
 
 
 def normalize_intelligence_dict(data: Dict[str, Any], profile: OnboardingInputProfile) -> Dict[str, Any]:
@@ -1010,7 +1027,7 @@ class GroqLLMProvider(BaseLLMProvider):
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=1200,
+            max_tokens=900,
             temperature=settings.LLM_TEMPERATURE,
         )
         json_text = extract_json_payload(raw_content)
@@ -1166,7 +1183,7 @@ class GroqLLMProvider(BaseLLMProvider):
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=1500,
+            max_tokens=950,
             temperature=settings.LLM_TEMPERATURE,
         )
         json_text = extract_json_payload(raw_content)

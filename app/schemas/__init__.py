@@ -72,6 +72,12 @@ from app.schemas.memory_context import (
     RoadmapRecommendedAction,
     RoadmapAdaptationContext,
 )
+from app.schemas.interpretation import (
+    IntentCategory,
+    PedagogicalStrategy,
+    InterpretRequest,
+    InterpretResponse,
+)
 
 __all__ = [
     "LearnerStage",
