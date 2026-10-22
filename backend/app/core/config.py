@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: str = "placeholder-jwt-secret-at-least-32-chars-long-placeholder"
     FRONTEND_URL: str = "http://localhost:3000"
     KIE_BASE_URL: str = "http://localhost:8001" # Default placeholder for KIE
+    KIE_AI2_BASE_URL: str = "http://localhost:8002" # Dedicated placeholder for KIE AI-2
     KIE_WEBHOOK_SECRET: str = "placeholder-kie-secret"
     ALLOWED_REDIRECT_ORIGINS: list[str] = [
         "http://localhost:3000",

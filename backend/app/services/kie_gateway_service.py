@@ -78,9 +78,10 @@ class KIEGatewayService:
                 "topic": session.get("topic"),
                 "lesson_id": session.get("lesson_id")
             }
+            ai2_base_url = settings.KIE_AI2_BASE_URL or settings.KIE_BASE_URL
             generate_resp = await KIEGatewayService._request_with_retry(
                 client,
-                f"{settings.KIE_BASE_URL}/api/v1/kie/lesson/generate",
+                f"{ai2_base_url}/api/v1/kie/lesson/generate",
                 generate_payload
             )
             
