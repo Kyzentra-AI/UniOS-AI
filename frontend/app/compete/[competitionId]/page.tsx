@@ -1,4 +1,4 @@
-import CompetitionDetails from '@/components/compete/detail/CompetitionDetails';
+import CompetitionDetails from '@/components/compete/details/CompetitionDetails';
 
 export default async function CompetitionDetailPage({
   params,
