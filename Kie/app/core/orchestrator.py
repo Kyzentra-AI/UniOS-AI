@@ -1,44 +1,47 @@
-from typing import Any
 
 from app.agents.registry import AgentRegistry
 
 
 class AgentOrchestrator:
     """
-    Coordinates agent and tool selection for KIE execution.
+    Coordinates agent and capability selection for KIE execution.
 
-    Responsibilities:
-    - Select the agent for each planned step.
-    - Resolve the requested tool for a step.
-    - Keep orchestration decisions deterministic.
-    - Produce an execution-ready plan.
+    Sprint 4:
+    - Select agents.
+    - Preserve explicitly requested tools.
+    - Prepare execution-ready plans.
 
-    The orchestrator does not execute agents or tools itself.
-    Execution remains the responsibility of ExecutionEngine.
+    Sprint 5:
+    - Route structured Build actions to the project agent.
+    - Attach the selected Build capability to each execution step.
     """
 
     DEFAULT_AGENT = "general-agent"
+    BUILD_AGENT = "project-agent"
+
+    BUILD_CAPABILITIES = {
+        "create",
+        "plan",
+        "review",
+        "debug",
+        "improve",
+        "document",
+        "present",
+    }
 
     def __init__(self, agent_registry: AgentRegistry):
         self.agent_registry = agent_registry
 
-    def select_agent(
-        self,
-        step: dict[str, Any],
-    ) -> str:
-        """
-        Select the agent for a planned step.
+    def select_agent(self, step: dict) -> str:
+        build_action = step.get("build_action")
 
-        If the plan specifies an agent, use it when that
-        agent exists in the registry.
-
-        Otherwise fall back to the general agent.
-        """
-
-        requested_agent = step.get(
-            "agent",
-            self.DEFAULT_AGENT,
-        )
+        if build_action in self.BUILD_CAPABILITIES:
+            requested_agent = self.BUILD_AGENT
+        else:
+            requested_agent = step.get(
+                "agent",
+                self.DEFAULT_AGENT,
+            )
 
         try:
             self.agent_registry.get(requested_agent)
@@ -46,17 +49,15 @@ class AgentOrchestrator:
         except Exception:
             return self.DEFAULT_AGENT
 
-    def select_tool(
-        self,
-        step: dict[str, Any],
-    ) -> str | None:
-        """
-        Select an explicitly requested tool.
+    def select_build_capability(self, step: dict) -> str | None:
+        build_action = step.get("build_action")
 
-        Tool execution itself is intentionally handled by
-        ToolEngine through ExecutionEngine.
-        """
+        if build_action in self.BUILD_CAPABILITIES:
+            return build_action
 
+        return None
+
+    def select_tool(self, step: dict) -> str | None:
         tool_name = step.get("tool")
 
         if not tool_name:
@@ -64,25 +65,20 @@ class AgentOrchestrator:
 
         return tool_name
 
-    def prepare_plan(
-        self,
-        plan: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        """
-        Convert the planning result into an
-        execution-ready orchestration plan.
-
-        The original plan is not mutated.
-        """
-
+    def prepare_plan(self, plan: list[dict]) -> list[dict]:
         orchestrated_plan = []
 
         for step in plan:
             orchestrated_step = dict(step)
 
-            orchestrated_step["agent"] = self.select_agent(
-                step
-            )
+            orchestrated_step["agent"] = self.select_agent(step)
+
+            build_capability = self.select_build_capability(step)
+
+            if build_capability:
+                orchestrated_step["build_capability"] = (
+                    build_capability
+                )
 
             tool_name = self.select_tool(step)
 

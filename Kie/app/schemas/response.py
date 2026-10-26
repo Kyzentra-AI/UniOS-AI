@@ -26,6 +26,7 @@ class IntentResult(BaseModel):
     name: str
     confidence: float = Field(ge=0.0, le=1.0)
     learning_action: str | None = None
+    build_action: str | None = None
 
 
 class PlanStep(BaseModel):

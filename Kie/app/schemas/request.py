@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class LearnerProfile(BaseModel):
@@ -34,9 +34,6 @@ class LearnerContext(BaseModel):
     """
     Normalized learner-stage context supplied by
     the UniOS Backend to KIE.
-
-    This represents the current learner state needed
-    by KIE orchestration.
     """
 
     current_lesson: str | None = None
@@ -133,19 +130,30 @@ class KIERequest(BaseModel):
 
 class AnalyzeContextRequest(BaseModel):
     """
-    Sprint 2 onboarding context analysis request.
+    Context analysis request.
 
-    Backend sends the initial onboarding context to KIE.
-    KIE analyzes it and identifies missing context.
+    Supports both:
+
+    1. Legacy Sprint 2 onboarding contract:
+       user_id + session_id + initial_context
+
+    2. Current Context V2 Backend contract:
+       learner_id + learner + education + preferences
+       + syllabus + roadmap + recent_history
+       + memory_summary + scope
     """
 
-    user_id: str = Field(
-        ...,
+    # ---------------------------------------------------------
+    # Legacy onboarding contract
+    # ---------------------------------------------------------
+
+    user_id: str | None = Field(
+        default=None,
         min_length=1,
     )
 
-    session_id: str = Field(
-        ...,
+    session_id: str | None = Field(
+        default=None,
         min_length=1,
     )
 
@@ -153,15 +161,62 @@ class AnalyzeContextRequest(BaseModel):
         default_factory=dict
     )
 
+    # ---------------------------------------------------------
+    # Current Context V2 contract
+    # ---------------------------------------------------------
+
+    learner_id: str | None = Field(
+        default=None,
+        min_length=1,
+    )
+
+    learner: dict[str, Any] = Field(
+        default_factory=dict
+    )
+
+    education: dict[str, Any] = Field(
+        default_factory=dict
+    )
+
+    preferences: dict[str, Any] = Field(
+        default_factory=dict
+    )
+
+    syllabus: dict[str, Any] = Field(
+        default_factory=dict
+    )
+
+    roadmap: dict[str, Any] = Field(
+        default_factory=dict
+    )
+
+    recent_history: list[Any] = Field(
+        default_factory=list
+    )
+
+    memory_summary: dict[str, Any] | str = Field(
+        default_factory=dict
+    )
+
+    scope: str | None = None
+
+    # ---------------------------------------------------------
+    # Validation / normalization
+    # ---------------------------------------------------------
+
     @field_validator(
         "user_id",
         "session_id",
+        "learner_id",
     )
     @classmethod
-    def validate_required_strings(
+    def validate_optional_strings(
         cls,
-        value: str,
-    ) -> str:
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
         value = value.strip()
 
         if not value:
@@ -170,6 +225,97 @@ class AnalyzeContextRequest(BaseModel):
             )
 
         return value
+
+    @model_validator(mode="after")
+    def normalize_context(self):
+        """
+        Convert the new Context V2 payload into the
+        existing initial_context structure used by
+        ContextEngine.
+
+        This keeps the old ContextEngine logic reusable
+        while supporting the new Backend contract.
+        """
+
+        is_legacy_request = (
+            self.user_id is not None
+            or self.session_id is not None
+            or bool(self.initial_context)
+        )
+
+        is_context_v2_request = (
+            self.learner_id is not None
+            or bool(self.learner)
+            or bool(self.education)
+            or bool(self.preferences)
+            or bool(self.syllabus)
+            or bool(self.roadmap)
+            or bool(self.recent_history)
+            or bool(self.memory_summary)
+            or self.scope is not None
+        )
+
+        if not is_legacy_request and not is_context_v2_request:
+            raise ValueError(
+                "Request must contain either the legacy "
+                "onboarding context or the Context V2 payload"
+            )
+
+        # If Backend sent the new Context V2 contract,
+        # build the initial_context expected by ContextEngine.
+        if is_context_v2_request and not self.initial_context:
+            normalized_context: dict[str, Any] = {}
+
+            if self.learner:
+                normalized_context["learner"] = self.learner
+
+                # Expose commonly checked learner fields
+                # at the top level as well.
+                for key in (
+                    "primary_goal",
+                    "target_skills",
+                    "skills",
+                    "projects",
+                    "research",
+                    "experience",
+                    "inferred_context",
+                ):
+                    if key in self.learner:
+                        normalized_context[key] = self.learner[key]
+
+            if self.education:
+                normalized_context["education"] = self.education
+
+            if self.preferences:
+                normalized_context["preferences"] = self.preferences
+
+            if self.syllabus:
+                normalized_context["syllabus"] = self.syllabus
+
+            if self.roadmap:
+                normalized_context["roadmap"] = self.roadmap
+
+            if self.recent_history:
+                normalized_context["recent_history"] = (
+                    self.recent_history
+                )
+
+            if self.memory_summary:
+                normalized_context["memory_summary"] = (
+                    self.memory_summary
+                )
+
+            if self.scope is not None:
+                normalized_context["scope"] = self.scope
+
+            if self.learner_id:
+                normalized_context["learner_id"] = (
+                    self.learner_id
+                )
+
+            self.initial_context = normalized_context
+
+        return self
 
 
 class ContextAnswer(BaseModel):
@@ -206,11 +352,15 @@ class ContextAnswer(BaseModel):
 
 class ResolveContextRequest(BaseModel):
     """
-    Sprint 2 onboarding context resolution request.
+    Context resolution request.
 
-    Backend sends the user's answers to KIE.
-    KIE processes the answers and returns refined
-    context properties.
+    Supports both:
+
+    Legacy:
+        user_id + session_id + answers
+
+    Current Backend contract:
+        user_id + answers
     """
 
     user_id: str = Field(
@@ -218,8 +368,10 @@ class ResolveContextRequest(BaseModel):
         min_length=1,
     )
 
-    session_id: str = Field(
-        ...,
+    # Optional because the current Backend contract
+    # does not send session_id.
+    session_id: str | None = Field(
+        default=None,
         min_length=1,
     )
 
@@ -227,12 +379,9 @@ class ResolveContextRequest(BaseModel):
         default_factory=list
     )
 
-    @field_validator(
-        "user_id",
-        "session_id",
-    )
+    @field_validator("user_id")
     @classmethod
-    def validate_required_strings(
+    def validate_user_id(
         cls,
         value: str,
     ) -> str:
@@ -240,7 +389,25 @@ class ResolveContextRequest(BaseModel):
 
         if not value:
             raise ValueError(
-                "Field cannot be empty or whitespace"
+                "user_id cannot be empty or whitespace"
+            )
+
+        return value
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "session_id cannot be empty or whitespace"
             )
 
         return value

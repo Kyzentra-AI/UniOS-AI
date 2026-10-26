@@ -1,6 +1,7 @@
 from typing import Any
 
 from app.core.memory import MemoryEngine
+
 from app.schemas.request import (
     AnalyzeContextRequest,
     ContextAnswer,
@@ -221,8 +222,15 @@ class ContextEngine:
                         "What is your current "
                         "career goal?"
                     ),
-                    "type": "text",
-                    "options": [],
+                    "type": "single_select",
+                    "options": [
+                        "Software Engineer",
+                        "System Engineer",
+                        "Data Scientist",
+                        "AI/ML Engineer",
+                        "Higher Studies",
+                        "Other",
+                    ],
                 }
             )
 
