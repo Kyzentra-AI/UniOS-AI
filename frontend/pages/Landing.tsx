@@ -125,32 +125,39 @@ export default function LandingPage() {
                 />
               </div>
 
-              {/* Top Left Card (Review) */}
-              <div className="absolute top-[15%] -left-[10%] z-20 bg-[var(--surface)] p-3.5 rounded-2xl shadow-[0_12px_30px_rgba(0,0,0,0.08)] border border-[var(--border)] flex items-center gap-3 transform hover:-translate-y-1 transition-transform">
-                <img src="https://i.pravatar.cc/100?img=11" alt="User" className="w-10 h-10 rounded-full" />
+              {/* Top Left Card */}
+              <div className="absolute top-[15%] -left-[10%] z-20 flex gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] py-3.5 pl-4 pr-5 shadow-[0_12px_30px_rgba(0,0,0,0.08)] transform hover:-translate-y-1 transition-transform">
+                <span aria-hidden="true" className="w-1 self-stretch rounded-full bg-[var(--primary)]"></span>
                 <div>
-                  <p className="text-sm font-bold text-[var(--text-primary)]">Sarah Cooper</p>
-                  <p className="text-xs text-[var(--text-secondary)]">I loved the OS course!</p>
+                  <p className="text-sm font-bold text-[var(--text-primary)]">Syllabus to roadmap</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Built around your goals</p>
                 </div>
               </div>
 
-              {/* Middle Right Card (Stats) */}
+              {/* Middle Right Card */}
               <div className="absolute top-[35%] -right-[5%] z-20 bg-[var(--surface)] p-5 rounded-2xl shadow-[0_12px_30px_rgba(0,0,0,0.08)] border border-[var(--border)] flex flex-col gap-1 transform hover:-translate-y-1 transition-transform">
-                <p className="text-xl font-black text-[var(--primary)] tracking-tight">150+ DSA</p>
-                <p className="text-xs font-medium text-[var(--text-secondary)]">Curated Problems</p>
+                <p className="text-xl font-black text-[var(--primary)] tracking-tight">Weekly missions</p>
+                <p className="text-xs font-medium text-[var(--text-secondary)]">A clear next step, every day</p>
               </div>
 
-              {/* Bottom Center Card (Avatars) */}
+              {/* Bottom Center Card */}
               <div className="absolute -bottom-[5%] left-1/2 -translate-x-1/2 z-20 bg-[var(--surface)] p-4 rounded-2xl shadow-[0_12px_30px_rgba(0,0,0,0.08)] border border-[var(--border)] flex flex-col items-center gap-3 transform hover:-translate-y-1 transition-transform">
-                <div className="flex -space-x-3">
-                  <img src="https://i.pravatar.cc/100?img=41" className="w-9 h-9 rounded-full ring-2 ring-[var(--surface)]" alt="User" />
-                  <img src="https://i.pravatar.cc/100?img=12" className="w-9 h-9 rounded-full ring-2 ring-[var(--surface)]" alt="User" />
-                  <img src="https://i.pravatar.cc/100?img=33" className="w-9 h-9 rounded-full ring-2 ring-[var(--surface)]" alt="User" />
-                  <div className="w-9 h-9 rounded-full bg-[var(--primary-soft)] text-[var(--primary)] flex items-center justify-center text-xs font-bold ring-2 ring-[var(--surface)]">
-                    +50
-                  </div>
+                <div className="flex gap-1.5">
+                  {[
+                    ["Study", "--feature-purple"],
+                    ["Internships", "--feature-orange"],
+                    ["Projects", "--feature-blue"],
+                  ].map(([label, token]) => (
+                    <span
+                      key={label}
+                      className="rounded-full px-3 py-1 text-xs font-semibold"
+                      style={{ backgroundColor: `var(${token}-soft)`, color: `var(${token})` }}
+                    >
+                      {label}
+                    </span>
+                  ))}
                 </div>
-                <p className="text-xs font-medium text-[var(--text-secondary)]">Active learners daily</p>
+                <p className="text-xs font-medium text-[var(--text-secondary)]">All in one workspace</p>
               </div>
 
             </div>
@@ -182,7 +189,7 @@ export default function LandingPage() {
           {/* Left Content */}
           <div className="w-full lg:w-1/2 space-y-8">
             <div>
-              <span className="text-[var(--primary)] font-semibold tracking-wider text-sm uppercase">Advanced Analytics.</span>
+              <span className="text-[var(--primary)] font-semibold tracking-wider text-sm uppercase">Insights</span>
               <h2 className="text-3xl md:text-5xl font-bold mt-2 mb-4">
                 Advanced Analytics.
               </h2>
@@ -307,10 +314,8 @@ export default function LandingPage() {
 
               return (
                 <article key={feature.title} className="bg-[var(--surface)] rounded-3xl p-8 border border-[var(--border)] shadow-sm hover:shadow-md transition-shadow">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6" style={{ backgroundColor: theme.soft, color: theme.strong }}>
-                    {index === 0 && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
-                    {index === 1 && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
-                    {index === 2 && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl text-base font-bold tracking-tight" style={{ backgroundColor: theme.soft, color: theme.strong }}>
+                    {feature.number}
                   </div>
                   
                   <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
@@ -321,9 +326,7 @@ export default function LandingPage() {
                   <div className="space-y-3">
                     {feature.points.map((point) => (
                       <div key={point} className="flex items-center gap-3 text-sm text-[var(--text-secondary)] font-medium">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--surface-alt)] text-[10px] text-green-500 border border-[var(--border)]">
-                          ✓
-                        </span>
+                        <span aria-hidden="true" className="h-0.5 w-4 shrink-0 rounded-full bg-[var(--primary)]"></span>
                         <span>{point}</span>
                       </div>
                     ))}

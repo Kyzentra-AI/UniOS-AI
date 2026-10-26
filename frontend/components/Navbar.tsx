@@ -164,9 +164,9 @@ export default function Navbar() {
             src="/logo.svg"
             alt="UniOS.AI"
             width={120}
-            height={40}
+            height={120}
             priority
-            className="h-10 w-auto"
+            className="h-15 w-auto"
           />
         </Link>
 

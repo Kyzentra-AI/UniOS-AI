@@ -16,16 +16,26 @@ export default function RoadmapPage() {
   } = useRoadmap();
 
   if (isLoading) {
-    return (
-      <main className="min-h-screen px-6 py-8">
-        <div className="mx-auto max-w-6xl">
-          <p className="text-sm opacity-60">
-            Loading your roadmap...
-          </p>
+  return (
+    <main className="flex min-h-[70vh] items-center justify-center px-6">
+      <div className="flex flex-col items-center text-center">
+        <div className="relative flex h-14 w-14 items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[3px] border-[var(--border)]" />
+          <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-transparent border-t-[var(--primary)]" />
+          <div className="h-2.5 w-2.5 rounded-full bg-[var(--primary)]" />
         </div>
-      </main>
-    );
-  }
+
+        <h2 className="mt-6 text-base font-semibold text-[var(--text-primary)]">
+          Preparing your roadmap
+        </h2>
+
+        <p className="mt-2 max-w-xs text-sm leading-6 text-[var(--text-secondary)]">
+          Loading your learning journey. This will only take a moment.
+        </p>
+      </div>
+    </main>
+  );
+}
 
   if (isError) {
     return (

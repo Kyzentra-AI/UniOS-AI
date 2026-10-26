@@ -30,9 +30,7 @@ export default function LaunchWorkspace() {
 
       <div className="grid gap-5 md:grid-cols-2">
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
-          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--feature-purple-soft)] text-xl text-[var(--feature-purple)]">
-            ✎
-          </div>
+        
           <h2 className="text-xl font-semibold text-[var(--text-primary)]">
             AI Resume Builder
           </h2>
@@ -49,9 +47,7 @@ export default function LaunchWorkspace() {
         </section>
 
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
-          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--feature-blue-soft)] text-xl text-[var(--feature-blue)]">
-            ✓
-          </div>
+          
           <h2 className="text-xl font-semibold text-[var(--text-primary)]">
             ATS Resume Checker
           </h2>
