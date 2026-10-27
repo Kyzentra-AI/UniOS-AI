@@ -24,6 +24,14 @@ tags_metadata = [
         "description": "AI/ML-2 Capabilities: AI Resume Generator & ATS Resume Analysis.",
     },
     {
+        "name": "Assessment Intelligence",
+        "description": "AI/ML KIE Capabilities: Dynamic Assessment Synthesis & Mastery Attempt Evaluation.",
+    },
+    {
+        "name": "Mentor Intelligence",
+        "description": "AI/ML KIE Capabilities: Persona-Driven AI Mentor Chat across 4 Pedagogical Modes.",
+    },
+    {
         "name": "Health",
         "description": "System readiness and health check operations.",
     },
@@ -33,8 +41,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="UniOS AI/ML-2 Learning Intelligence Service. Exposes structured intelligence contracts to AI/ML-1 and Backend. Sprint 7: Career Intelligence & ATS Engine.",
-    version="1.2.0",
+    description="UniOS AI/ML-2 Learning Intelligence Service. Exposes structured intelligence contracts to AI/ML-1 and Backend. Assessments, Mastery & Mentor Chat Engine.",
+    version="1.3.0",
     openapi_tags=tags_metadata,
 )
 
@@ -56,7 +64,7 @@ def root_index():
     return {
         "service": settings.APP_NAME,
         "status": "online",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "documentation": "/docs",
         "openapi_schema": "/openapi.json",
         "health_check": "/health",
@@ -67,8 +75,12 @@ def root_index():
             "memory": "/api/v1/memory/relevant-context",
             "build_coach": "/api/v1/kie/build/coach",
             "career_ats": "/api/v1/kie/career/ats-analyze",
+            "assessments_generate": "/api/v1/kie/assessments/generate",
+            "mastery_evaluate": "/api/v1/kie/mastery/evaluate",
+            "mentor_chat": "/api/v1/kie/mentor/chat",
         },
     }
+
 
 
 @app.get("/health", tags=["Health"], summary="System Health Check")

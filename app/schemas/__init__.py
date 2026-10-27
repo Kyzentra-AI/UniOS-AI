@@ -78,6 +78,27 @@ from app.schemas.interpretation import (
     InterpretRequest,
     InterpretResponse,
 )
+from app.schemas.assessment import (
+    AssessmentQuestionType,
+    AssessmentOption,
+    QuestionRubric,
+    AssessmentQuestion,
+    AssessmentRubric,
+    AssessmentGenerateRequest,
+    AssessmentGenerateResponse,
+    SubmittedAnswer,
+    MasteryEvaluateRequest,
+    QuestionEvaluation,
+    TopicMasteryDetail,
+    MasteryEvaluateResponse,
+)
+from app.schemas.mentor import (
+    MentorMode,
+    ChatMessage,
+    MentorChatContext,
+    MentorChatRequest,
+    MentorChatResponse,
+)
 
 __all__ = [
     "LearnerStage",
@@ -135,4 +156,22 @@ __all__ = [
     "RoadmapStatus",
     "RoadmapRecommendedAction",
     "RoadmapAdaptationContext",
+    "AssessmentQuestionType",
+    "AssessmentOption",
+    "QuestionRubric",
+    "AssessmentQuestion",
+    "AssessmentRubric",
+    "AssessmentGenerateRequest",
+    "AssessmentGenerateResponse",
+    "SubmittedAnswer",
+    "MasteryEvaluateRequest",
+    "QuestionEvaluation",
+    "TopicMasteryDetail",
+    "MasteryEvaluateResponse",
+    "MentorMode",
+    "ChatMessage",
+    "MentorChatContext",
+    "MentorChatRequest",
+    "MentorChatResponse",
 ]
+

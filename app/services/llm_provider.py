@@ -329,6 +329,21 @@ class BaseLLMProvider(ABC):
         """
         pass
 
+    @abstractmethod
+    def generate_assessment(self, prompt: str) -> _Dict[str, Any]:
+        """Generate structured assessment JSON with answer keys/rubrics from a prompt."""
+        pass
+
+    @abstractmethod
+    def evaluate_mastery_attempt(self, prompt: str) -> _Dict[str, Any]:
+        """Evaluate submitted assessment attempt, returning normalized score and mastery updates."""
+        pass
+
+    @abstractmethod
+    def generate_mentor_reply(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        """Generate persona-aligned educational response string for mentor chat."""
+        pass
+
 
 class MockLLMProvider(BaseLLMProvider):
     """Deterministic, contract-compliant provider for testing and zero-cost local development.
@@ -923,6 +938,159 @@ class MockLLMProvider(BaseLLMProvider):
                 "achievements": achievements,
             }
 
+    def generate_assessment(self, prompt: str) -> _Dict[str, Any]:
+        """Deterministic mock assessment generation with stable IDs and answer keys / rubrics."""
+        topic_match = re.search(r"- Topic:\s*([^\n]+)", prompt)
+        topic = topic_match.group(1).strip() if topic_match else "DBMS Fundamentals"
+
+        type_match = re.search(r"- Preferred Question Type:\s*([^\n]+)", prompt)
+        pref_type = type_match.group(1).strip().lower() if type_match else "mcq"
+
+        count_match = re.search(r"- Question Count:\s*(\d+)", prompt)
+        question_count = int(count_match.group(1)) if count_match else 5
+
+        questions = []
+        # Build deterministic questions based on topic and requested type
+        for i in range(1, question_count + 1):
+            qid = f"q{i}"
+            # Alternate or honor requested type
+            if pref_type == "coding" or (pref_type == "mixed" and i % 3 == 0):
+                questions.append({
+                    "id": qid,
+                    "type": "coding",
+                    "question": f"Write a query or code function to solve a core data operation in {topic}.",
+                    "code": f"-- Implementation for {topic}\nSELECT * FROM records WHERE status = 'active';",
+                    "language": "sql" if "dbms" in topic.lower() or "database" in topic.lower() or "sql" in topic.lower() else "python",
+                    "rubric": {
+                        "required_clauses": ["SELECT", "FROM", "WHERE"],
+                        "ideal_solution": f"SELECT id, name, status FROM records WHERE status = 'active' ORDER BY created_at DESC;",
+                    },
+                })
+            elif pref_type in ["subjective", "viva", "case-study"]:
+                questions.append({
+                    "id": qid,
+                    "type": pref_type,
+                    "question": f"Explain the core architectural trade-offs and consistency invariants of {topic}.",
+                    "rubric": {
+                        "criteria": ["Clarity of explanation", "Accurate trade-off identification", "Concrete application"],
+                        "ideal_solution": f"In {topic}, the core trade-off involves balancing read latency, write amplification, and data integrity guarantees.",
+                    },
+                })
+            else:
+                # MCQ question with stable IDs and answer key
+                questions.append({
+                    "id": qid,
+                    "type": "mcq",
+                    "question": f"Which fundamental mechanism in {topic} ensures high-performance retrieval and structural integrity?",
+                    "options": [
+                        {"id": "opt-1", "text": "Storage Manager & Buffer Pool"},
+                        {"id": "opt-2", "text": "Query Compiler & Parser"},
+                        {"id": "opt-3", "text": "Transaction Concurrency Monitor"},
+                        {"id": "opt-4", "text": "Execution Engine Dispatcher"},
+                    ],
+                    "correct_option_id": "opt-1",
+                    "explanation": f"The Storage Manager in {topic} coordinates low-level buffer management, cache paging, and physical persistence.",
+                })
+
+        return {
+            "title": f"{topic} Assessment",
+            "type": pref_type,
+            "instructions": f"Answer all {len(questions)} questions to demonstrate your mastery of {topic}.",
+            "questions": questions,
+            "rubric": {
+                "total_points": float(len(questions)),
+                "passing_threshold": 0.70,
+            },
+        }
+
+    def evaluate_mastery_attempt(self, prompt: str) -> _Dict[str, Any]:
+        """Deterministic mock evaluation of learner attempt and mastery graph calculation."""
+        topic_match = re.search(r"- Topic:\s*([^\n]+)", prompt)
+        topic = topic_match.group(1).strip() if topic_match else "DBMS Fundamentals"
+
+        # Discover question IDs in prompt
+        q_ids = re.findall(r'"question_id":\s*"([^"]+)"', prompt)
+        if not q_ids:
+            q_ids = ["q1", "q2"]
+
+        # Parse submitted answers if present
+        evaluations = []
+        total_score_acc = 0.0
+        for idx, qid in enumerate(q_ids):
+            # Deterministic scoring: opt-1 or correct SQL/code gets full marks, other gets partial
+            q_score = 1.0 if idx % 2 == 0 else 0.90
+            total_score_acc += q_score
+            evaluations.append({
+                "question_id": qid,
+                "is_correct": True,
+                "score": q_score,
+                "feedback": f"Accurate reasoning demonstrated for question {qid}. Core operational primitives correctly applied.",
+            })
+
+        avg_score = round(total_score_acc / max(1, len(q_ids)), 2)
+        norm_score = max(0.0, min(1.0, avg_score))
+
+        subject_name = "Database Management Systems" if "db" in topic.lower() or "sql" in topic.lower() else "Computer Science"
+        status_tier = "PROFICIENT" if norm_score >= 0.80 else ("DEVELOPING" if norm_score >= 0.50 else "NOVICE")
+
+        return {
+            "score": norm_score,
+            "feedback": f"Outstanding performance on {topic}! You demonstrated robust conceptual mastery and problem-solving execution.",
+            "question_evaluations": evaluations,
+            "mastery_updates": {
+                subject_name: {
+                    f"{topic} Architecture": {
+                        "score": norm_score,
+                        "status": status_tier,
+                        "delta": 0.15,
+                        "reason": f"Accurately identified core conceptual primitives and implementation patterns for {topic}.",
+                    },
+                    f"{topic} Operations": {
+                        "score": max(0.50, round(norm_score - 0.05, 2)),
+                        "status": "DEVELOPING" if norm_score < 0.85 else "PROFICIENT",
+                        "delta": 0.10,
+                        "reason": f"Successfully answered operational questions for {topic}.",
+                    },
+                }
+            },
+        }
+
+    def generate_mentor_reply(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        """Deterministic persona-driven mentor response."""
+        prompt_lower = prompt.lower()
+
+        # Safety & guardrail check
+        if "ignore previous instructions" in prompt_lower or "system prompt" in prompt_lower or "drop database" in prompt_lower:
+            return "As your UniOS learning mentor, I am focused on your academic and career goals. Let's redirect our focus back to your active coursework and study topics!"
+
+        if "(study-coach)" in prompt_lower:
+            return (
+                "Let's tackle this concept with a high-impact 25-minute Pomodoro sprint:\n\n"
+                "1. **10 Mins Reading**: Focus on the core structural invariants.\n"
+                "2. **10 Mins Active Recall**: Write out the algorithm or schema from memory.\n"
+                "3. **5 Mins Quick Assessment**: Validate your recall before taking a break.\n\n"
+                "Ready to start the timer?"
+            )
+        elif "(accountability)" in prompt_lower:
+            return (
+                "You are making steady progress, but consistency is key to reaching your target role. "
+                "Let's complete the pending practice assessment today so you stay right on schedule with your roadmap!"
+            )
+        elif "(motivation)" in prompt_lower:
+            return (
+                "Plateaus and challenging debugging sessions are a completely natural part of mastering complex engineering! "
+                "You've already conquered key milestones—take a breath, trust your preparation, and let's conquer this next concept together!"
+            )
+        else:
+            # Default: tutor mode
+            return (
+                "A Database Management System (DBMS) is software that acts as the intelligent librarian of your data. "
+                "Instead of saving information into fragile text files, a DBMS organizes data into structured tables, "
+                "enforces ACID transactional guarantees, and optimizes retrieval via indexing.\n\n"
+                "Think of an index like the index at the back of a textbook: instead of scanning every page (table scan), "
+                "the database jumps directly to the entry you need. Would you like to see how a B-Tree implements this indexing logic?"
+            )
+
 
 class GroqLLMProvider(BaseLLMProvider):
     """Live LLM provider backed by Groq Cloud for fast inference.
@@ -1197,6 +1365,76 @@ class GroqLLMProvider(BaseLLMProvider):
                 f"Failed to parse career response from LLM: {str(e)}",
                 raw_content=raw_content,
             )
+
+    def generate_assessment(self, prompt: str) -> _Dict[str, Any]:
+        """Calls Groq LLM to generate structured assessment JSON with answer keys."""
+        system_instruction = (
+            "You are the UniOS Assessment Generation Engine (AI/ML-2 KIE). "
+            "Synthesize high-quality assessment questions with private answer keys and rubrics. "
+            "Output strictly valid JSON matching the requested schema. No conversational preamble."
+        )
+        raw_content = self._safe_chat_completion(
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=950,
+            temperature=settings.LLM_TEMPERATURE,
+        )
+        json_text = extract_json_payload(raw_content)
+        try:
+            data = json.loads(json_text)
+            if not isinstance(data, dict):
+                raise ValueError("Parsed JSON assessment is not an object dictionary.")
+            return data
+        except Exception as e:
+            raise LLMParseError(
+                f"Failed to parse assessment response from LLM: {str(e)}",
+                raw_content=raw_content,
+            )
+
+    def evaluate_mastery_attempt(self, prompt: str) -> _Dict[str, Any]:
+        """Calls Groq LLM to evaluate assessment attempt and compute mastery delta."""
+        system_instruction = (
+            "You are the UniOS Mastery Evaluation Engine (AI/ML-2 KIE). "
+            "Evaluate student answers, compute normalized score (0.0 to 1.0), and return hierarchical mastery updates. "
+            "Output strictly valid JSON matching the requested schema. No conversational preamble."
+        )
+        raw_content = self._safe_chat_completion(
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=950,
+            temperature=settings.LLM_TEMPERATURE,
+        )
+        json_text = extract_json_payload(raw_content)
+        try:
+            data = json.loads(json_text)
+            if not isinstance(data, dict):
+                raise ValueError("Parsed JSON evaluation is not an object dictionary.")
+            return data
+        except Exception as e:
+            raise LLMParseError(
+                f"Failed to parse mastery evaluation from LLM: {str(e)}",
+                raw_content=raw_content,
+            )
+
+    def generate_mentor_reply(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        """Calls Groq LLM to generate persona-driven mentor reply string."""
+        sys_msg = system_prompt or (
+            "You are an expert AI Learning Mentor in the UniOS ecosystem. "
+            "Provide concise, educational, inspiring markdown responses."
+        )
+        raw_content = self._safe_chat_completion(
+            messages=[
+                {"role": "system", "content": sys_msg},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=700,
+            temperature=settings.LLM_TEMPERATURE,
+        )
+        return raw_content.strip()
 
 
 def get_llm_provider(force_mock: bool = False) -> BaseLLMProvider:

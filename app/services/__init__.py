@@ -56,7 +56,22 @@ from app.services.interpret_engine import (
     InterpretEngine,
     get_interpret_engine,
 )
-
+from app.services.assessment_service import (
+    AssessmentService,
+    get_assessment_service,
+)
+from app.services.assessment_prompt_builder import (
+    build_assessment_generation_prompt,
+    build_mastery_evaluation_prompt,
+)
+from app.services.mentor_service import (
+    MentorService,
+    get_mentor_service,
+)
+from app.services.mentor_prompt_builder import (
+    build_mentor_chat_prompt,
+    get_mentor_system_prompt,
+)
 
 
 __all__ = [
@@ -92,5 +107,16 @@ __all__ = [
     "get_career_service",
     "build_resume_generation_prompt",
     "build_ats_analysis_prompt",
+    "InterpretEngine",
+    "get_interpret_engine",
+    "AssessmentService",
+    "get_assessment_service",
+    "build_assessment_generation_prompt",
+    "build_mastery_evaluation_prompt",
+    "MentorService",
+    "get_mentor_service",
+    "build_mentor_chat_prompt",
+    "get_mentor_system_prompt",
 ]
+
 
