@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     build,
     launch,
     billing,
+    mentor,
 )
 from app.schemas.launch import APIError
 
@@ -88,6 +89,7 @@ app.include_router(assessments.router)
 app.include_router(build.router)
 app.include_router(launch.router)
 app.include_router(billing.router)
+app.include_router(mentor.router)
 
 
 @app.get("/")
