@@ -25,7 +25,7 @@ const PUBLIC_LINKS = [
   { label: 'Product', href: '/#product' },
   { label: 'Solutions', href: '/#solutions' },
   { label: 'Resources', href: '/#resources' },
-  { label: 'Pricing', href: '/#pricing' },
+  { label: 'Pricing', href: '/billing' },
 ];
 
 const AUTH_LINKS = [
@@ -164,9 +164,9 @@ export default function Navbar() {
             src="/logo.svg"
             alt="UniOS.AI"
             width={120}
-            height={120}
+            height={150}
             priority
-            className="h-15 w-auto"
+            className="h-16 w-auto"
           />
         </Link>
 
