@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks
 
 from app.core.achievement_event import AchievementEventEngine
+from app.core.assessment import AssessmentGenerationEngine
 from app.core.build_coach import BuildCoachEngine
 from app.core.build_plan import BuildPlanGenerationEngine
 from app.core.build_recommend import BuildRecommendationEngine
@@ -15,7 +16,9 @@ from app.core.competition_recommend import (
 )
 from app.core.context import ContextEngine
 from app.core.learning_interpreter import LearningRequestInterpreter
+from app.core.mastery import MasteryEvaluationEngine
 from app.core.memory_summary import MemorySummaryEngine
+from app.core.mentor import MentorChatEngine
 from app.core.roadmap_generator import RoadmapGenerationEngine
 from app.core.service import KIEService
 from app.core.syllabus import SyllabusExtractionEngine
@@ -24,6 +27,10 @@ from app.core.webhook import BackendWebhookSender
 from app.schemas.achievement_event import (
     AchievementEventRequest,
     AchievementEventResponse,
+)
+from app.schemas.assessment import (
+    AssessmentGenerateRequest,
+    AssessmentGenerateResponse,
 )
 from app.schemas.build_coach import (
     BuildCoachRequest,
@@ -54,7 +61,12 @@ from app.schemas.learning_interpreter import (
     LearningInterpretRequest,
     LearningInterpretResponse,
 )
+from app.schemas.mastery import (
+    MasteryEvaluateRequest,
+    MasteryEvaluateResponse,
+)
 from app.schemas.memory_summary import MemorySummaryRequest
+from app.schemas.mentor import MentorChatRequest, MentorChatResponse
 from app.schemas.request import (
     AnalyzeContextRequest,
     KIERequest,
@@ -83,14 +95,20 @@ roadmap_generation_engine = RoadmapGenerationEngine()
 syllabus_engine = SyllabusExtractionEngine()
 memory_summary_engine = MemorySummaryEngine()
 webhook_sender = BackendWebhookSender()
+
 build_plan_engine = BuildPlanGenerationEngine()
 build_coach_engine = BuildCoachEngine()
 build_recommendation_engine = BuildRecommendationEngine()
 learning_interpreter = LearningRequestInterpreter()
+
 competition_planning_engine = CompetitionPlanningEngine()
 collaboration_engine = CollaborationOrchestrationEngine()
 competition_recommendation_engine = CompetitionRecommendationEngine()
 achievement_event_engine = AchievementEventEngine()
+
+assessment_engine = AssessmentGenerationEngine()
+mastery_engine = MasteryEvaluationEngine()
+mentor_engine = MentorChatEngine()
 
 
 @router.post("/kie/execute", response_model=KIEResponse)
@@ -259,3 +277,38 @@ def create_achievement_event(
     request: AchievementEventRequest,
 ) -> AchievementEventResponse:
     return achievement_event_engine.generate(request)
+
+
+# -------------------------------------------------------------------
+# Assessment, mastery evaluation, and mentor chat integration
+# -------------------------------------------------------------------
+
+
+@router.post(
+    "/api/v1/kie/assessments/generate",
+    response_model=AssessmentGenerateResponse,
+)
+def generate_assessment(
+    request: AssessmentGenerateRequest,
+) -> AssessmentGenerateResponse:
+    return assessment_engine.generate(request)
+
+
+@router.post(
+    "/api/v1/kie/mastery/evaluate",
+    response_model=MasteryEvaluateResponse,
+)
+def evaluate_mastery(
+    request: MasteryEvaluateRequest,
+) -> MasteryEvaluateResponse:
+    return mastery_engine.evaluate(request)
+
+
+@router.post(
+    "/api/v1/kie/mentor/chat",
+    response_model=MentorChatResponse,
+)
+def mentor_chat(
+    request: MentorChatRequest,
+) -> MentorChatResponse:
+    return mentor_engine.generate(request)
