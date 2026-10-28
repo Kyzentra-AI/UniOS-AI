@@ -1,3 +1,4 @@
+
 from app.agents.registry import AgentRegistry
 from app.core.context import ContextEngine
 from app.core.executor import ExecutionEngine
@@ -22,32 +23,25 @@ class KIEService:
     """
     Main KIE orchestration service.
 
-    Sprint 3 responsibilities:
-    - Resolve learner identity
-    - Resolve learner context
-    - Retrieve user-specific learner memory
-    - Recognize intent
-    - Create learner-aware roadmap plans
-    - Build Backend-ready roadmap contracts
-    - Execute selected agents
-    - Classify memory updates
-    - Update learner activity memory
-    - Return structured roadmap metadata
-    - Return Backend-ready roadmap contract
+    Sprint 3:
+    - Resolve identity and learner context.
+    - Recognize intent and create plans.
+    - Build roadmap contracts and update activity memory.
 
-    Sprint 4 responsibilities:
-    - Orchestrate agent selection
-    - Orchestrate tool selection
-    - Prepare execution-ready plans
-    - Coordinate the execution flow
+    Sprint 4:
+    - Select agents and coordinate execution.
+    - Preserve tool execution controls.
 
-    Backend remains responsible for persistent roadmap
-    and memory storage.
+    Sprint 5:
+    - Propagate recognized Build actions to execution steps.
+    - Propagate explicitly supplied artifact types.
+    - Enable Build-aware agent and tool routing.
+
+    The Backend remains responsible for persistent storage.
     """
 
     def __init__(self):
         self.identity_engine = IdentityEngine()
-
         self.memory_engine = MemoryEngine()
 
         self.context_engine = ContextEngine(
@@ -55,15 +49,10 @@ class KIEService:
         )
 
         self.intent_engine = IntentEngine()
-
         self.planning_engine = PlanningEngine()
-
         self.roadmap_builder = RoadmapContractBuilder()
-
         self.model_router = ModelRouter()
-
         self.agent_registry = AgentRegistry()
-
         self.tool_engine = ToolEngine()
 
         self.agent_orchestrator = AgentOrchestrator(
@@ -75,28 +64,15 @@ class KIEService:
             tool_engine=self.tool_engine,
         )
 
-    def execute(
-        self,
-        request: KIERequest,
-    ) -> KIEResponse:
+    def execute(self, request: KIERequest) -> KIEResponse:
         request_id = generate_request_id()
 
-        identity = self.identity_engine.resolve(
-            request
-        )
+        identity = self.identity_engine.resolve(request)
+        context = self.context_engine.resolve(request)
+        intent = self.intent_engine.recognize(request.task)
 
-        context = self.context_engine.resolve(
-            request
-        )
-
-        intent = self.intent_engine.recognize(
-            request.task
-        )
-
-        intent_routing = (
-            self.model_router.routing_metadata(
-                "intent"
-            )
+        intent_routing = self.model_router.routing_metadata(
+            "intent"
         )
 
         plan = self.planning_engine.create_plan(
@@ -106,51 +82,38 @@ class KIEService:
             context=context,
         )
 
-        planning_routing = (
-            self.model_router.routing_metadata(
-                "planning"
-            )
+        planning_routing = self.model_router.routing_metadata(
+            "planning"
         )
 
-        roadmap_contract = (
-            self.roadmap_builder.build(
-                user_id=request.user_id,
-                session_id=request.session_id,
-                planning_horizon=(
-                    request.planning_horizon
-                ),
-                learner_stage=(
-                    request.learner_stage
-                ),
-                career_goal=(
-                    request.learner_profile.career_goal
-                ),
-                plan=plan,
-            )
+        roadmap_contract = self.roadmap_builder.build(
+            user_id=request.user_id,
+            session_id=request.session_id,
+            planning_horizon=request.planning_horizon,
+            learner_stage=request.learner_stage,
+            career_goal=request.learner_profile.career_goal,
+            plan=plan,
         )
 
-        # -------------------------------------------------
-        # Sprint 4 orchestration
-        # -------------------------------------------------
-        #
-        # Convert the Planning Engine output into an
-        # execution-ready plan.
-        #
-        # AgentOrchestrator is responsible for selecting
-        # valid agents and resolving explicitly requested
-        # tools.
-        #
-        # ExecutionEngine remains responsible for actually
-        # executing the agents and tools.
-        # -------------------------------------------------
+        # Sprint 5: propagate Build metadata into execution steps.
+        build_action = getattr(intent, "build_action", None)
+        artifact_type = request.context.get("artifact_type")
 
-        execution_plan = (
-            self.agent_orchestrator.prepare_plan(
-                [
-                    step.model_dump()
-                    for step in plan
-                ]
-            )
+        plan_steps = []
+
+        for step in plan:
+            step_data = step.model_dump()
+
+            if build_action:
+                step_data["build_action"] = build_action
+
+            if artifact_type:
+                step_data["artifact_type"] = artifact_type
+
+            plan_steps.append(step_data)
+
+        execution_plan = self.agent_orchestrator.prepare_plan(
+            plan_steps
         )
 
         result = self.execution_engine.execute(
@@ -172,9 +135,7 @@ class KIEService:
             content={
                 "task": request.task,
                 "intent": intent.name,
-                "planning_horizon": (
-                    request.planning_horizon
-                ),
+                "planning_horizon": request.planning_horizon,
                 "status": "completed",
                 "request_id": request_id,
             },
@@ -183,41 +144,21 @@ class KIEService:
         )
 
         roadmap_metadata = RoadmapMetadata(
-            planning_horizon=(
-                roadmap_contract[
-                    "planning_horizon"
-                ]
-            ),
-            learner_stage=(
-                roadmap_contract[
-                    "learner_stage"
-                ]
-            ),
-            career_goal=(
-                roadmap_contract[
-                    "career_goal"
-                ]
-            ),
-            milestone_count=(
-                roadmap_contract[
-                    "milestone_count"
-                ]
-            ),
-            planning_status=(
-                roadmap_contract[
-                    "planning_status"
-                ]
-            ),
+            planning_horizon=roadmap_contract[
+                "planning_horizon"
+            ],
+            learner_stage=roadmap_contract["learner_stage"],
+            career_goal=roadmap_contract["career_goal"],
+            milestone_count=roadmap_contract["milestone_count"],
+            planning_status=roadmap_contract["planning_status"],
         )
 
         metadata = KIEMetadata(
             trace={
                 "request_id": request_id,
                 "session_id": request.session_id,
-                "correlation_id": (
-                    request.trace.get(
-                        "correlation_id"
-                    )
+                "correlation_id": request.trace.get(
+                    "correlation_id"
                 ),
             },
             model_routing={
@@ -225,23 +166,15 @@ class KIEService:
                 "planning": planning_routing,
             },
             planning={
-                "horizon": (
-                    request.planning_horizon
-                ),
+                "horizon": request.planning_horizon,
             },
             roadmap=roadmap_metadata,
             roadmap_contract=roadmap_contract,
             memory={
-                "categories": context[
-                    "memory_categories"
-                ],
-                "source": context[
-                    "sources"
-                ]["memory"],
+                "categories": context["memory_categories"],
+                "source": context["sources"]["memory"],
                 "updated": True,
-                "updated_category": (
-                    memory_update.category
-                ),
+                "updated_category": memory_update.category,
                 "user_id": request.user_id,
             },
         )

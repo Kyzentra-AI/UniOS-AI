@@ -1,44 +1,77 @@
+
 from app.schemas.response import IntentResult
 
 
 class IntentEngine:
-    """
-    KIE Intent Engine.
-
-    Identifies the primary capability required for a
-    learner request and, for learning requests, identifies
-    the requested learning action.
-
-    Sprint 4 learning actions:
-    - explain
-    - teach
-    - practice
-    - revise
-    - assess
-    - summarize
-    - continue-learning
-    """
+    """Recognize learning, build, competition, career, and general intents."""
 
     LEARNING_ACTIONS = {
-        "explain",
-        "teach",
-        "practice",
-        "revise",
-        "assess",
-        "summarize",
-        "continue-learning",
+        "explain", "teach", "practice", "revise",
+        "assess", "summarize", "continue-learning",
     }
 
-    def recognize(
-        self,
-        task: str,
-    ) -> IntentResult:
+    BUILD_ACTIONS = {
+        "create", "plan", "review", "debug",
+        "improve", "document", "present",
+    }
+
+    def recognize(self, task: str) -> IntentResult:
         task_lower = task.lower().strip()
 
-        learning_action = self._detect_learning_action(
-            task_lower
-        )
+        # Preserve existing Sprint 3 roadmap behavior.
+        if "roadmap" in task_lower:
+            # Explicit learning roadmaps remain learning requests.
+            if any(
+                word in task_lower
+                for word in ["learning", "learn", "study", "weekly"]
+            ):
+                return IntentResult(
+                    name="LEARN",
+                    confidence=0.80,
+                    learning_action=None,
+                )
 
+            # Explicit career roadmap requests use the career agent,
+            # except for the legacy UniOS-style wording.
+            if (
+                "career" in task_lower
+                and "create a roadmap for becoming" not in task_lower
+            ):
+                return IntentResult(
+                    name="LAUNCH",
+                    confidence=0.80,
+                )
+
+            return IntentResult(
+                name="GENERAL",
+                confidence=0.80,
+            )
+
+        # Handle other explicit career planning requests.
+        if any(
+            phrase in task_lower
+            for phrase in [
+                "career plan",
+                "plan my career",
+                "career planning",
+            ]
+        ):
+            return IntentResult(
+                name="LAUNCH",
+                confidence=0.80,
+            )
+
+        # Detect specific Build actions.
+        build_action = self._detect_build_action(task_lower)
+        if build_action is not None:
+            return IntentResult(
+                name="BUILD",
+                confidence=0.90,
+                build_action=build_action,
+            )
+
+        # Detect learning actions.
+        learning_action = self._detect_learning_action(task_lower)
         if learning_action is not None:
             return IntentResult(
                 name="LEARN",
@@ -48,11 +81,7 @@ class IntentEngine:
 
         if any(
             word in task_lower
-            for word in [
-                "learn",
-                "learning",
-                "study",
-            ]
+            for word in ["learn", "learning", "study"]
         ):
             return IntentResult(
                 name="LEARN",
@@ -63,11 +92,8 @@ class IntentEngine:
         if any(
             word in task_lower
             for word in [
-                "build",
-                "code",
-                "debug",
-                "develop",
-                "project",
+                "build", "code", "debug", "develop",
+                "project", "application", "implement", "program",
             ]
         ):
             return IntentResult(
@@ -77,10 +103,7 @@ class IntentEngine:
 
         if any(
             word in task_lower
-            for word in [
-                "competition",
-                "hackathon",
-            ]
+            for word in ["competition", "hackathon"]
         ):
             return IntentResult(
                 name="COMPETE",
@@ -90,12 +113,7 @@ class IntentEngine:
         if any(
             word in task_lower
             for word in [
-                "resume",
-                "interview",
-                "job",
-                "career",
-                "placement",
-                "career roadmap",
+                "resume", "interview", "job", "career", "placement",
             ]
         ):
             return IntentResult(
@@ -108,129 +126,172 @@ class IntentEngine:
             confidence=0.80,
         )
 
-    def _detect_learning_action(
-        self,
-        task: str,
-    ) -> str | None:
-        """
-        Detect the specific Sprint 4 learning action.
-        """
-
-        # --------------------------------------------------
-        # CONTINUE LEARNING
-        # --------------------------------------------------
-
+    def _detect_build_action(self, task: str) -> str | None:
+        # DEBUG
         if any(
             phrase in task
             for phrase in [
-                "continue learning",
-                "continue where i left off",
+                "debug", "debugging", "fix my code",
+                "fix this code", "find the bug", "find bugs",
+                "solve this error", "fix this error", "troubleshoot",
+            ]
+        ):
+            return "debug"
+
+        # REVIEW
+        if any(
+            phrase in task
+            for phrase in [
+                "review my project", "review this project",
+                "review the project", "review my code",
+                "review this code", "review the code",
+                "review my application", "review this application",
+                "review the application", "code review",
+            ]
+        ):
+            return "review"
+
+        # IMPROVE
+        if any(
+            phrase in task
+            for phrase in [
+                "improve my project", "improve this project",
+                "improve the project", "improve my code",
+                "improve this code", "improve my application",
+                "optimize my project", "optimize my code",
+                "optimize this", "refactor my code",
+                "refactor this", "refactor my project",
+                "refactor the project", "refactor my application",
+                "refactor the application",
+            ]
+        ):
+            return "improve"
+
+        # DOCUMENT
+        if any(
+            phrase in task
+            for phrase in [
+                "document my project", "document this project",
+                "document my code", "write documentation",
+                "create documentation", "generate documentation",
+                "write a readme", "create a readme",
+                "generate a readme", "make a readme",
+                "write readme", "create readme", "generate readme",
+                "documentation for my project",
+                "documentation for my application",
+            ]
+        ):
+            return "document"
+
+        # PRESENT
+        if any(
+            phrase in task
+            for phrase in [
+                "present my project", "present this project",
+                "present my application", "prepare my presentation",
+                "prepare a presentation", "create a presentation",
+                "make a presentation", "demo my project",
+                "prepare a demo", "prepare slides", "create slides",
+                "make slides", "generate slides",
+                "presentation for my project",
+                "presentation for my application",
+            ]
+        ):
+            return "present"
+
+        # PLAN a software project.
+        if any(
+            phrase in task
+            for phrase in [
+                "plan my project", "plan this project",
+                "plan the project", "plan my application",
+                "create a project plan", "make a project plan",
+                "project plan", "plan the work",
+                "plan my milestones", "plan project milestones",
+            ]
+        ):
+            return "plan"
+
+        # CREATE
+        if any(
+            phrase in task
+            for phrase in [
+                "create a project", "create my project",
+                "build a project", "build my project",
+                "build a python project", "build a coding project",
+                "start a project", "start my project",
+                "develop a project", "develop my project",
+                "create an application", "build an application",
+                "develop an application",
+            ]
+        ):
+            return "create"
+
+        return None
+
+    def _detect_learning_action(self, task: str) -> str | None:
+        if any(
+            phrase in task
+            for phrase in [
+                "continue learning", "continue where i left off",
                 "continue from where i left off",
                 "continue my previous lesson",
-                "continue my previous learning",
-                "continue my lesson",
-                "continue my learning",
-                "pick up where i left off",
-                "resume learning",
-                "resume my lesson",
+                "continue my previous learning", "continue my lesson",
+                "continue my learning", "pick up where i left off",
+                "resume learning", "resume my lesson",
                 "resume my previous lesson",
             ]
         ):
             return "continue-learning"
 
-        # --------------------------------------------------
-        # PRACTICE
-        # --------------------------------------------------
-
         if any(
             phrase in task
             for phrase in [
-                "practice",
-                "give me exercises",
-                "give me problems",
-                "give me questions",
-                "let me practice",
+                "practice", "give me exercises", "give me problems",
+                "give me questions", "let me practice",
             ]
         ):
             return "practice"
 
-        # --------------------------------------------------
-        # ASSESS
-        # --------------------------------------------------
-
         if any(
             phrase in task
             for phrase in [
-                "assess me",
-                "test me",
-                "quiz me",
-                "evaluate me",
-                "assessment",
-                "take a test",
+                "assess me", "test me", "quiz me",
+                "evaluate me", "assessment", "take a test",
             ]
         ):
             return "assess"
 
-        # --------------------------------------------------
-        # REVISE
-        # --------------------------------------------------
-
         if any(
             phrase in task
             for phrase in [
-                "revise",
-                "revision",
-                "review",
-                "help me revise",
-                "help me review",
+                "revise", "revision", "help me revise", "help me review",
             ]
         ):
             return "revise"
 
-        # --------------------------------------------------
-        # SUMMARIZE
-        # --------------------------------------------------
-
         if any(
             phrase in task
             for phrase in [
-                "summarize",
-                "summary",
-                "give me a summary",
-                "summarise",
-                "summarisation",
+                "summarize", "summary", "give me a summary",
+                "summarise", "summarisation",
             ]
         ):
             return "summarize"
 
-        # --------------------------------------------------
-        # EXPLAIN
-        # --------------------------------------------------
-
         if any(
             phrase in task
             for phrase in [
-                "explain",
-                "explain to me",
-                "how does",
-                "how do",
-                "why does",
-                "why do",
+                "explain", "explain to me", "how does",
+                "how do", "why does", "why do",
             ]
         ):
             return "explain"
 
-        # --------------------------------------------------
-        # TEACH
-        # --------------------------------------------------
-
         if any(
             phrase in task
             for phrase in [
-                "teach me",
-                "teach",
-                "learn about",
-                "help me learn",
+                "teach me", "teach", "learn about", "help me learn",
             ]
         ):
             return "teach"
