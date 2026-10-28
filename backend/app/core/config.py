@@ -17,6 +17,15 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8000"
     ]
 
+    # Cashfree Payment Gateway Settings
+    CASHFREE_ENV: str = "sandbox"  # "sandbox" or "production"
+    CASHFREE_PG_BASE_URL: str = "https://sandbox.cashfree.com/pg"
+    CASHFREE_CLIENT_ID: str = ""
+    CASHFREE_CLIENT_SECRET: str = ""
+    CASHFREE_API_VERSION: str = "2023-08-01"
+    CASHFREE_RETURN_URL: str = "http://localhost:3000/billing/return"
+    CASHFREE_WEBHOOK_URL: str = "http://localhost:8000/api/v1/webhooks/cashfree"
+
     model_config = ConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
