@@ -1,0 +1,13 @@
+myvenv/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+vector_store/
+.vscode/
+.idea/
+ngrok.yml
+ngrok.exe
+ngrok.log
