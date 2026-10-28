@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { Lesson } from '@/types/learning';
 import type { MentorMessage, MentorMode } from '@/types/mentor';
@@ -69,10 +69,17 @@ export default function MentorPanel({
     useState<MentorMessage[]>(mockMessages);
 
   const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const currentMode = modes.find(
     (item) => item.id === mode
   );
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [messages, isTyping]);
 
   const handleSend = () => {
     const trimmedInput = input.trim();
@@ -94,6 +101,7 @@ export default function MentorPanel({
     ]);
 
     setInput('');
+    setIsTyping(true);
 
     // Temporary mock response.
     setTimeout(() => {
@@ -109,14 +117,15 @@ export default function MentorPanel({
         ...current,
         mentorMessage,
       ]);
+      setIsTyping(false);
     }, 500);
   };
 
   return (
     <section className="mx-auto w-full max-w-5xl">
-      <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+      <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_28px_rgba(24,52,58,0.04)]">
         {/* Header */}
-        <div className="border-b border-[var(--border)] p-6">
+        <div className="border-b border-[var(--border)] p-5 sm:p-6">
           <p className="text-sm font-medium text-[var(--feature-blue)]">
             Mentor
           </p>
@@ -132,78 +141,109 @@ export default function MentorPanel({
         </div>
 
         {/* Modes */}
-        <div className="border-b border-[var(--border)] p-4">
-          <div className="grid gap-2 sm:grid-cols-4">
-            {modes.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setMode(item.id)}
-                className={`rounded-lg border p-3 text-left transition ${
-                  mode === item.id
-                    ? 'border-[var(--primary)] bg-[var(--primary-soft)]'
-                    : 'border-[var(--border)] hover:bg-[var(--surface-alt)]'
-                }`}
-              >
-                <p className="text-sm font-medium text-[var(--text-primary)]">
+        <div className="border-b border-[var(--border)] px-5 py-4 sm:px-6">
+          <div
+            role="radiogroup"
+            aria-label="Mentor mode"
+            className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {modes.map((item) => {
+              const active = mode === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setMode(item.id)}
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
+                    active
+                      ? 'border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]'
+                      : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
                   {item.label}
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-                  {item.description}
-                </p>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
+
+          <p key={mode} className="rise mt-3 text-sm text-[var(--text-secondary)]">
+            {currentMode?.description}
+          </p>
         </div>
 
         {/* Current Context */}
-        <div className="border-b border-[var(--border)] bg-[var(--surface-alt)] px-6 py-3">
-          <p className="text-xs text-[var(--text-muted)]">
-            Current context
-          </p>
+        <div className="flex items-start gap-3 border-b border-[var(--border)] bg-[var(--surface-alt)] px-5 py-3 sm:px-6">
+          <span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--feature-blue)]" />
+          <div className="min-w-0">
+            <p className="text-xs text-[var(--text-muted)]">
+              Current context
+            </p>
 
-          <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-            {lesson.title}
-          </p>
+            <p className="mt-0.5 truncate text-sm font-medium text-[var(--text-primary)]">
+              {lesson.title}
+            </p>
 
-          <p className="mt-1 text-xs text-[var(--text-secondary)]">
-            Mode: {currentMode?.label}
-          </p>
+            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+              Mode: {currentMode?.label}
+            </p>
+          </div>
         </div>
 
         {/* Messages */}
-        <div className="min-h-[380px] space-y-4 p-6">
+        <div
+          ref={listRef}
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation with your mentor"
+          className="h-[min(60vh,440px)] min-h-[300px] space-y-4 overflow-y-auto p-5 sm:p-6"
+        >
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${
+              className={`rise flex ${
                 message.role === 'user'
                   ? 'justify-end'
                   : 'justify-start'
               }`}
             >
               <div
-                className={`max-w-[75%] rounded-xl px-4 py-3 ${
+                className={`max-w-[88%] px-4 py-3 sm:max-w-[75%] ${
                   message.role === 'user'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-primary)]'
+                    ? 'rounded-2xl rounded-br-md bg-[var(--primary)] text-white'
+                    : 'rounded-2xl rounded-bl-md border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-primary)]'
                 }`}
               >
-                <p className="text-sm leading-6">
+                <p className="break-words text-sm leading-6">
                   {message.content}
                 </p>
               </div>
             </div>
           ))}
+
+          {isTyping && (
+            <div className="rise flex justify-start" aria-label="Mentor is typing">
+              <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3.5">
+                {[0, 1, 2].map((n) => (
+                  <span
+                    key={n}
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-muted)]"
+                    style={{ animationDelay: `${n * 0.15}s` }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Input */}
-        <div className="border-t border-[var(--border)] p-4">
-          <div className="flex gap-3">
+        <div className="border-t border-[var(--border)] p-4 sm:p-5">
+          <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-5 pr-1.5 transition focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_var(--primary-soft)]">
             <input
               type="text"
               value={input}
+              aria-label="Message your mentor"
               onChange={(event) =>
                 setInput(event.target.value)
               }
@@ -213,19 +253,20 @@ export default function MentorPanel({
                 }
               }}
               placeholder={`Ask your ${currentMode?.label.toLowerCase()}...`}
-              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--primary)]"
+              className="min-w-0 flex-1 bg-transparent py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
             />
 
             <button
               type="button"
               onClick={handleSend}
-              className="rounded-lg bg-[var(--primary)] px-5 py-3 text-sm font-medium text-white transition hover:bg-[var(--primary-hover)]"
+              disabled={!input.trim()}
+              className="shrink-0 rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.97] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
             >
               Send
             </button>
           </div>
 
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
+          <p className="mt-2.5 pl-2 text-xs text-[var(--text-muted)]">
             Mock mentor interaction — backend connection will be added later.
           </p>
         </div>

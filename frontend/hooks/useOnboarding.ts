@@ -1,11 +1,13 @@
-
 'use client';
+
+import { useEffect } from 'react';
 
 import {
   useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useOnboardingStore } from '@/stores/onboardingstore';
 
 import {
   completeOnboarding,
@@ -24,11 +26,31 @@ import type {
 export function useOnboarding() {
   const queryClient = useQueryClient();
 
+  const hydrateFromBackend =
+  useOnboardingStore(
+    (state) => state.hydrateFromBackend
+  );
+
   const onboardingQuery = useQuery({
     queryKey: ['onboarding'],
     queryFn: getOnboardingState,
     retry: false,
+
+    
   });
+  useEffect(() => {
+  const data = onboardingQuery.data;
+
+  if (!data?.raw_data) {
+    return;
+  }
+
+  hydrateFromBackend(data.raw_data);
+}, [
+  onboardingQuery.data,
+  hydrateFromBackend,
+]);
+
 
   const initializeMutation = useMutation({
     mutationFn: (payload: OnboardingPayload) =>
