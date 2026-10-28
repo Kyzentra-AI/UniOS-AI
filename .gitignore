@@ -9,3 +9,5 @@ vector_store/
 .vscode/
 .idea/
 ngrok.yml
+ngrok.exe
+ngrok.log
