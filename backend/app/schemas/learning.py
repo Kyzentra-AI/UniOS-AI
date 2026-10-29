@@ -1,5 +1,5 @@
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from uuid import UUID
 from enum import Enum
@@ -45,6 +45,7 @@ class LearningSessionCreate(BaseModel):
 class LearningSessionUpdate(BaseModel):
     status: Optional[SessionStatus] = None
     checkpoint_block_id: Optional[str] = None
+    completed_block_ids: Optional[List[str]] = None
     progress_percentage: Optional[int] = Field(None, ge=0, le=100)
     notes: Optional[str] = None
 
@@ -57,11 +58,19 @@ class LearningSessionResponse(BaseModel):
     lesson_id: str
     status: SessionStatus | str
     checkpoint_block_id: Optional[str] = None
+    completed_block_ids: Optional[List[str]] = Field(default_factory=list)
     progress_percentage: int
     lesson_data: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("completed_block_ids", mode="before")
+    @classmethod
+    def default_completed_block_ids(cls, v):
+        if v is None:
+            return []
+        return v
 
 class ContentReferenceQuery(BaseModel):
     syllabus_id: UUID

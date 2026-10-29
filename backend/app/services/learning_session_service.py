@@ -26,7 +26,8 @@ class LearningSessionService:
             "mission_id": str(session_in.mission_id) if session_in.mission_id else None,
             "topic": session_in.topic,
             "lesson_id": session_in.lesson_id,
-            "status": "IN_PROGRESS"
+            "status": "IN_PROGRESS",
+            "completed_block_ids": []
         }
         res = supabase_admin.table("learning_sessions").insert(data).execute()
         
@@ -55,6 +56,8 @@ class LearningSessionService:
             update_data["status"] = update_in.status
         if update_in.checkpoint_block_id is not None:
             update_data["checkpoint_block_id"] = update_in.checkpoint_block_id
+        if update_in.completed_block_ids is not None:
+            update_data["completed_block_ids"] = update_in.completed_block_ids
         if update_in.progress_percentage is not None:
             update_data["progress_percentage"] = update_in.progress_percentage
         if update_in.notes is not None:

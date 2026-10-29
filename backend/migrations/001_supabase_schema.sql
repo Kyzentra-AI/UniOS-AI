@@ -421,6 +421,7 @@ CREATE TABLE IF NOT EXISTS learning_sessions (
     lesson_id VARCHAR NOT NULL,
     status session_status NOT NULL DEFAULT 'IN_PROGRESS',
     checkpoint_block_id VARCHAR,
+    completed_block_ids JSONB DEFAULT '[]'::jsonb,
     progress_percentage INTEGER DEFAULT 0,
     lesson_data JSONB,
     notes TEXT,
