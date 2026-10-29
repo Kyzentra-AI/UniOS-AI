@@ -84,7 +84,7 @@ export default function AuthCallbackPage() {
 
         router.replace('/mfa-enroll');
       } catch (err) {
-        console.error('OAuth callback failed:', err);
+        
 
         setError(
           err instanceof Error

@@ -4,11 +4,13 @@ import RoadmapSummary from "@/components/roadmap/RoadmapSummary";
 import CurrentMissions from "@/components/roadmap/CurrentMissions";
 import { useRoadmap } from "@/hooks/useRoadmap";
 import { stagger } from "@/components/roadmap/UI";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function DashboardPage() {
   const { roadmap } = useRoadmap();
 
   return (
+    <ProtectedRoute>
     <main className="min-h-screen bg-[radial-gradient(44rem_15rem_at_0%_0%,var(--primary-soft),transparent_70%)] bg-no-repeat px-4 pb-16 pt-6 sm:px-6 sm:pt-12">
       <div className="mx-auto max-w-6xl">
         <header className="rise mb-8 sm:mb-10">
@@ -37,5 +39,6 @@ export default function DashboardPage() {
         </div>
       </div>
     </main>
+    </ProtectedRoute>
   );
 }

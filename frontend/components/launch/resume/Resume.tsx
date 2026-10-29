@@ -403,7 +403,7 @@ export default function Resume({
               Resume title *
               <input
                 {...form.register('title')}
-                placeholder="e.g. Software Engineer Resume"
+                placeholder="e.g. Software Engineer Resume, Marketer Resume"
                 className={inputClass}
               />
               {form.formState.errors.title?.message && (
@@ -454,7 +454,7 @@ export default function Resume({
                     }))
                   }
                   className={inputClass}
-                  placeholder="e.g. Frontend Developer"
+                  placeholder="e.g. Product Manager, Marketing Specialist"
                 />
               </label>
 

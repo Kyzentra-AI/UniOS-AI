@@ -104,8 +104,15 @@ function TagList({
 }
 
 export default function MemoryPage() {
-  const { data: profile, isLoading, isError, refetch, isFetching } =
-    useProfile();
+  const {
+  profile,
+  isLoading,
+  error,
+  refetch,
+} = useProfile();
+
+const isError = !!error;
+const isFetching = isLoading;
 
   if (isLoading) {
     return (

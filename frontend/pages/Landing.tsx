@@ -1,26 +1,28 @@
 import Link from "next/link";
 
+import { Node, stagger } from "@/components/roadmap/UI";
+
 const features = [
   {
     number: "01",
     title: "AI Study Partner",
     description:
-      "Personalized roadmap generator that adapts to your learning pace and professional goals.",
-    points: ["Adaptive Curriculum", "Smart Scheduling"],
+      "Upload your syllabus and get a week-by-week roadmap. Lessons, a mentor and short assessments sit right next to each mission.",
+    points: ["Roadmap from your syllabus", "Lessons, mentor and assessments"],
   },
   {
     number: "02",
     title: "Career Pipeline",
     description:
-      "Curated internship listings and application tracking system to land your dream role.",
-    points: ["1-Click Applications", "Application Analytics"],
+      "Find internships and competitions worth your time, see the eligibility up front, and keep every application in one list.",
+    points: ["Eligibility at a glance", "Application tracking"],
   },
   {
     number: "03",
-    title: "Collaborative Lab",
+    title: "Project Lab",
     description:
-      "Manage student projects, share feedback, and build a portfolio that stands out to recruiters.",
-    points: ["Real-time Feedback", "Portfolio Export"],
+      "Break a project into milestones and tasks, keep the artifacts and evidence of what you built, and ask the Coach when you get stuck.",
+    points: ["Milestones and tasks", "Evidence of learning"],
   },
 ];
 
@@ -53,12 +55,12 @@ const stats = [
 ];
 
 const velocityData = [
-  [150, 105],
-  [175, 120],
-  [160, 135],
-  [190, 150],
-  [175, 160],
-  [200, 175],
+  [105, 150],
+  [120, 175],
+  [135, 160],
+  [150, 190],
+  [160, 175],
+  [175, 200],
 ];
 
 const activityPoints = [
@@ -71,97 +73,97 @@ const activityPoints = [
   [400, 38],
 ];
 
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 export default function LandingPage() {
   return (
     <main className="w-full bg-[var(--surface)] font-inter overflow-hidden flex-grow text-[var(--text-primary)]">
       {/*Hero*/}
-      <section className="relative">
-        {/* Subtle Ambient Background Glow for Glassmorphism */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-[var(--primary-soft)] to-transparent opacity-30 blur-3xl -z-10 pointer-events-none"></div>
-
-        <div className="mx-auto max-w-7xl px-5 pb-20 pt-10 sm:px-8 sm:pb-24 sm:pt-14 lg:px-10 lg:pb-28 lg:pt-20">
+      <section className="border-b border-[var(--border)]">
+        <div className="mx-auto max-w-7xl px-5 pb-16 pt-12 sm:px-8 sm:pb-24 sm:pt-20 lg:px-10 lg:pb-28 lg:pt-24">
           <div className="grid gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-20">
-            
+
             {/* Left Column: Copy */}
-            <div className="z-10">
-              <h1 className="max-w-4xl text-4xl font-semibold leading-[1.08] tracking-[-0.04em] sm:text-5xl lg:text-6xl text-[var(--text-primary)] drop-shadow-sm">
+            <div>
+              <h1 className="rise max-w-4xl text-[40px] font-semibold leading-[1.04] tracking-[-0.045em] text-[var(--text-primary)] sm:text-6xl lg:text-7xl">
                 The Unified OS for Future-Ready Students
               </h1>
 
-              <p className="mt-6 max-w-2xl text-base leading-7 text-[var(--text-secondary)] sm:text-lg sm:leading-8">
-                UniOS integrates project management, internship tracking, and
-                personalized roadmaps into one AI-powered workspace. Built for
-                high-performers.
+              <p className="rise mt-6 max-w-2xl text-base leading-7 text-[var(--text-secondary)] sm:text-lg sm:leading-8" style={stagger(1)}>
+                Turn your syllabus into a weekly plan, build projects you can
+                actually show, and find competitions you are eligible for, all
+                in one workspace.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="rise mt-9 flex flex-col gap-3 sm:flex-row" style={stagger(2)}>
                 <Link
                   href="/register"
-                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[var(--primary)] px-6 text-sm font-semibold text-white transition-all duration-300 hover:bg-[var(--primary-hover)] shadow-[0_8px_20px_-6px_var(--primary)] hover:shadow-[0_12px_24px_-6px_var(--primary)] hover:-translate-y-0.5"
+                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[var(--primary)] px-6 text-sm font-semibold text-white shadow-[0_4px_14px_0_var(--primary-shadow)] transition duration-200 hover:bg-[var(--primary-hover)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
                 >
                   Start Your Journey
                 </Link>
 
                 <Link
-                  href="#analytics"
-                  className="inline-flex h-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)]/80 backdrop-blur-md px-6 text-sm font-semibold text-[var(--text-primary)] shadow-[0_4px_12px_rgba(0,0,0,0.03)] transition-all duration-300 hover:bg-[var(--surface-muted)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.06)] hover:-translate-y-0.5"
+                  href="#platform"
+                  className="inline-flex h-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-6 text-sm font-semibold text-[var(--text-primary)] transition duration-200 hover:bg-[var(--surface-muted)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                 >
                   Watch Demo
                 </Link>
               </div>
             </div>
 
-            {/* Right Column: Visual */}
-            <div className="relative w-full h-[450px] sm:h-[550px] hidden lg:flex items-center justify-center mt-8 lg:mt-0">
-              
-              {/* Blurred glowing orbs for backdrop */}
-              <div className="absolute w-[340px] h-[340px] bg-[var(--primary-soft)] rounded-full blur-3xl opacity-60 z-0"></div>
-              <div className="absolute w-[280px] h-[280px] bg-[var(--primary)] rounded-full blur-3xl opacity-20 translate-x-10 translate-y-10 z-0"></div>
-              
-              <div className="relative z-10 w-[280px] h-[400px] flex items-end justify-center rounded-b-3xl shadow-[0_20px_40px_rgba(0,0,0,0.1)] transition-transform duration-500 hover:scale-[1.02]">
-                <img 
-                  src="https://images.unsplash.com/photo-1544717305-2782549b5136?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" 
-                  alt="Student Cutout" 
-                  className="w-full h-full object-cover object-top rounded-b-3xl [clip-path:polygon(0_0,100%_0,100%_90%,50%_100%,0_90%)]" 
-                />
-              </div>
+            {/* Right Column: how it works */}
+            <div className="rise" style={stagger(2)}>
+              <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[0_12px_40px_rgba(24,52,58,0.07)] sm:p-7">
+                <p className="text-sm text-[var(--text-muted)]">How it works</p>
+                <p className="mt-0.5 text-lg font-semibold tracking-tight">From syllabus to weekly plan</p>
 
-              {/* Top Left Card - Glassmorphism */}
-              <div className="absolute top-[15%] -left-[10%] z-20 flex gap-3 rounded-2xl border border-[var(--border)]/50 bg-[var(--surface)]/80 backdrop-blur-xl py-3.5 pl-4 pr-5 shadow-[0_8px_32px_rgba(0,0,0,0.08)] transform hover:-translate-y-1 transition-all duration-300">
-                <span aria-hidden="true" className="w-1 self-stretch rounded-full bg-gradient-to-b from-[var(--primary)] to-[var(--primary-soft)] shadow-[0_0_8px_var(--primary-soft)]"></span>
-                <div>
-                  <p className="text-sm font-bold text-[var(--text-primary)]">Syllabus to roadmap</p>
-                  <p className="text-xs text-[var(--text-secondary)]">Built around your goals</p>
-                </div>
-              </div>
+                <ol className="relative mt-6">
+                  <span aria-hidden="true" className="line-grow absolute bottom-8 left-[14px] top-8 w-px bg-[var(--border)]"></span>
 
-              {/* Middle Right Card - Glassmorphism */}
-              <div className="absolute top-[35%] -right-[5%] z-20 bg-[var(--surface)]/80 backdrop-blur-xl p-5 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] border border-[var(--border)]/50 flex flex-col gap-1 transform hover:-translate-y-1 transition-all duration-300">
-                <p className="text-xl font-black text-[var(--primary)] tracking-tight drop-shadow-sm">Weekly missions</p>
-                <p className="text-xs font-medium text-[var(--text-secondary)]">A clear next step, every day</p>
-              </div>
+                  <li className="relative pb-7 pl-11" style={stagger(2)}>
+                    <span className="absolute left-0 top-0"><Node state="idle">1</Node></span>
+                    <p className="pt-1 text-sm font-semibold">Upload your syllabus</p>
+                    <p className="mt-0.5 text-sm leading-6 text-[var(--text-secondary)]">Drop in the PDF you already have.</p>
+                    <div className="mt-3 flex items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] px-3 py-2.5">
+                      <span className="rounded-md bg-[var(--primary-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--primary)]">PDF</span>
+                      <span className="h-2 w-28 rounded-full bg-[var(--border)]"></span>
+                    </div>
+                  </li>
 
-              {/* Bottom Center Card - Glassmorphism */}
-              <div className="absolute -bottom-[5%] left-1/2 -translate-x-1/2 z-20 bg-[var(--surface)]/80 backdrop-blur-xl p-4 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.1)] border border-[var(--border)]/50 flex flex-col items-center gap-3 transform hover:-translate-y-1 transition-all duration-300">
-                <div className="flex gap-1.5">
-                  {[
-                    ["Study", "--feature-purple"],
-                    ["Internships", "--feature-orange"],
-                    ["Projects", "--feature-blue"],
-                  ].map(([label, token]) => (
-                    <span
-                      key={label}
-                      className="rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
-                      style={{ backgroundColor: `var(${token}-soft)`, color: `var(${token})` }}
-                    >
-                      {label}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-xs font-medium text-[var(--text-secondary)]">All in one workspace</p>
-              </div>
+                  <li className="relative pb-7 pl-11" style={stagger(3)}>
+                    <span className="absolute left-0 top-0"><Node state="idle">2</Node></span>
+                    <p className="pt-1 text-sm font-semibold">Review what we found</p>
+                    <p className="mt-0.5 text-sm leading-6 text-[var(--text-secondary)]">Subjects and topics, ready for you to edit.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="h-6 w-16 rounded-full bg-[var(--primary-soft)]"></span>
+                      <span className="h-6 w-24 rounded-full bg-[var(--primary-soft)]"></span>
+                      <span className="h-6 w-12 rounded-full bg-[var(--primary-soft)]"></span>
+                      <span className="h-6 w-20 rounded-full bg-[var(--primary-soft)]"></span>
+                    </div>
+                  </li>
 
+                  <li className="relative pl-11" style={stagger(4)}>
+                    <span className="absolute left-0 top-0"><Node state="active" tone="orange">3</Node></span>
+                    <p className="pt-1 text-sm font-semibold">Follow your missions</p>
+                    <p className="mt-0.5 text-sm leading-6 text-[var(--text-secondary)]">A clear next step, every day.</p>
+                    <div className="mt-3 flex gap-[3px]" aria-hidden="true">
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map((n) => (
+                        <span
+                          key={n}
+                          className="seg h-2 flex-1 rounded-full"
+                          style={{
+                            ...stagger(n + 4),
+                            backgroundColor: n < 3 ? "var(--primary)" : n === 3 ? "var(--feature-orange)" : "var(--border)",
+                          }}
+                        ></span>
+                      ))}
+                    </div>
+                  </li>
+                </ol>
+              </div>
             </div>
+
           </div>
         </div>
       </section>
@@ -183,126 +185,124 @@ export default function LandingPage() {
       </section>*/}
 
       {/*Advanced analytics*/}
-      <section id="analytics" className="py-20 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden relative">
-        <div className="flex flex-col lg:flex-row items-center gap-16">
-          
-          {/* Left Content */}
-          <div className="w-full lg:w-1/2 space-y-8 z-10">
-            <div>
-              <span className="text-[var(--primary)] font-semibold tracking-wider text-sm uppercase">Insights</span>
-              <h2 className="text-3xl md:text-5xl font-bold mt-2 mb-4">
-                Advanced Analytics.
-              </h2>
-              <p className="text-[var(--text-secondary)] text-lg leading-relaxed">
-                Don't just study—measure your progress. Our integrated dashboard provides real-time insights into your skill acquisition, project velocity, and internship success rates.
-              </p>
-            </div>
+      <section id="analytics" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-32 lg:px-8">
+        <div className="grid items-center gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20">
 
-            <div className="space-y-8 mt-8">
-              <div className="flex gap-4 items-start group">
-                <div className="w-8 h-8 rounded-xl bg-[var(--primary-soft)]/50 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_2px_8px_rgba(0,0,0,0.05)] flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
-                  <div className="w-3 h-3 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)]"></div>
-                </div>
+          {/* Left Content */}
+          <div className="reveal">
+            <span className="text-sm font-medium text-[var(--primary)]">Insights</span>
+            <h2 className="mt-3 text-4xl font-semibold leading-[1.05] tracking-[-0.035em] md:text-6xl">
+              Advanced Analytics.
+            </h2>
+            <p className="mt-5 text-lg leading-relaxed text-[var(--text-secondary)]">
+              Studying hard is not the same as studying on plan. See how your week compares with what you set out to do, and where your skills and projects stand.
+            </p>
+
+            <div className="mt-10 divide-y divide-[var(--border)] border-y border-[var(--border)]">
+              <div className="group flex gap-4 py-5">
+                <span aria-hidden="true" className="mt-3 h-0.5 w-5 shrink-0 rounded-full bg-[var(--primary)] transition-all duration-300 group-hover:w-8"></span>
                 <div>
-                  <h4 className="text-lg font-bold">Progress Forecasting</h4>
-                  <p className="text-sm text-[var(--text-secondary)] mt-1">AI predicts when you'll be job-ready based on current learning velocity.</p>
+                  <h4 className="text-lg font-semibold">Progress Forecasting</h4>
+                  <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">AI predicts when you'll be job-ready based on current learning velocity.</p>
                 </div>
               </div>
-              <div className="flex gap-4 items-start group">
-                <div className="w-8 h-8 rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-[inset_0_2px_4px_rgba(255,255,255,0.5),0_2px_8px_rgba(0,0,0,0.03)] flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
-                  <div className="w-3 h-3 rounded-full bg-[var(--text-muted)]"></div>
-                </div>
+              <div className="group flex gap-4 py-5">
+                <span aria-hidden="true" className="mt-3 h-0.5 w-5 shrink-0 rounded-full bg-[var(--text-muted)] transition-all duration-300 group-hover:w-8 group-hover:bg-[var(--primary)]"></span>
                 <div>
-                  <h4 className="text-lg font-bold">Skill Gap Analysis</h4>
-                  <p className="text-sm text-[var(--text-secondary)] mt-1">Compare your skills against top tech requirements to see what's missing.</p>
+                  <h4 className="text-lg font-semibold">Skill Gap Analysis</h4>
+                  <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Compare your skills against top tech requirements to see what's missing.</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Visuals (Glassmorphic Mockups) */}
-          <div className="w-full lg:w-1/2 relative min-h-[450px]">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[140%] bg-[var(--primary-soft)] rounded-full blur-3xl -z-10 opacity-50"></div>
-            
-            {/* 1. Bar Chart Mockup (Top Right) */}
-            <div className="absolute top-0 right-0 w-5/6 bg-[var(--surface)]/70 backdrop-blur-2xl rounded-3xl border border-[var(--border)]/40 p-6 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.1)] z-10 transform hover:-translate-y-2 transition-transform duration-500">
-              <div className="flex justify-between items-center mb-6">
-                <h5 className="font-bold text-sm">Learning Velocity</h5>
-                <div className="flex gap-2">
-                  <span className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]"><div className="w-2 h-2 bg-[var(--border)] rounded-full"></div> Expected</span>
-                  <span className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]"><div className="w-2 h-2 bg-[var(--primary)] shadow-[0_0_6px_var(--primary)] rounded-full"></div> Actual</span>
+          {/* Right Visuals: one dashboard panel */}
+          <div className="reveal overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_12px_40px_rgba(24,52,58,0.07)]">
+
+            {/* 1. Bar chart */}
+            <div className="p-5 sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h5 className="text-sm font-semibold">Learning Velocity</h5>
+                <div className="flex gap-3">
+                  <span className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]"><span className="h-2 w-2 rounded-full bg-[var(--border)]"></span> Expected</span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]"><span className="h-2 w-2 rounded-full bg-[var(--primary)]"></span> Actual</span>
                 </div>
               </div>
-              
-              <div className="flex items-end justify-between gap-3 h-32 mb-2 border-b border-[var(--border)]/50 pb-2">
+
+              <div className="mt-6 flex h-36 items-end justify-between gap-2 border-b border-[var(--border)] sm:gap-4">
                 {velocityData.map(([expected, actual], index) => (
-                  <div key={index} className="w-full flex items-end justify-center gap-1">
-                    <div className="w-1/2 bg-[var(--border)]/70 rounded-t-md transition-all hover:bg-[var(--border)]" style={{ height: `${expected / 2}%` }}></div>
-                    <div className="w-1/2 bg-gradient-to-t from-[var(--primary)] to-[var(--primary-hover)] rounded-t-md shadow-[0_4px_12px_rgba(0,0,0,0.1)]" style={{ height: `${actual / 2}%` }}></div>
+                  <div key={index} className="flex h-full w-full items-end justify-center gap-1">
+                    <div className="w-1/2 rounded-t-md bg-[var(--border)]" style={{ height: `${expected / 2}%` }}></div>
+                    <div className="w-1/2 rounded-t-md bg-[var(--primary)]" style={{ height: `${actual / 2}%` }}></div>
                   </div>
                 ))}
               </div>
-              
-              <div className="flex justify-between text-[9px] text-[var(--text-muted)] font-medium px-2 uppercase">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+
+              <div className="mt-2 flex justify-between gap-2 text-[11px] font-medium text-[var(--text-muted)] sm:gap-4">
+                {days.map((day) => (
+                  <span key={day} className="w-full text-center">{day}</span>
+                ))}
               </div>
             </div>
 
-            {/* 2. Line Chart Mockup (Bottom Left) */}
-            <div className="absolute bottom-10 left-0 w-3/4 bg-[var(--surface)]/70 backdrop-blur-2xl rounded-3xl border border-[var(--border)]/40 p-6 shadow-[0_24px_50px_-12px_rgba(0,0,0,0.12)] z-20 transform hover:-translate-y-2 transition-transform duration-500">
-              <div className="flex justify-between items-center mb-6">
-                <h5 className="font-bold text-sm">Academic Output</h5>
-                <span className="text-[10px] font-semibold text-green-600 bg-green-50/80 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-green-100">Weekly Activity</span>
+            {/* 2. Line chart */}
+            <div className="border-t border-[var(--border)] bg-[var(--surface-alt)] p-5 sm:p-7">
+              <div className="flex items-center justify-between gap-2">
+                <h5 className="text-sm font-semibold">Academic Output</h5>
+                <span className="rounded-md bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-600">Weekly Activity</span>
               </div>
-              
-              <div className="h-24 w-full relative border-b border-l border-[var(--border)]/50">
+
+              <div className="relative mt-6 h-28 w-full border-b border-l border-[var(--border)]">
                 <div className="absolute inset-0 flex flex-col justify-between">
-                  <div className="border-t border-[var(--border)] opacity-30 h-1/4"></div>
-                  <div className="border-t border-[var(--border)] opacity-30 h-1/4"></div>
-                  <div className="border-t border-[var(--border)] opacity-30 h-1/4"></div>
+                  <div className="h-1/4 border-t border-[var(--border)] opacity-60"></div>
+                  <div className="h-1/4 border-t border-[var(--border)] opacity-60"></div>
+                  <div className="h-1/4 border-t border-[var(--border)] opacity-60"></div>
                 </div>
 
-                <svg viewBox="0 0 400 180" className="absolute inset-0 h-full w-full overflow-visible drop-shadow-md" preserveAspectRatio="none">
-                  <polyline 
-                    points={activityPoints.map(([x, y]) => `${x},${y}`).join(" ")} 
-                    fill="none" 
-                    stroke="var(--primary)" 
-                    strokeWidth="4" 
-                    strokeLinecap="round" 
+                <svg viewBox="0 0 400 180" className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none">
+                  <polyline
+                    points={activityPoints.map(([x, y]) => `${x},${y}`).join(" ")}
+                    fill="none"
+                    stroke="var(--primary)"
+                    strokeWidth="4"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
                   />
                   {activityPoints.map(([x, y], index) => (
-                    <circle key={index} cx={x} cy={y} r="6" fill="var(--surface)" stroke="var(--primary)" strokeWidth="3" className="shadow-sm" />
+                    <circle key={index} cx={x} cy={y} r="5" fill="var(--primary)" stroke="var(--surface-alt)" strokeWidth="2" />
                   ))}
                 </svg>
               </div>
-              
-              <div className="flex justify-between text-[9px] text-[var(--text-muted)] font-medium mt-2 uppercase pt-2">
+
+              <div className="mt-2 flex justify-between pt-2 text-[11px] font-medium text-[var(--text-muted)]">
                 <span>Week 1</span><span>Week 2</span><span>Week 3</span><span>Week 4</span>
               </div>
             </div>
-            
+
+            <p className="border-t border-[var(--border)] px-5 py-3 text-xs text-[var(--text-muted)] sm:px-7">Illustrative data for preview.</p>
           </div>
+
         </div>
       </section>
 
       {/*Features*/}
-      <section className="py-20 bg-[var(--surface-muted)]/30 border-t border-[var(--border)]/60 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--primary)] mb-4">
-              The Platform
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Everything you need to accelerate your career.
-            </h2>
-            <p className="text-[var(--text-secondary)] text-lg">
+      <section id="platform" className="border-t border-[var(--border)] bg-[var(--surface-muted)] py-20 md:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+          <div className="reveal grid gap-6 md:grid-cols-2 md:items-end md:gap-16">
+            <div>
+              <p className="text-sm font-medium text-[var(--primary)]">The Platform</p>
+              <h2 className="mt-3 text-3xl font-semibold leading-[1.08] tracking-[-0.03em] md:text-5xl">
+                Everything you need to accelerate your career.
+              </h2>
+            </div>
+            <p className="text-lg leading-relaxed text-[var(--text-secondary)]">
               A comprehensive ecosystem designed to manage your academic journey and professional growth in one place.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <ol className="mt-14 divide-y divide-[var(--border)] border-y border-[var(--border)] md:mt-20">
             {features.map((feature, index) => {
               const colors = [
                 { soft: 'var(--feature-purple-soft)', strong: 'var(--feature-purple)' },
@@ -312,31 +312,36 @@ export default function LandingPage() {
               const theme = colors[index % colors.length];
 
               return (
-                <article key={feature.title} className="group relative bg-[var(--surface)]/60 backdrop-blur-lg rounded-[2rem] p-8 border border-[var(--border)]/50 shadow-[0_8px_24px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,0.4)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.06),inset_0_1px_1px_rgba(255,255,255,0.5)] hover:-translate-y-1 transition-all duration-300">
-                  {/* Neumorphic Inner Glow Layer */}
-                  <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl text-base font-bold tracking-tight shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_4px_12px_rgba(0,0,0,0.05)] transition-transform group-hover:scale-110" style={{ backgroundColor: theme.soft, color: theme.strong }}>
+                <li
+                  key={feature.title}
+                  className="reveal group grid gap-5 py-9 transition-colors duration-300 hover:bg-[var(--surface)] md:grid-cols-[8rem_1.1fr_1fr] md:items-start md:gap-10 md:px-6 md:py-12"
+                >
+                  <span
+                    className="text-5xl font-semibold leading-none tracking-tight transition-transform duration-300 group-hover:translate-x-1 md:text-6xl"
+                    style={{ color: theme.strong }}
+                  >
                     {feature.number}
+                  </span>
+
+                  <div>
+                    <h3 className="text-2xl font-semibold tracking-tight">{feature.title}</h3>
+                    <p className="mt-3 max-w-md text-[15px] leading-7 text-[var(--text-secondary)]">
+                      {feature.description}
+                    </p>
                   </div>
-                  
-                  <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                  <p className="text-[var(--text-secondary)] text-sm mb-6 leading-relaxed">
-                    {feature.description}
-                  </p>
-                  
-                  <div className="space-y-3">
+
+                  <ul className="space-y-3 md:pt-2">
                     {feature.points.map((point) => (
-                      <div key={point} className="flex items-center gap-3 text-sm text-[var(--text-secondary)] font-medium">
-                        <span aria-hidden="true" className="h-0.5 w-4 shrink-0 rounded-full bg-[var(--primary)] shadow-[0_0_4px_var(--primary)]"></span>
+                      <li key={point} className="flex items-center gap-3 text-sm font-medium text-[var(--text-secondary)]">
+                        <span aria-hidden="true" className="h-0.5 w-4 shrink-0 rounded-full" style={{ backgroundColor: theme.strong }}></span>
                         <span>{point}</span>
-                      </div>
+                      </li>
                     ))}
-                  </div>
-                </article>
+                  </ul>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </div>
       </section>
 
@@ -391,29 +396,22 @@ export default function LandingPage() {
         </div>
       </section>*/}
 
-      {/* CTA - Glassmorphic Pane */}
-      <section className="pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto mt-10">
-        <div className="bg-[var(--surface)]/60 backdrop-blur-2xl border border-[var(--border)] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.1),inset_0_1px_1px_rgba(255,255,255,0.2)] rounded-[3rem] p-12 md:p-20 text-center relative overflow-hidden">
-
-          {/* Visible dark circle - top right blurred for ambient feel */}
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-[var(--primary)]/10 blur-3xl rounded-full pointer-events-none"></div>
-
-          {/* Subtle circle - bottom left blurred */}
-          <div className="absolute -bottom-24 -left-20 w-64 h-64 bg-[var(--primary)]/5 blur-3xl rounded-full pointer-events-none"></div>
-
-          <div className="relative z-10 max-w-2xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-bold text-[var(--text-primary)] mb-6 drop-shadow-sm">
-              Ready to supercharge your career?
+      {/* CTA */}
+      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-28 lg:px-8">
+        <div className="reveal rounded-3xl bg-[var(--primary)] px-6 py-14 sm:px-12 md:px-16 md:py-20">
+          <div className="grid gap-10 md:grid-cols-[1.3fr_1fr] md:items-end md:gap-16">
+            <h2 className="text-4xl font-semibold leading-[1.05] tracking-[-0.035em] text-white md:text-6xl">
+              Start with your syllabus.
             </h2>
 
-            <p className="text-[var(--text-secondary)] text-lg mb-10">
-              Join thousands of students who are building their future with the power of UniOS. Start for free today.
-            </p>
+            <div>
+              <p className="text-lg leading-relaxed text-white/80">
+                Upload it, check what we found, and get your first week of missions. Free to start.
+              </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/register"
-                className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-[var(--primary)] to-[var(--primary-hover)] text-white font-bold rounded-2xl transition-all duration-300 shadow-[0_8px_20px_-6px_var(--primary)] hover:shadow-[0_12px_24px_-6px_var(--primary)] hover:-translate-y-1"
+                className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl bg-[var(--surface)] px-7 text-sm font-semibold text-[var(--text-primary)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(0,0,0,0.18)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--primary)] sm:w-auto"
               >
                 Get Started for Free
               </Link>

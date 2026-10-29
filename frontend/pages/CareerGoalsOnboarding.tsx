@@ -145,7 +145,7 @@ export default function CareerGoalsOnboarding() {
               <textarea
                 {...register('primaryGoal')}
                 rows={5}
-                placeholder="e.g. I want to become a full-stack AI developer and eventually work on intelligent learning systems."
+                placeholder="e.g. I want to be a Full Stack developer, Marketing Specialist or Business Analyst."
                 className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] shadow-sm transition-all focus:border-[var(--primary)] focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)]"
               />
 
@@ -178,7 +178,7 @@ export default function CareerGoalsOnboarding() {
                   setSkillInput(event.target.value)
                 }
                 onKeyDown={handleSkillKeyDown}
-                placeholder="e.g. React, Python, Canva, Communication"
+                placeholder="e.g. Canva, Communication, Programming"
                 className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] shadow-sm transition-all focus:border-[var(--primary)] focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)]"
               />
 

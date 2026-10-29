@@ -1,11 +1,10 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-
 import { getSession, logout } from '@/lib/auth';
 
 const HIDDEN_ROUTES = [
@@ -21,19 +20,48 @@ const HIDDEN_ROUTES = [
   '/syllabus',
 ];
 
-const PUBLIC_LINKS = [
-  { label: 'Product', href: '/#product' },
-  { label: 'Solutions', href: '/#solutions' },
-  { label: 'Resources', href: '/#resources' },
-  { label: 'Pricing', href: '/billing' },
-];
-
 const AUTH_LINKS = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Roadmap', href: '/roadmap' },
   { label: 'Build', href: '/build' },
   { label: 'Launch', href: '/launch' },
   { label: 'Compete', href: '/compete' },
+  { label: 'Pricing', href: '/billing' },
+];
+
+const PUBLIC_MENUS = [
+  {
+    label: 'Product',
+    items: [
+      { label: 'AI Study Assistant', href: '/ai-study-assistant' },
+      { label: 'Study Resources', href: '/study-resources' },
+      { label: 'Smart Study Roadmap', href: '/roadmap' },
+      { label: 'Projects & Workspace', href: '/build' },
+      { label: 'Career Guidance', href: '/career-guidance' },
+      { label: 'Internship Tracker', href: '/internships' },
+      { label: 'Coding Workspace', href: '/coding-workspace' },
+    ],
+  },
+  {
+    label: 'Solutions',
+    items: [
+      { label: 'For University Students', href: '/solutions/university-students' },
+      { label: 'For Exam Preparation', href: '/solutions/exam-preparation' },
+      {
+        label: 'For Career & Internship Readiness',
+        href: '/solutions/career-readiness',
+      },
+    ],
+  },
+  {
+    label: 'Resources',
+    items: [
+      { label: 'Blog', href: '/blog' },
+      { label: 'Study Guides', href: '/study-guides' },
+      { label: 'Career Guides', href: '/career-guides' },
+      { label: 'FAQs', href: '/faqs' },
+    ],
+  },
 ];
 
 interface JwtPayload {
@@ -52,19 +80,14 @@ function getAvatarInitials(token: string | null): string {
 
   try {
     const payloadPart = token.split('.')[1];
-
     if (!payloadPart) return 'U';
 
-    const base64 = payloadPart
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
+    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
     const decoded = atob(
       base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
     );
 
     const payload = JSON.parse(decoded) as JwtPayload;
-
     const name =
       payload.user_metadata?.full_name ||
       payload.user_metadata?.name ||
@@ -79,30 +102,50 @@ function getAvatarInitials(token: string | null): string {
         : parts[0].slice(0, 2).toUpperCase();
     }
 
-    const email =
-      payload.user_metadata?.email || payload.email;
-
-    return email?.trim()
-      ? email.trim()[0].toUpperCase()
-      : 'U';
+    const email = payload.user_metadata?.email || payload.email;
+    return email?.trim() ? email.trim()[0].toUpperCase() : 'U';
   } catch {
     return 'U';
   }
 }
 
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      className={`h-3.5 w-3.5 transition-transform duration-200 ${
+        open ? 'rotate-180' : ''
+      }`}
+      aria-hidden="true"
+    >
+      <path
+        d="m5 7.5 5 5 5-5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function Navbar() {
   const pathname = usePathname() ?? '';
   const router = useRouter();
+  const navRef = useRef<HTMLElement>(null);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [avatarInitials, setAvatarInitials] = useState('U');
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [openMobileSection, setOpenMobileSection] = useState<string | null>(
+    null
+  );
 
   const syncAuthState = useCallback(() => {
-    const session = getSession();
-    const token = session?.access_token || null;
-
+    const token = getSession()?.access_token || null;
     setIsLoggedIn(Boolean(token));
     setAvatarInitials(getAvatarInitials(token));
   }, []);
@@ -111,15 +154,47 @@ export default function Navbar() {
     syncAuthState();
 
     window.addEventListener('auth-change', syncAuthState);
-
-    return () => {
-      window.removeEventListener('auth-change', syncAuthState);
-    };
+    return () => window.removeEventListener('auth-change', syncAuthState);
   }, [syncAuthState]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setOpenDropdown(null);
+    setOpenMobileSection(null);
   }, [pathname]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (
+        navRef.current &&
+        !navRef.current.contains(event.target as Node)
+      ) {
+        setOpenDropdown(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenDropdown(null);
+        setOpenMobileSection(null);
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
+  const closeMenus = () => {
+    setIsMobileMenuOpen(false);
+    setOpenDropdown(null);
+    setOpenMobileSection(null);
+  };
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -131,34 +206,37 @@ export default function Navbar() {
     } finally {
       setIsLoggedIn(false);
       setAvatarInitials('U');
-      setIsMobileMenuOpen(false);
+      closeMenus();
       router.replace('/login');
       setIsLoggingOut(false);
     }
   };
 
   const hideNavbar = HIDDEN_ROUTES.some(
-    (route) =>
-      pathname === route || pathname.startsWith(`${route}/`)
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
   if (hideNavbar) return null;
 
   const linkClass = (href: string) =>
-    `text-sm font-medium transition-colors ${
-      pathname === href
+    `text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
+      pathname === href || (href !== '/' && pathname.startsWith(`${href}/`))
         ? 'text-[var(--primary)]'
         : 'text-[var(--text-secondary)] hover:text-[var(--primary)]'
     }`;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-sm">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
+      <nav
+        ref={navRef}
+        aria-label="Main navigation"
+        className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
+      >
         <Link
           href={isLoggedIn ? '/dashboard' : '/'}
-          className="flex shrink-0 items-center"
+          onClick={closeMenus}
           aria-label="UniOS.AI home"
+          className="flex shrink-0 items-center"
         >
           <Image
             src="/logo.svg"
@@ -170,21 +248,75 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Desktop navigation */}
-        <div className="hidden items-center gap-7 md:flex">
-          {(isLoggedIn ? AUTH_LINKS : PUBLIC_LINKS).map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={linkClass(item.href)}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <div className="hidden items-center gap-6 md:flex">
+          {isLoggedIn ? (
+            AUTH_LINKS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={linkClass(item.href)}
+              >
+                {item.label}
+              </Link>
+            ))
+          ) : (
+            <>
+              {PUBLIC_MENUS.map((menu) => {
+                const isOpen = openDropdown === menu.label;
+
+                return (
+                  <div
+                    key={menu.label}
+                    className="relative"
+                    onMouseEnter={() => setOpenDropdown(menu.label)}
+                    onMouseLeave={() => setOpenDropdown(null)}
+                  >
+                    <button
+                      type="button"
+                      aria-expanded={isOpen}
+                      onClick={() =>
+                        setOpenDropdown((current) =>
+                          current === menu.label ? null : menu.label
+                        )
+                      }
+                      className={`flex items-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
+                        isOpen
+                          ? 'text-[var(--primary)]'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--primary)]'
+                      }`}
+                    >
+                      {menu.label}
+                      <Chevron open={isOpen} />
+                    </button>
+
+                    {isOpen && (
+                      <div className="absolute left-1/2 top-full z-50 w-64 -translate-x-1/2 pt-2">
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-lg">
+                          {menu.items.map((item) => (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={closeMenus}
+                              className="block rounded-lg px-3 py-2.5 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--primary-soft)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                            >
+                              {item.label}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <Link href="/billing" className={linkClass('/billing')}>
+                Pricing
+              </Link>
+            </>
+          )}
         </div>
 
-        {/* Desktop actions */}
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden shrink-0 items-center gap-3 md:flex">
           {isLoggedIn ? (
             <>
               <Link
@@ -200,7 +332,7 @@ export default function Navbar() {
                 type="button"
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--primary)] transition hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--primary)] transition hover:bg-[var(--primary-soft)] disabled:opacity-60"
               >
                 {isLoggingOut ? 'Signing out...' : 'Sign Out'}
               </button>
@@ -224,7 +356,6 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile menu toggle */}
         <button
           type="button"
           aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
@@ -258,20 +389,71 @@ export default function Navbar() {
         </button>
       </nav>
 
-      {/* Mobile navigation */}
       {isMobileMenuOpen && (
         <div className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-4 shadow-md md:hidden">
-          <div className="flex flex-col gap-1">
-            {(isLoggedIn ? AUTH_LINKS : PUBLIC_LINKS).map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="rounded-lg px-3 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
-              >
-                {item.label}
-              </Link>
-            ))}
+          <div className="mx-auto flex max-w-7xl flex-col gap-1">
+            {isLoggedIn ? (
+              AUTH_LINKS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMenus}
+                  className={`rounded-lg px-3 py-3 ${linkClass(item.href)}`}
+                >
+                  {item.label}
+                </Link>
+              ))
+            ) : (
+              <>
+                {PUBLIC_MENUS.map((menu) => {
+                  const isOpen = openMobileSection === menu.label;
+
+                  return (
+                    <section
+                      key={menu.label}
+                      className="border-b border-[var(--border)] last:border-0"
+                    >
+                      <button
+                        type="button"
+                        aria-expanded={isOpen}
+                        onClick={() =>
+                          setOpenMobileSection((current) =>
+                            current === menu.label ? null : menu.label
+                          )
+                        }
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--primary-soft)]"
+                      >
+                        {menu.label}
+                        <Chevron open={isOpen} />
+                      </button>
+
+                      {isOpen && (
+                        <div className="pb-2 pl-2">
+                          {menu.items.map((item) => (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={closeMenus}
+                              className="block rounded-lg px-3 py-2.5 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
+                            >
+                              {item.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+
+                <Link
+                  href="/billing"
+                  onClick={closeMenus}
+                  className={`rounded-lg px-3 py-3 ${linkClass('/billing')}`}
+                >
+                  Pricing
+                </Link>
+              </>
+            )}
 
             <div className="my-2 border-t border-[var(--border)]" />
 
@@ -279,7 +461,7 @@ export default function Navbar() {
               <>
                 <Link
                   href="/memory"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMenus}
                   className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--primary-soft)]"
                 >
                   <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--primary-soft)] font-semibold text-[var(--primary)]">
@@ -301,15 +483,15 @@ export default function Navbar() {
               <>
                 <Link
                   href="/login"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="rounded-lg px-3 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--primary-soft)]"
+                  onClick={closeMenus}
+                  className="rounded-lg px-3 py-3 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--primary-soft)]"
                 >
                   Log In
                 </Link>
 
                 <Link
                   href="/register"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMenus}
                   className="rounded-lg bg-[var(--primary)] px-3 py-3 text-center text-sm font-semibold text-[var(--surface)] transition hover:bg-[var(--primary-hover)]"
                 >
                   Get Started

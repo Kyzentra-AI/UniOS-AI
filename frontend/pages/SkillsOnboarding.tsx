@@ -172,7 +172,7 @@ export default function SkillsOnboarding() {
                     addSkill();
                   }
                 }}
-                placeholder="e.g. React"
+                placeholder="e.g. Canva, Python, Communication, Marketing"
                 className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--primary)]"
               />
 

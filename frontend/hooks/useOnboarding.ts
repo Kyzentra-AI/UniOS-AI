@@ -38,18 +38,41 @@ export function useOnboarding() {
 
     
   });
-  useEffect(() => {
+  
+useEffect(() => {
   const data = onboardingQuery.data;
 
+  
+
   if (!data?.raw_data) {
+    
     return;
   }
 
+  const {
+    learner_profile,
+    academic_profile,
+    learning_preferences,
+  } = data.raw_data;
+
+  if (data.status === 'NOT_STARTED') {
+    
+    return;
+  }
+
+  const hasBackendData =
+    Object.keys(learner_profile ?? {}).length > 0 ||
+    Object.keys(academic_profile ?? {}).length > 0 ||
+    Object.keys(learning_preferences ?? {}).length > 0;
+
+  if (!hasBackendData) {
+    
+    return;
+  }
+
+  
   hydrateFromBackend(data.raw_data);
-}, [
-  onboardingQuery.data,
-  hydrateFromBackend,
-]);
+}, [onboardingQuery.data, hydrateFromBackend]);
 
 
   const initializeMutation = useMutation({
