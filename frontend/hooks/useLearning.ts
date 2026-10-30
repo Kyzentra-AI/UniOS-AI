@@ -49,20 +49,17 @@ function getLessonFromSession(
 ): Lesson | null {
   const data = session.lesson_data;
 
-  if (!data) return null;
-
-  // Accept the direct lesson shape only when the response
-  // actually contains the required Lesson fields.
   if (
-    typeof data.id === 'string' &&
-    typeof data.title === 'string' &&
-    typeof data.objective === 'string' &&
-    Array.isArray(data.blocks)
+    !data ||
+    typeof data.id !== 'string' ||
+    typeof data.title !== 'string' ||
+    typeof data.objective !== 'string' ||
+    !Array.isArray(data.blocks)
   ) {
-    return data as unknown as Lesson;
+    return null;
   }
 
-  return null;
+  return data as unknown as Lesson;
 }
 
 export function useLearning({
@@ -75,6 +72,7 @@ export function useLearning({
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [completedBlockIds, setCompletedBlockIds] =
     useState<string[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,33 +85,38 @@ export function useLearning({
       const created = await createLearningSession(session);
       setSessionData(created);
 
-      const existingLesson = getLessonFromSession(created);
+      let loadedLesson = getLessonFromSession(created);
 
-      if (existingLesson) {
-        setLesson(existingLesson);
-      } else {
-        const generated = await generateLesson(created.id, {
+      if (!loadedLesson) {
+        loadedLesson = await generateLesson(created.id, {
           topic: created.topic,
           lesson_id: created.lesson_id,
         });
-
-        setLesson(generated);
       }
+
+      setLesson(loadedLesson);
 
       const latest = await getLearningSession(created.id);
       setSessionData(latest);
 
-      if (latest.checkpoint_block_id) {
-        const currentLesson =
-          getLessonFromSession(latest) ?? existingLesson;
+      const validBlockIds = new Set(
+        loadedLesson.blocks.map((block) => block.id),
+      );
 
-        const index = currentLesson?.blocks.findIndex(
-          (block) => block.id === latest.checkpoint_block_id,
-        );
+      const savedCompletedIds = (
+        latest.completed_block_ids ?? []
+      ).filter((id) => validBlockIds.has(id));
 
-        if (index !== undefined && index >= 0) {
-          setCurrentBlockIndex(index);
-        }
+      setCompletedBlockIds(savedCompletedIds);
+
+      const checkpointIndex = loadedLesson.blocks.findIndex(
+        (block) => block.id === latest.checkpoint_block_id,
+      );
+
+      if (checkpointIndex >= 0) {
+        setCurrentBlockIndex(checkpointIndex);
+      } else {
+        setCurrentBlockIndex(0);
       }
     } catch (err) {
       setError(
@@ -133,12 +136,21 @@ export function useLearning({
   const progress = useMemo(() => {
     if (!lesson?.blocks.length) return 0;
 
+    const validBlockIds = new Set(
+      lesson.blocks.map((block) => block.id),
+    );
+
+    const completedCount = completedBlockIds.filter(
+      (id) => validBlockIds.has(id),
+    ).length;
+
     return Math.round(
-      (completedBlockIds.length / lesson.blocks.length) * 100,
+      (completedCount / lesson.blocks.length) * 100,
     );
   }, [completedBlockIds, lesson]);
 
-  const currentBlock = lesson?.blocks[currentBlockIndex] ?? null;
+  const currentBlock =
+    lesson?.blocks[currentBlockIndex] ?? null;
 
   const goToBlock = useCallback(
     (index: number) => {
@@ -189,12 +201,17 @@ export function useLearning({
         sessionData.id,
         {
           checkpoint_block_id: block?.id,
+          completed_block_ids: completedBlockIds,
           progress_percentage: progress,
           status: progress >= 100 ? 'COMPLETED' : 'IN_PROGRESS',
         },
       );
 
       setSessionData(updated);
+
+      if (updated.completed_block_ids) {
+        setCompletedBlockIds(updated.completed_block_ids);
+      }
     } catch (err) {
       const message =
         err instanceof Error
@@ -206,7 +223,13 @@ export function useLearning({
     } finally {
       setIsSaving(false);
     }
-  }, [sessionData, lesson, currentBlockIndex, progress]);
+  }, [
+    sessionData,
+    lesson,
+    currentBlockIndex,
+    completedBlockIds,
+    progress,
+  ]);
 
   const refreshSession = useCallback(async () => {
     if (!sessionData) return;
@@ -218,6 +241,24 @@ export function useLearning({
 
     if (updatedLesson) {
       setLesson(updatedLesson);
+
+      const validIds = new Set(
+        updatedLesson.blocks.map((block) => block.id),
+      );
+
+      setCompletedBlockIds(
+        (latest.completed_block_ids ?? []).filter(
+          (id) => validIds.has(id),
+        ),
+      );
+
+      const index = updatedLesson.blocks.findIndex(
+        (block) => block.id === latest.checkpoint_block_id,
+      );
+
+      if (index >= 0) {
+        setCurrentBlockIndex(index);
+      }
     }
   }, [sessionData]);
 

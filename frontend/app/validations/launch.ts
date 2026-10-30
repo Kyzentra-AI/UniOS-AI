@@ -4,8 +4,24 @@ import { z } from 'zod';
 const text = z.string().trim();
 
 const optionalUrl = text.refine(
-  (value) => !value || z.string().url().safeParse(value).success,
-  'Enter a valid URL',
+  (value) => {
+    if (!value) return true;
+
+    try {
+      const url = new URL(value);
+
+      return (
+        ['http:', 'https:'].includes(url.protocol) &&
+        !!url.hostname &&
+        !url.hostname.endsWith('.') &&
+        url.hostname.includes('.') &&
+        !/\s/.test(value)
+      );
+    } catch {
+      return false;
+    }
+  },
+  'Enter a valid URL starting with http:// or https://',
 );
 
 export const resumeContactSchema = z.object({

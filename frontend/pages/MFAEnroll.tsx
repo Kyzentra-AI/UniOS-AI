@@ -52,7 +52,7 @@ export default function MFAChoice() {
         {/* Header */}
         <div className="text-center mb-8">
           <img
-            className="h-8 w-auto mx-auto mb-8"
+            className="h-16 w-auto mx-auto mb-8"
             src="/logo.svg"
             alt="UniOS.ai"
           />

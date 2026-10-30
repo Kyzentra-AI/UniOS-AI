@@ -1,21 +1,32 @@
+
 import {
   getSession,
   saveSession,
   clearSession,
   getRememberMe,
 } from '@/lib/auth';
+
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-//Common API types
-export interface ApiErrorResponse {
-  detail?: string;
+
+// Common API types
+export interface ApiValidationError {
+  field?: string;
   message?: string;
+  type?: string;
+}
+
+export interface ApiErrorResponse {
+  detail?: string | ApiValidationError[];
+  message?: string;
+  errors?: ApiValidationError[];
 }
 
 export interface ApiMessageResponse {
   message: string;
 }
-//Register 
+
+// Register
 export interface RegisterRequest {
   full_name: string;
   email: string;
@@ -28,7 +39,7 @@ export interface RegisterResponse {
   user: unknown;
 }
 
-//social auth
+// Social auth
 export interface SocialLoginRequest {
   provider: 'google' | 'github' | 'facebook';
 }
@@ -56,35 +67,79 @@ export class ApiError extends Error {
   }
 }
 
-//API client
+// API error message parser
+function getApiErrorMessage(data: unknown): string {
+  const fallback = 'Something went wrong. Please try again.';
+
+  if (!data || typeof data !== 'object') {
+    return fallback;
+  }
+
+  const errorData = data as ApiErrorResponse;
+
+  const validationErrors = Array.isArray(errorData.errors)
+    ? errorData.errors
+    : Array.isArray(errorData.detail)
+      ? errorData.detail
+      : [];
+
+  if (validationErrors.length > 0) {
+    return validationErrors
+      .map((error) => {
+        const field = error.field
+          ?.replace(/^body\./, '')
+          .replace(/\./g, ' → ');
+
+        const message = error.message || 'Invalid value';
+
+        return field ? `${field}: ${message}` : message;
+      })
+      .join('\n');
+  }
+
+  if (typeof errorData.detail === 'string' && errorData.detail.trim()) {
+    return errorData.detail;
+  }
+
+  if (typeof errorData.message === 'string' && errorData.message.trim()) {
+    return errorData.message;
+  }
+
+  return fallback;
+}
+
+// API client
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
-  config: { skipRefresh?: boolean } = {}
+  config: {
+    skipRefresh?: boolean;
+    responseType?: 'json' | 'blob';
+  } = {}
 ): Promise<T> {
   const makeRequest = async (accessToken?: string) => {
     return fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers: {
-  ...(options.body instanceof FormData ? {} :{'Content-Type': 'application/json'}),
-  ...options.headers,
-  ...(accessToken
-    ? { Authorization: `Bearer ${accessToken}` }
-    : {}),
-},
+        ...(options.body instanceof FormData
+          ? {}
+          : { 'Content-Type': 'application/json' }),
+        ...options.headers,
+        ...(accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : {}),
+      },
     });
   };
 
   const session = getSession();
 
-let response = await makeRequest(
-  session?.access_token
-);
+  let response = await makeRequest(session?.access_token);
 
-  // Access token expired → refresh and retry once.
+  // Handle expired access token
   if (response.status === 401 && !config.skipRefresh) {
-    const session = getSession();
-    const refreshToken = session?.refresh_token;
+    const currentSession = getSession();
+    const refreshToken = currentSession?.refresh_token;
 
     if (!refreshToken) {
       clearSession();
@@ -134,9 +189,7 @@ let response = await makeRequest(
         getRememberMe()
       );
 
-      response = await makeRequest(
-        newSession.access_token
-      );
+      response = await makeRequest(newSession.access_token);
     } catch (error) {
       clearSession();
 
@@ -150,31 +203,26 @@ let response = await makeRequest(
     }
   }
 
-  const data = await response
-    .json()
-    .catch(() => null);
-
+  // Handle API errors, including validation errors
   if (!response.ok) {
-    const errorMessage =
-      data &&
-      typeof data === 'object' &&
-      'detail' in data &&
-      typeof data.detail === 'string'
-        ? data.detail
-        : data &&
-            typeof data === 'object' &&
-            'message' in data &&
-            typeof data.message === 'string'
-          ? data.message
-          : 'Something went wrong. Please try again.';
+    const data = await response.json().catch(() => null);
+    const errorMessage = getApiErrorMessage(data);
 
     throw new ApiError(errorMessage, response.status);
   }
 
+  // Handle file/blob responses
+  if (config.responseType === 'blob') {
+    return (await response.blob()) as T;
+  }
+
+  // Handle JSON responses
+  const data = await response.json().catch(() => null);
+
   return data as T;
 }
 
-//Auth API
+// Auth API
 export const registerUser = (
   payload: RegisterRequest
 ) => {
@@ -187,6 +235,7 @@ export const registerUser = (
   );
 };
 
+// Social login
 export const startSocialLogin = (
   payload: SocialLoginRequest
 ) => {
@@ -199,7 +248,7 @@ export const startSocialLogin = (
   );
 };
 
-//verify-email
+// Verify email
 export interface ResendVerificationRequest {
   email: string;
 }
@@ -216,7 +265,7 @@ export const resendVerification = (
   );
 };
 
-//Login
+// Login
 export interface LoginRequest {
   email: string;
   password: string;
@@ -251,7 +300,7 @@ export const loginUser = (
   );
 };
 
-//MFA setup and verify 
+// MFA setup and verify
 export interface MFAEnrollResponse {
   id?: string;
   factor_id?: string;
@@ -313,7 +362,7 @@ export const enrollMFA = (
       },
     },
     {
-      skipRefresh:true,
+      skipRefresh: true,
     }
   );
 };
@@ -332,7 +381,7 @@ export const verifyMFAEnrollment = (
       body: JSON.stringify(payload),
     },
     {
-      skipRefresh:true,
+      skipRefresh: true,
     }
   );
 };
@@ -351,16 +400,15 @@ export const verifyMFA = (
       body: JSON.stringify(payload),
     },
     {
-      skipRefresh:true,
+      skipRefresh: true,
     }
   );
 };
-//Forgot and reset password
 
+// Forgot and reset password
 export interface ForgotPasswordRequest {
   email: string;
 }
-
 
 export interface ResetPasswordStatusResponse {
   requires_mfa: boolean;

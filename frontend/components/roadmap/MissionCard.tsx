@@ -217,6 +217,20 @@ export default function MissionCard({
                 </button>
               )}
 
+              
+<button
+  type="button"
+  onClick={onStart}
+  disabled={isBusy || !onStart}
+  className="rounded-xl px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+  style={{
+    background: 'var(--primary)',
+    color: 'var(--surface)',
+  }}
+>
+  {isStarting ? 'Resuming...' : 'Continue Mission'}
+</button>
+
               <button
                 type="button"
                 onClick={onComplete}

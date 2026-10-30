@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type {
   Assessment,
@@ -31,6 +31,8 @@ export function useAssessment({
   const [result, setResult] =
     useState<AssessmentAttemptResponse | null>(null);
 
+  const submissionInProgress = useRef(false);
+
   const startedAt = useMemo(() => Date.now(), []);
 
   const currentQuestion =
@@ -38,6 +40,8 @@ export function useAssessment({
 
   const setAnswer = useCallback(
     (questionId: string, answer: AssessmentAnswerValue) => {
+      if (submissionInProgress.current) return;
+
       setAnswers((previous) => ({
         ...previous,
         [questionId]: answer,
@@ -90,6 +94,11 @@ export function useAssessment({
   );
 
   const submit = useCallback(async () => {
+    if (submissionInProgress.current || result) {
+      return result;
+    }
+
+    submissionInProgress.current = true;
     setIsSubmitting(true);
     setError(null);
 
@@ -106,11 +115,14 @@ export function useAssessment({
       setError(message);
       throw err;
     } finally {
+      submissionInProgress.current = false;
       setIsSubmitting(false);
     }
-  }, [buildAttempt]);
+  }, [buildAttempt, result]);
 
   const reset = useCallback(() => {
+    if (submissionInProgress.current) return;
+
     setCurrentQuestionIndex(0);
     setAnswers({});
     setError(null);

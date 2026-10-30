@@ -131,3 +131,11 @@ export function useATSAnalysis(analysisId: string) {
     retry: false,
   });
 }
+
+export function useExportResume() {
+  return useMutation({
+    mutationFn: (resumeId: string) =>
+      launchServices.exportResume(resumeId),
+  });
+}
+

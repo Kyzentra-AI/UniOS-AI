@@ -150,7 +150,7 @@ try {
           <img
             src="/logo.svg"
             alt="UniOS.ai"
-            className="h-8 w-auto"
+            className="h-16 w-auto"
           />
         </div>
 

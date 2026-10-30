@@ -61,5 +61,5 @@ export interface AssessmentAttemptResponse {
   is_completed: boolean;
   mastery_updates?: Record<string, unknown> | null;
   feedback?: string | null;
-  created_at: string;
+  created_at?: string | null;
 }

@@ -1,7 +1,5 @@
-import type {
-  Lesson,
-  LessonBlock,
-} from '@/types/learning';
+
+import type { Lesson, LessonBlock } from '@/types/learning';
 
 import TextBlock from './blocks/TextBlock';
 import CodeBlock from './blocks/CodeBlock';
@@ -11,6 +9,8 @@ import VideoBlock from './blocks/VideoBlock';
 
 interface LessonRendererProps {
   lesson: Lesson;
+  completedBlockIds: string[];
+  onMarkBlockComplete: (blockId: string) => void;
 }
 
 function renderBlock(block: LessonBlock) {
@@ -55,6 +55,8 @@ function renderBlock(block: LessonBlock) {
 
 export default function LessonRenderer({
   lesson,
+  completedBlockIds,
+  onMarkBlockComplete,
 }: LessonRendererProps) {
   return (
     <article className="mx-auto w-full max-w-4xl space-y-8">
@@ -84,11 +86,34 @@ export default function LessonRenderer({
       </header>
 
       <div className="space-y-8">
-        {lesson.blocks.map((block) => (
-          <div key={block.id}>
-            {renderBlock(block)}
-          </div>
-        ))}
+        {lesson.blocks.map((block, index) => {
+          const isCompleted = completedBlockIds.includes(block.id);
+
+          return (
+            <section key={block.id} className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+                  Section {index + 1} of {lesson.blocks.length}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={isCompleted}
+                  onClick={() => onMarkBlockComplete(block.id)}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    isCompleted
+                      ? 'cursor-default bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-alt)]'
+                  }`}
+                >
+                  {isCompleted ? '✓ Completed' : 'Mark complete'}
+                </button>
+              </div>
+
+              {renderBlock(block)}
+            </section>
+          );
+        })}
       </div>
     </article>
   );

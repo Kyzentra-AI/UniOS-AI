@@ -46,6 +46,7 @@ export default function LearningWorkspace({
   );
   const [assessmentRetryKey, setAssessmentRetryKey] = useState(0);
 
+  // Keep the session input stable between renders.
   const learningSession = useMemo(
     () => ({
       topic,
@@ -59,6 +60,8 @@ export default function LearningWorkspace({
   const {
     sessionData,
     lesson,
+    completedBlockIds,
+    markBlockComplete,
     progress,
     isLoading,
     isSaving,
@@ -68,68 +71,61 @@ export default function LearningWorkspace({
     session: learningSession,
   });
 
-  useEffect(() => {
-    if (
-      activePanel !== 'assessment' ||
-      !sessionData ||
-      assessment
-    ) {
-      return;
-    }
+  // Load assessment when the assessment tab is opened.
+  
+useEffect(() => {
+  if (activePanel !== 'assessment' || !sessionData?.id || assessment) {
+    return;
+  }
 
-    let cancelled = false;
+  const sessionId = sessionData.id;
+  const sessionTopic = sessionData.topic || topic;
 
-    async function loadAssessment() {
-      setIsAssessmentLoading(true);
-      setAssessmentError(null);
+  let cancelled = false;
 
-      try {
-      // Extra safety check
-      if (!sessionData?.id) {
-        throw new Error('Learning session is not available yet. Please try again.');
-      }
+  async function loadAssessment() {
+    setIsAssessmentLoading(true);
+    setAssessmentError(null);
 
+    try {
       const data = await generateAssessment({
-        session_id: sessionData.id,
-        topic: sessionData.topic || topic,
+        session_id: sessionId,
+        topic: sessionTopic,
       });
 
       if (!cancelled) {
         setAssessment(data);
       }
-
-        if (!cancelled) {
-          setAssessment(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setAssessmentError(
-            err instanceof Error
-              ? err.message
-              : 'Unable to load the assessment.',
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsAssessmentLoading(false);
-        }
+    } catch (err) {
+      if (!cancelled) {
+        setAssessmentError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to load the assessment.',
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setIsAssessmentLoading(false);
       }
     }
+  }
 
-    void loadAssessment();
+  void loadAssessment();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    activePanel,
-    sessionData?.id,
-    sessionData?.topic,
-    topic,
-    assessment,
-    assessmentRetryKey,
-  ]);
+  return () => {
+    cancelled = true;
+  };
+}, [
+  activePanel,
+  sessionData,
+  topic,
+  assessment,
+  assessmentRetryKey,
+]);
 
+
+  // Loading state.
   if (isLoading) {
     return (
       <main
@@ -162,6 +158,7 @@ export default function LearningWorkspace({
     );
   }
 
+  // Error or missing-data state.
   if (error || !lesson || !sessionData) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)] p-4 sm:p-6">
@@ -171,6 +168,7 @@ export default function LearningWorkspace({
         >
           <div className="flex items-center gap-2.5">
             <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+
             <h1 className="text-xl font-semibold text-[var(--text-primary)]">
               Unable to load lesson
             </h1>
@@ -193,10 +191,22 @@ export default function LearningWorkspace({
     );
   }
 
+  // sessionData is non-null after the guard above.
   const missionTitle = sessionData.topic || topic;
+
   const activeIndex = panels.findIndex(
     (panel) => panel.id === activePanel,
   );
+
+  async function handleSaveProgress() {
+    try {
+      await syncCheckpoint();
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+    } catch {
+      // The learning hook exposes the save error.
+    }
+  }
 
   function retryAssessment() {
     setAssessment(null);
@@ -206,6 +216,7 @@ export default function LearningWorkspace({
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      {/* Workspace header */}
       <header className="rise border-b border-[var(--border)] bg-[var(--surface)]">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
           <div className="min-w-0">
@@ -228,6 +239,7 @@ export default function LearningWorkspace({
         </div>
       </header>
 
+      {/* Workspace tabs */}
       <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)]">
         <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6">
           <div
@@ -238,7 +250,9 @@ export default function LearningWorkspace({
             <span
               aria-hidden="true"
               className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-full bg-[var(--primary)] shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.3,1.2,0.5,1)]"
-              style={{ transform: `translateX(${activeIndex * 100}%)` }}
+              style={{
+                transform: `translateX(${activeIndex * 100}%)`,
+              }}
             />
 
             {panels.map((panel) => {
@@ -269,16 +283,17 @@ export default function LearningWorkspace({
 
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <div
-          key={activePanel}
+          
           role="tabpanel"
           id={`panel-${activePanel}`}
           aria-labelledby={`tab-${activePanel}`}
           className="rise"
         >
+          {/* Lesson tab */}
           {activePanel === 'lesson' && (
             <div className="space-y-6">
-              <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_8px_28px_rgba(24,52,58,0.04)] sm:p-5">
-                <div className="flex items-center gap-4">
+              <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_8px_28px_rgba(24,52,58,0.04)] sm:p-5">
+                <div className="flex flex-wrap items-center gap-4">
                   <ProgressRing
                     value={Math.round(progress)}
                     size={64}
@@ -293,19 +308,15 @@ export default function LearningWorkspace({
                     <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
                       {progress}% completed
                     </p>
+
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      {completedBlockIds.length} of {lesson.blocks.length} blocks completed
+                    </p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={async () => {
-                      try {
-                        await syncCheckpoint();
-                        setSaved(true);
-                        setTimeout(() => setSaved(false), 2200);
-                      } catch {
-                        // The hook exposes the error state.
-                      }
-                    }}
+                    onClick={handleSaveProgress}
                     disabled={isSaving}
                     className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--primary)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                   >
@@ -331,27 +342,42 @@ export default function LearningWorkspace({
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-              </div>
+              </section>
 
-              <LessonRenderer lesson={lesson} />
+              <LessonRenderer
+                lesson={lesson}
+                completedBlockIds={completedBlockIds}
+                onMarkBlockComplete={markBlockComplete}
+              />
+
+              {error && (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                >
+                  {error}
+                </p>
+              )}
             </div>
           )}
 
+          {/* Mentor tab */}
           {activePanel === 'mentor' && (
-            <MentorPanel lesson={lesson} />
+            <MentorPanel lesson={lesson} roadmapId={roadmapId} missionId={missionId}/>
           )}
 
-          {activePanel === 'assessment' && (
-            <AssessmentPanel
-              lesson={lesson}
-              assessment={assessment}
-              topic={sessionData.topic || topic}
-              sessionId={sessionData.id}
-              isLoading={isAssessmentLoading}
-              loadError={assessmentError}
-              onRetry={retryAssessment}
-            />
-          )}
+          {/* Assessment tab */}
+          <div hidden={activePanel !== 'assessment'}>
+  <AssessmentPanel
+    lesson={lesson}
+    assessment={assessment}
+    topic={sessionData.topic || topic}
+    sessionId={sessionData.id}
+    isLoading={isAssessmentLoading}
+    loadError={assessmentError}
+    onRetry={retryAssessment}
+  />
+</div>
         </div>
       </main>
     </div>

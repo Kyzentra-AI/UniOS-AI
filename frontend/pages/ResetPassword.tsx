@@ -213,7 +213,7 @@ export default function ResetPassword() {
         {/* Header */}
         <div className="mb-8">
           <img
-            className="h-8 w-auto mb-6"
+            className="h-16 w-auto mb-6"
             src="/logo.svg"
             alt="UniOS.ai"
           />

@@ -163,27 +163,38 @@ function AssessmentForm({
   const isAnswered = (questionId: string) => {
     const answer = getAnswer(questionId);
 
-    if (Array.isArray(answer)) return answer.length > 0;
+    if (Array.isArray(answer)) {
+      return answer.length > 0;
+    }
 
     if (typeof answer === 'object' && answer !== null) {
       return Object.keys(answer).length > 0;
     }
 
-    return String(answer).trim().length > 0;
+    return String(answer ?? '').trim().length > 0;
   };
 
   const answeredCount = assessment.questions.filter((question) =>
     isAnswered(question.id),
   ).length;
 
+  const canSubmit =
+    answeredCount === assessment.questions.length &&
+    !isSubmitting &&
+    !result;
+
   async function handleSubmit() {
+    if (!canSubmit) return;
+
     setSubmitError(null);
 
     try {
       await submit();
-    } catch {
+    } catch (err) {
       setSubmitError(
-        'Your assessment could not be submitted. Please try again.',
+        err instanceof Error
+          ? err.message
+          : 'Your assessment could not be submitted. Please try again.',
       );
     }
   }
@@ -206,27 +217,35 @@ function AssessmentForm({
             </span>
 
             <span className="text-4xl font-bold tracking-tight text-[var(--primary)]">
-              {result.score}
+              {Math.round(result.score * 100)}%
             </span>
           </div>
         )}
 
+        {result.score == null && (
+          <p className="mt-5 text-sm text-[var(--text-secondary)]">
+            Score unavailable. Your assessment has been recorded.
+          </p>
+        )}
+
         <p className="mt-5 max-w-2xl text-[15px] leading-7 text-[var(--text-primary)]">
-          {result.feedback ?? 'Your assessment has been submitted.'}
+          {result.feedback?.trim() ||
+            'Your assessment has been submitted.'}
         </p>
 
-        {result.mastery_updates && (
-          <details className="group mt-6 rounded-2xl border border-[var(--border)]">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
-              Mastery updates
-              <Chevron className="rotate-90 text-[var(--text-muted)] transition-transform duration-200 group-open:-rotate-90" />
-            </summary>
+        {result.mastery_updates &&
+          Object.keys(result.mastery_updates).length > 0 && (
+            <details className="group mt-6 rounded-2xl border border-[var(--border)]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-[var(--text-primary)] [&::-webkit-details-marker]:hidden">
+                Mastery updates
+                <Chevron className="rotate-90 text-[var(--text-muted)] transition-transform duration-200 group-open:-rotate-90" />
+              </summary>
 
-            <pre className="overflow-x-auto border-t border-[var(--border)] bg-[var(--background)] p-4 text-xs leading-5 text-[var(--text-secondary)]">
-              {JSON.stringify(result.mastery_updates, null, 2)}
-            </pre>
-          </details>
-        )}
+              <pre className="overflow-x-auto border-t border-[var(--border)] bg-[var(--background)] p-4 text-xs leading-5 text-[var(--text-secondary)]">
+                {JSON.stringify(result.mastery_updates, null, 2)}
+              </pre>
+            </details>
+          )}
       </section>
     );
   }
@@ -306,10 +325,11 @@ function AssessmentForm({
                     type="button"
                     role="radio"
                     aria-checked={selected}
+                    disabled={isSubmitting}
                     onClick={() =>
                       setAnswer(currentQuestion.id, option.id)
                     }
-                    className={`group flex w-full items-center gap-3.5 rounded-2xl border p-3.5 text-left transition duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
+                    className={`group flex w-full items-center gap-3.5 rounded-2xl border p-3.5 text-left transition duration-200 active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60 ${
                       selected
                         ? 'border-[var(--primary)] bg-[var(--primary-soft)]'
                         : 'border-[var(--border)] hover:-translate-y-px hover:border-[var(--primary)] hover:shadow-[0_6px_18px_rgba(24,52,58,0.06)]'
@@ -338,38 +358,23 @@ function AssessmentForm({
             </div>
           )}
 
-        {currentQuestion.type === 'subjective' && (
+        {(
+          ['subjective', 'viva', 'case-study'] as const
+        ).includes(currentQuestion.type as 'subjective' | 'viva' | 'case-study') && (
           <textarea
             value={typeof currentAnswer === 'string' ? currentAnswer : ''}
             onChange={(event) =>
               setAnswer(currentQuestion.id, event.target.value)
             }
-            placeholder="Write your answer..."
-            rows={5}
-            className={answerField}
-          />
-        )}
-
-        {currentQuestion.type === 'viva' && (
-          <textarea
-            value={typeof currentAnswer === 'string' ? currentAnswer : ''}
-            onChange={(event) =>
-              setAnswer(currentQuestion.id, event.target.value)
+            disabled={isSubmitting}
+            placeholder={
+              currentQuestion.type === 'case-study'
+                ? 'Write your case-study analysis...'
+                : currentQuestion.type === 'viva'
+                  ? 'Type your response...'
+                  : 'Write your answer...'
             }
-            placeholder="Type your response..."
-            rows={4}
-            className={answerField}
-          />
-        )}
-
-        {currentQuestion.type === 'case-study' && (
-          <textarea
-            value={typeof currentAnswer === 'string' ? currentAnswer : ''}
-            onChange={(event) =>
-              setAnswer(currentQuestion.id, event.target.value)
-            }
-            placeholder="Write your case-study analysis..."
-            rows={6}
+            rows={currentQuestion.type === 'case-study' ? 6 : currentQuestion.type === 'viva' ? 4 : 5}
             className={answerField}
           />
         )}
@@ -391,6 +396,7 @@ function AssessmentForm({
               onChange={(event) =>
                 setAnswer(currentQuestion.id, event.target.value)
               }
+              disabled={isSubmitting}
               placeholder="Write your code..."
               rows={8}
               spellCheck={false}
@@ -437,10 +443,7 @@ function AssessmentForm({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={
-                isSubmitting ||
-                answeredCount !== assessment.questions.length
-              }
+              disabled={!canSubmit}
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.98] disabled:opacity-40 sm:flex-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
             >
               {isSubmitting && (
