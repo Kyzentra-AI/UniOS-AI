@@ -12,6 +12,7 @@ import {
   Mail,
   ArrowUpRight,
 } from "lucide-react";
+import Image from "next/image";
 
 const productLinks = [
   { label: "AI Roadmaps", href: "/roadmap" },
@@ -61,11 +62,15 @@ export default function Footer() {
           <div className="lg:col-span-2">
 
             <Link href="/" className="inline-flex items-center">
-              <span className="text-3xl font-extrabold tracking-tight text-[#0C3A47] md:text-4xl">
-                UniOS
-                <span className="text-[#B68A45]">.ai</span>
-              </span>
-            </Link>
+              <Image
+            src="/logo.svg"
+            alt="UniOS.AI"
+            width={120}
+            height={150}
+            priority
+            className="h-16 w-auto"
+          />
+        </Link>
 
             <p className="mt-5 max-w-md text-sm leading-7 text-[#18343A]/70">
               An intelligent learning ecosystem designed to help students
