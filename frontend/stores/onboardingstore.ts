@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -50,7 +51,6 @@ export interface PreferencesData {
 
 interface OnboardingState {
   currentStep: number;
-
   education: EducationData;
   careerGoals: CareerGoalsData;
   skills: SkillsData;
@@ -63,7 +63,6 @@ interface OnboardingState {
   setPreferences: (data: Partial<PreferencesData>) => void;
 
   hydrateFromBackend: (data: OnboardingRawData) => void;
-
   resetOnboarding: () => void;
 }
 
@@ -111,12 +110,16 @@ export const useOnboardingStore = create<OnboardingState>()(
         }),
 
       setEducation: (data) =>
-        set((state) => ({
-          education: {
+        set((state) => {
+          const nextEducation = {
             ...state.education,
             ...data,
-          },
-        })),
+          };
+
+          
+
+          return { education: nextEducation };
+        }),
 
       setCareerGoals: (data) =>
         set((state) => ({
@@ -142,7 +145,9 @@ export const useOnboardingStore = create<OnboardingState>()(
           },
         })),
 
-      hydrateFromBackend: (data) =>
+      hydrateFromBackend: (data) => {
+       
+
         set({
           education: {
             academicStatus:
@@ -189,7 +194,8 @@ export const useOnboardingStore = create<OnboardingState>()(
             learningDepth:
               data.learning_preferences.learning_depth ?? '',
           },
-        }),
+        });
+      },
 
       resetOnboarding: () =>
         set({

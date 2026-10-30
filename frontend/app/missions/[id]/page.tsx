@@ -65,7 +65,7 @@ export default function MissionsPage({
 
       router.push(`/learning?${searchParams.toString()}`);
     } catch (error) {
-      console.error('Failed to start mission:', error);
+      
     }
   };
 

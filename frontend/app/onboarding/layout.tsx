@@ -57,10 +57,10 @@ export default function OnboardingLayout({
             <Image
               src="/logo.svg"
               alt="UniOS"
-              width={60}
-              height={20}
+              width={180}
+              height={120}
               priority
-              className="h-7 w-auto"
+              className="h-16 w-auto"
             />
           </Link>
 

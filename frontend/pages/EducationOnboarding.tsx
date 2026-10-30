@@ -242,7 +242,7 @@ export default function EducationOnboarding() {
                     <input
                       type="text"
                       {...register('university')}
-                      placeholder="e.g. Central University of Punjab"
+                      placeholder="e.g. Stanford University, MIT, Harvard University"
                       className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-all shadow-sm"
                     />
 
@@ -262,7 +262,7 @@ export default function EducationOnboarding() {
                     <input
                       type="text"
                       {...register('degreeProgram')}
-                      placeholder="e.g. B.Tech Computer Science and Engineering"
+                      placeholder="e.g. B.Tech, BBA, M.Sc, MBA"
                       className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-all shadow-sm"
                     />
 
@@ -285,7 +285,7 @@ export default function EducationOnboarding() {
                       <input
                         type="text"
                         {...register('domain')}
-                        placeholder="e.g. Computer Science"
+                        placeholder="e.g. Computer Science, Business Administration"
                         className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-all shadow-sm"
                       />
 
@@ -352,7 +352,7 @@ export default function EducationOnboarding() {
     });
   }}
   rows={3}
-  placeholder="e.g. DBMS, Operating Systems, Computer Networks"
+  placeholder="e.g. Operating Systems, Company Law, Pharmacology"
   className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] resize-none focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-all shadow-sm"
 />
 
@@ -412,7 +412,7 @@ export default function EducationOnboarding() {
                     <input
                       type="text"
                       {...register('degree')}
-                      placeholder="e.g. B.Tech Computer Science"
+                      placeholder="e.g. B.Tech, BBA"
                       className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-all shadow-sm"
                     />
 
@@ -432,7 +432,7 @@ export default function EducationOnboarding() {
                     <input
                       type="text"
                       {...register('domain')}
-                      placeholder="e.g. Computer Science"
+                      placeholder="e.g. Computer Science, Business Administration"
                       className="w-full px-4 py-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)] focus:border-[var(--primary)] transition-all shadow-sm"
                     />
 

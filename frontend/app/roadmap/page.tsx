@@ -3,6 +3,7 @@
 import Roadmap from "@/components/roadmap/Roadmap";
 import { useRoadmap } from "@/hooks/useRoadmap";
 import { useRouter } from "next/navigation";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function RoadmapPage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function RoadmapPage() {
 
   if (isLoading) {
   return (
+    <ProtectedRoute>
     <main className="flex min-h-[70vh] items-center justify-center px-6">
       <div className="flex flex-col items-center text-center">
         <div className="relative flex h-14 w-14 items-center justify-center">
@@ -34,11 +36,13 @@ export default function RoadmapPage() {
         </p>
       </div>
     </main>
+    </ProtectedRoute>
   );
 }
 
   if (isError) {
     return (
+      <ProtectedRoute>
       <main className="min-h-screen px-6 py-8">
         <div className="mx-auto max-w-6xl">
           <p className="text-sm">
@@ -60,11 +64,13 @@ export default function RoadmapPage() {
           </button>
         </div>
       </main>
+      </ProtectedRoute>
     );
   }
 
   if (!roadmap) {
     return (
+      <ProtectedRoute>
       <main className="min-h-screen px-6 py-8">
         <div className="mx-auto max-w-6xl">
           <h1 className="text-2xl font-semibold">
@@ -83,10 +89,12 @@ export default function RoadmapPage() {
           )}
         </div>
       </main>
+      </ProtectedRoute>
     );
   }
 
   return (
+    <ProtectedRoute>
     <main className="min-h-screen px-6 py-8">
       <div className="mx-auto max-w-6xl">
         <Roadmap
@@ -97,5 +105,6 @@ export default function RoadmapPage() {
 />
       </div>
     </main>
+    </ProtectedRoute>
   );
 }

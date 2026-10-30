@@ -1,6 +1,11 @@
 
 import Forgot from '@/pages/Forgot';
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function ForgotPasswordPage() {
-  return <Forgot />;
+  return (
+    <ProtectedRoute>
+      <Forgot />
+    </ProtectedRoute>
+  );
 }
