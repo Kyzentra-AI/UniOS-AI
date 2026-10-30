@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import {
@@ -13,26 +14,11 @@ import {
 import { useOnboardingStore } from '@/stores/onboardingstore';
 
 const studyTimeOptions = [
-  {
-    value: 'LESS_THAN_1',
-    label: 'Less than 1 hour',
-  },
-  {
-    value: '1_2',
-    label: '1–2 hours',
-  },
-  {
-    value: '2_3',
-    label: '2–3 hours',
-  },
-  {
-    value: '3_4',
-    label: '3–4 hours',
-  },
-  {
-    value: '4_PLUS',
-    label: '4+ hours',
-  },
+  { value: 'LESS_THAN_1', label: 'Less than 1 hour' },
+  { value: '1_2', label: '1–2 hours' },
+  { value: '2_3', label: '2–3 hours' },
+  { value: '3_4', label: '3–4 hours' },
+  { value: '4_PLUS', label: '4+ hours' },
 ] as const;
 
 const learningDepthOptions = [
@@ -68,13 +54,27 @@ export default function PreferencesOnboarding() {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
-  } = useForm<PreferencesFormData>({
-    resolver: zodResolver(preferencesSchema),
+    formState: { errors, isSubmitting },
+  } = useForm<
+    PreferencesFormData,
+    unknown,
+    PreferencesFormData
+  >({
+    resolver: zodResolver(
+      preferencesSchema
+    ) as Resolver<PreferencesFormData>,
+
     defaultValues: {
-      dailyStudyHours: preferences?.dailyStudyHours || '',
-      learningDepth: preferences?.learningDepth || '',
+      ...(preferences?.dailyStudyHours
+        ? { dailyStudyHours: preferences.dailyStudyHours }
+        : {}),
+
+      ...(preferences?.learningDepth
+        ? { learningDepth: preferences.learningDepth }
+        : {}),
     },
+
+    mode: 'onSubmit',
   });
 
   const dailyStudyHours = watch('dailyStudyHours');
@@ -83,15 +83,19 @@ export default function PreferencesOnboarding() {
   useEffect(() => {
     if (!preferences) return;
 
-    setValue(
-      'dailyStudyHours',
-      preferences.dailyStudyHours || ''
-    );
+    if (preferences.dailyStudyHours) {
+      setValue(
+        'dailyStudyHours',
+        preferences.dailyStudyHours
+      );
+    }
 
-    setValue(
-      'learningDepth',
-      preferences.learningDepth || ''
-    );
+    if (preferences.learningDepth) {
+      setValue(
+        'learningDepth',
+        preferences.learningDepth
+      );
+    }
   }, [preferences, setValue]);
 
   const onSubmit = (data: PreferencesFormData) => {
@@ -140,8 +144,7 @@ export default function PreferencesOnboarding() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               {studyTimeOptions.map((option) => {
-                const selected =
-                  dailyStudyHours === option.value;
+                const selected = dailyStudyHours === option.value;
 
                 return (
                   <label
@@ -199,8 +202,7 @@ export default function PreferencesOnboarding() {
 
             <div className="space-y-3">
               {learningDepthOptions.map((option) => {
-                const selected =
-                  learningDepth === option.value;
+                const selected = learningDepth === option.value;
 
                 return (
                   <label
@@ -261,9 +263,10 @@ export default function PreferencesOnboarding() {
 
             <button
               type="submit"
-              className="rounded-xl bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)]"
+              disabled={isSubmitting}
+              className="rounded-xl bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Continue →
+              {isSubmitting ? 'Saving...' : 'Continue →'}
             </button>
           </div>
         </form>

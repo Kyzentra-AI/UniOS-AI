@@ -134,12 +134,12 @@ export default function MentorPanel({
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl">
+    <section className="w-full min-w-0">
       <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_28px_rgba(24,52,58,0.04)]">
         {/* Header */}
-        <div className="border-b border-[var(--border)] p-5 sm:p-6">
+        <div className="border-b border-[var(--border)] p-4 sm:p-5">
           <p className="text-sm font-medium text-[var(--feature-blue)]">
-            Mentor
+            AI Mentor
           </p>
 
           <h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
@@ -147,17 +147,17 @@ export default function MentorPanel({
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-            Ask questions about your current lesson and get
-            guidance tailored to your selected mentor mode.
+            Ask questions about your current lesson and get guidance
+            tailored to your selected mentor mode.
           </p>
         </div>
 
         {/* Mentor modes */}
-        <div className="border-b border-[var(--border)] px-5 py-4 sm:px-6">
+        <div className="border-b border-[var(--border)] px-4 py-4 sm:px-5">
           <div
             role="radiogroup"
             aria-label="Mentor mode"
-            className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex flex-wrap gap-2"
           >
             {modes.map((item) => {
               const active = mode === item.id;
@@ -169,7 +169,7 @@ export default function MentorPanel({
                   role="radio"
                   aria-checked={active}
                   onClick={() => setMode(item.id)}
-                  className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
+                  className={`shrink-0 rounded-full border px-3 py-2 text-xs font-medium transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${
                     active
                       ? 'border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]'
                       : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--primary)] hover:text-[var(--text-primary)]'
@@ -190,7 +190,7 @@ export default function MentorPanel({
         </div>
 
         {/* Current lesson context */}
-        <div className="flex items-start gap-3 border-b border-[var(--border)] bg-[var(--surface-alt)] px-5 py-3 sm:px-6">
+        <div className="flex items-start gap-3 border-b border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3 sm:px-5">
           <span
             aria-hidden="true"
             className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--feature-blue)]"
@@ -217,7 +217,7 @@ export default function MentorPanel({
           role="log"
           aria-live="polite"
           aria-label="Conversation with your mentor"
-          className="h-[min(60vh,440px)] min-h-[300px] space-y-4 overflow-y-auto p-5 sm:p-6"
+          className="h-[min(60vh,440px)] min-h-[300px] space-y-4 overflow-y-auto p-4 sm:p-5"
         >
           {messages.length === 0 && (
             <div className="flex min-h-[240px] items-center justify-center">
@@ -248,7 +248,7 @@ export default function MentorPanel({
               }`}
             >
               <div
-                className={`max-w-[88%] px-4 py-3 sm:max-w-[75%] ${
+                className={`max-w-[92%] px-4 py-3 sm:max-w-[88%] ${
                   message.role === 'user'
                     ? 'rounded-2xl rounded-br-md bg-[var(--primary)] text-white'
                     : 'rounded-2xl rounded-bl-md border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-primary)]'
@@ -282,7 +282,7 @@ export default function MentorPanel({
 
         {/* API error */}
         {error && (
-          <div className="border-t border-[var(--border)] px-5 pt-4 sm:px-6">
+          <div className="border-t border-[var(--border)] px-4 pt-4 sm:px-5">
             <div
               role="alert"
               className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
@@ -302,14 +302,14 @@ export default function MentorPanel({
         )}
 
         {/* Message input */}
-        <div className="border-t border-[var(--border)] p-4 sm:p-5">
+        <div className="border-t border-[var(--border)] p-3 sm:p-4">
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void handleSend();
             }}
           >
-            <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-5 pr-1.5 transition focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_var(--primary-soft)]">
+            <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-4 pr-1.5 transition focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_var(--primary-soft)]">
               <input
                 type="text"
                 value={input}
@@ -323,7 +323,7 @@ export default function MentorPanel({
               <button
                 type="submit"
                 disabled={!input.trim() || isTyping}
-                className="shrink-0 rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                className="shrink-0 rounded-full bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
               >
                 {isTyping ? 'Sending…' : 'Send'}
               </button>
