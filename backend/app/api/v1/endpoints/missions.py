@@ -43,6 +43,9 @@ async def start_mission(id: str, current_user: dict = Depends(get_current_user))
     learner_id = _get_learner_id(current_user["user_id"])
     mission = _verify_mission_ownership(id, learner_id)
     
+    if mission["status"] == "IN_PROGRESS":
+        return mission
+
     if mission["status"] not in ["PENDING", "DEFERRED"]:
         raise HTTPException(status_code=400, detail="Mission cannot be started from current state")
         
