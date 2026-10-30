@@ -1,12 +1,10 @@
+
 'use client';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  useFieldArray,
-  useForm,
-} from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import {
@@ -94,79 +92,252 @@ function ErrorText({ message }: { message?: string }) {
   );
 }
 
+/* Convert technical field names into readable labels. */
+function humanizeField(value: string) {
+  const labels: Record<string, string> = {
+    fullName: 'Full name',
+    email: 'Email',
+    phone: 'Phone number',
+    location: 'Location',
+    linkedInUrl: 'LinkedIn URL',
+    githubUrl: 'GitHub URL',
+    portfolioUrl: 'Portfolio URL',
+    institution: 'Institution',
+    degree: 'Degree',
+    fieldOfStudy: 'Field of study',
+    startDate: 'Start date',
+    endDate: 'End date',
+    grade: 'Grade / CGPA',
+    company: 'Company',
+    role: 'Job title',
+    description: 'Description',
+    name: 'Project name',
+    projectUrl: 'Project URL',
+    technologies: 'Technologies',
+    title: 'Title',
+    date: 'Date',
+  };
 
-function getValidationMessages(
-  value: unknown,
-  prefix = '',
-  visited = new WeakSet<object>(),
-): string[] {
-  if (
-    value === null ||
-    typeof value !== 'object'
-  ) {
-    return [];
-  }
-
-  // Prevent circular references.
-  if (visited.has(value)) {
-    return [];
-  }
-
-  visited.add(value);
-
-  const errors: string[] = [];
-
-  // Only inspect plain objects and arrays.
-  // DOM references and other objects are ignored.
-  const prototype = Object.getPrototypeOf(value);
-
-  if (
-    !Array.isArray(value) &&
-    prototype !== Object.prototype &&
-    prototype !== null
-  ) {
-    return [];
-  }
-
-  for (const [key, child] of Object.entries(value)) {
-    // Ignore React Hook Form's DOM reference.
-    if (key === 'ref' || key === 'types') {
-      continue;
-    }
-
-    if (
-      key === 'message' &&
-      typeof child === 'string'
-    ) {
-      errors.push(
-        `${prefix || 'Field'}: ${child}`,
-      );
-      continue;
-    }
-
-    if (
-      child !== null &&
-      typeof child === 'object'
-    ) {
-      const nextPrefix = /^\d+$/.test(key)
-        ? `${prefix} ${Number(key) + 1}`
-        : prefix
-          ? `${prefix} / ${key}`
-          : key;
-
-      errors.push(
-        ...getValidationMessages(
-          child,
-          nextPrefix,
-          visited,
-        ),
-      );
-    }
-  }
-
-  return errors;
+  return labels[value] ??
+    value
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, (char) => char.toUpperCase());
 }
 
+/* Convert Zod/RHF messages into simple user-facing messages. */
+function friendlyMessage(
+  field: string,
+  message: string,
+) {
+  const label = humanizeField(field);
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes('required') ||
+    lower.includes('too_small') ||
+    lower.includes('minimum') ||
+    lower.includes('at least')
+  ) {
+    return `${label} is required.`;
+  }
+
+  if (lower.includes('email')) {
+    return 'Enter a valid email address.';
+  }
+
+  if (lower.includes('url')) {
+    return 'Enter a valid URL starting with https:// or http://.';
+  }
+
+  if (lower.includes('expected string')) {
+    return `${label} is missing or invalid.`;
+  }
+
+  if (lower.includes('expected boolean')) {
+    return `${label} has an invalid value.`;
+  }
+
+  return `${label}: Please check this value.`;
+}
+
+/* Friendly validation summary. Never display raw schema paths. */
+function getFriendlyValidationMessages(
+  errors: Record<string, unknown>,
+) {
+  const messages: string[] = [];
+
+  const add = (message: string) => {
+    if (!messages.includes(message)) {
+      messages.push(message);
+    }
+  };
+
+  const getMessage = (node: unknown): string | undefined => {
+    if (!node || typeof node !== 'object') return undefined;
+
+    const item = node as Record<string, unknown>;
+
+    return typeof item.message === 'string'
+      ? item.message
+      : undefined;
+  };
+
+  const getChild = (
+    node: unknown,
+    key: string,
+  ): unknown => {
+    if (!node || typeof node !== 'object') return undefined;
+    return (node as Record<string, unknown>)[key];
+  };
+
+  const root = errors.content;
+
+  if (errors.title) {
+    add('Resume title is required.');
+  }
+
+  const contact = getChild(root, 'contact');
+
+  const contactFields = [
+    'fullName',
+    'email',
+    'phone',
+    'location',
+    'linkedInUrl',
+    'githubUrl',
+    'portfolioUrl',
+  ];
+
+  for (const field of contactFields) {
+    const message = getMessage(getChild(contact, field));
+
+    if (message) {
+      add(`Personal information: ${friendlyMessage(field, message)}`);
+    }
+  }
+
+  const sections = [
+    {
+      key: 'education',
+      label: 'Education',
+      fields: [
+        'institution',
+        'degree',
+        'fieldOfStudy',
+        'startDate',
+        'endDate',
+        'grade',
+      ],
+    },
+    {
+      key: 'experience',
+      label: 'Experience',
+      fields: [
+        'company',
+        'role',
+        'location',
+        'startDate',
+        'endDate',
+        'description',
+      ],
+    },
+    {
+      key: 'projects',
+      label: 'Projects',
+      fields: [
+        'name',
+        'description',
+        'projectUrl',
+        'startDate',
+        'endDate',
+        'technologies',
+      ],
+    },
+    {
+      key: 'achievements',
+      label: 'Achievements',
+      fields: [
+        'title',
+        'description',
+        'date',
+      ],
+    },
+  ];
+
+  for (const section of sections) {
+    const sectionErrors = getChild(root, section.key);
+
+    if (
+      sectionErrors &&
+      typeof sectionErrors === 'object'
+    ) {
+      const entries = Object.entries(sectionErrors);
+
+      for (const [index, itemErrors] of entries) {
+        if (!/^\d+$/.test(index)) continue;
+
+        for (const field of section.fields) {
+          const message = getMessage(
+            getChild(itemErrors, field),
+          );
+
+          if (message) {
+            add(
+              `${section.label} ${Number(index) + 1}: ${friendlyMessage(field, message)}`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return messages;
+}
+
+/* Normalize API errors without exposing raw backend validation paths. */
+function getFriendlyApiError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return 'Something went wrong. Please review your details and try again.';
+  }
+
+  const message = error.message.toLowerCase();
+
+  if (
+    message.includes('validation') ||
+    message.includes('required') ||
+    message.includes('missing') ||
+    message.includes('invalid') ||
+    message.includes('unprocessable') ||
+    message.includes('422')
+  ) {
+    return 'Some resume details are missing or invalid. Please review the highlighted sections and try again.';
+  }
+
+  if (
+    message.includes('network') ||
+    message.includes('fetch') ||
+    message.includes('connection')
+  ) {
+    return 'Unable to connect to the server. Please check your connection and try again.';
+  }
+
+  if (
+    message.includes('unauthorized') ||
+    message.includes('401') ||
+    message.includes('403')
+  ) {
+    return 'Your session may have expired. Please sign in again and retry.';
+  }
+
+  if (
+    message.includes('500') ||
+    message.includes('internal server')
+  ) {
+    return 'The server could not process your request right now. Please try again later.';
+  }
+
+  return 'Unable to process your resume. Please try again.';
+}
 
 function PreviewSection({
   title,
@@ -198,10 +369,10 @@ export default function Resume({
   const isEditing = Boolean(activeResumeId);
 
   const [mode, setMode] = useState<ResumeSource>('manual');
-
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
   const [generated, setGenerated] = useState(false);
+
   const [autoSaveStatus, setAutoSaveStatus] = useState<
     'idle' | 'saving' | 'saved' | 'error'
   >('idle');
@@ -256,6 +427,7 @@ export default function Resume({
 
   const content = form.watch('content');
   const title = form.watch('title');
+
   const preferences = form.watch('preferences') ?? {
     targetRole: '',
     tone: 'professional' as const,
@@ -266,10 +438,9 @@ export default function Resume({
 
   const validationMessages = useMemo(
     () =>
-      getValidationMessages(form.formState.errors)
-        .filter((message, index, array) =>
-          array.indexOf(message) === index,
-        ),
+      getFriendlyValidationMessages(
+        form.formState.errors as Record<string, unknown>,
+      ),
     [form.formState.errors],
   );
 
@@ -301,7 +472,7 @@ export default function Resume({
     setAutoSaveStatus('saved');
   }, [isEditing, savedResume.data, form]);
 
-  // Load profile data when profile mode is selected.
+  // Load profile data.
   useEffect(() => {
     if (
       isEditing ||
@@ -316,9 +487,7 @@ export default function Resume({
     form.setValue(
       'content',
       profilePreview.data.content,
-      {
-        shouldDirty: false,
-      },
+      { shouldDirty: false },
     );
 
     setMissingFields(profilePreview.data.missingFields);
@@ -330,8 +499,7 @@ export default function Resume({
     form,
   ]);
 
-  // Auto-save changes to an existing resume.
-  // Existing resume ID is reused; no duplicate records are created.
+  // Auto-save existing resume.
   useEffect(() => {
     if (
       !isEditing ||
@@ -466,11 +634,7 @@ export default function Resume({
         `/launch/resume/${encodeURIComponent(result.resume.id)}`,
       );
     } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : 'Unable to process your resume.',
-      );
+      setNotice(getFriendlyApiError(error));
     }
   });
 
@@ -490,28 +654,21 @@ export default function Resume({
       link.click();
       link.remove();
 
-      // Give the browser time to start the download before releasing the blob URL.
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : 'Unable to download PDF.',
-      );
+      setNotice(getFriendlyApiError(error));
     }
   };
 
   if (isEditing && savedResume.isPending) {
-    return (
-      <LaunchLoadingState message="Loading your resume..." />
-    );
+    return <LaunchLoadingState message="Loading your resume..." />;
   }
 
   if (isEditing && savedResume.isError) {
     return (
       <LaunchErrorState
         title="Unable to load this resume"
-        message={savedResume.error.message}
+        message="We couldn't load your resume. Please try again."
         action={
           <button
             onClick={() => void savedResume.refetch()}
@@ -587,7 +744,6 @@ export default function Resume({
 
   return (
     <main className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
-
       {/* Header */}
       <div className="mb-7">
         <Link
@@ -690,7 +846,7 @@ export default function Resume({
         <div className="mb-6">
           <LaunchErrorState
             title="Profile preview unavailable"
-            message={profilePreview.error.message}
+            message="We couldn't load your profile details. Please try again."
             action={
               <button
                 type="button"
@@ -723,10 +879,8 @@ export default function Resume({
         onSubmit={submit}
         className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)]"
       >
-
         {/* LEFT: EDITOR */}
         <div className="min-w-0 space-y-5">
-
           {/* Basic details */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <h2 className="mb-5 text-lg font-semibold text-[var(--text-primary)]">
@@ -840,10 +994,7 @@ export default function Resume({
 
           {/* Skills */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
-            <SectionHeading
-              title="Skills"
-              onAdd={addSkill}
-            />
+            <SectionHeading title="Skills" onAdd={addSkill} />
 
             {skills.map((_, index) => (
               <div key={index} className="mb-3 flex gap-2">
@@ -912,8 +1063,12 @@ export default function Resume({
                   ] as const).map(([key, label]) => (
                     <label key={key} className={labelClass}>
                       {label}
-
                       <input
+                        type={
+                          key === 'startDate' || key === 'endDate'
+                            ? 'date'
+                            : 'text'
+                        }
                         {...form.register(`content.education.${index}.${key}`)}
                         className={inputClass}
                       />
@@ -971,8 +1126,12 @@ export default function Resume({
                   ] as const).map(([key, label]) => (
                     <label key={key} className={labelClass}>
                       {label}
-
                       <input
+                        type={
+                          key === 'startDate' || key === 'endDate'
+                            ? 'date'
+                            : 'text'
+                        }
                         {...form.register(`content.experience.${index}.${key}`)}
                         className={inputClass}
                       />
@@ -996,7 +1155,8 @@ export default function Resume({
                     className={inputClass}
                     placeholder="Describe your responsibilities and achievements."
                   />
-                </label></div>
+                </label>
+              </div>
             ))}
           </section>
 
@@ -1083,6 +1243,7 @@ export default function Resume({
                   <label className={labelClass}>
                     Start date
                     <input
+                      type="date"
                       {...form.register(`content.projects.${index}.startDate`)}
                       className={inputClass}
                     />
@@ -1091,6 +1252,7 @@ export default function Resume({
                   <label className={labelClass}>
                     End date
                     <input
+                      type="date"
                       {...form.register(`content.projects.${index}.endDate`)}
                       className={inputClass}
                     />
@@ -1160,6 +1322,7 @@ export default function Resume({
                   <label className={labelClass}>
                     Date
                     <input
+                      type="date"
                       {...form.register(`content.achievements.${index}.date`)}
                       className={inputClass}
                     />
@@ -1178,11 +1341,14 @@ export default function Resume({
             ))}
           </section>
 
-          {/* Validation errors */}
+          {/* Friendly validation summary */}
           {validationMessages.length > 0 && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 p-4"
+            >
               <p className="mb-2 text-sm font-semibold text-red-800">
-                Please correct these fields:
+                Please review the following details:
               </p>
 
               <ul className="list-inside list-disc space-y-1 text-sm text-red-700">
@@ -1259,10 +1425,7 @@ export default function Resume({
           </div>
 
           <div className="max-h-[calc(100vh-130px)] overflow-y-auto rounded-xl border border-gray-200 bg-gray-100 p-3 sm:p-5">
-
             <article className="mx-auto min-h-[842px] w-full max-w-[595px] bg-white px-7 py-9 text-gray-800 shadow-md sm:px-10 sm:py-11">
-
-              {/* Name and contact */}
               <header className="border-b-2 border-gray-800 pb-4 text-center">
                 {contact.fullName?.trim() && (
                   <h1 className="text-2xl font-bold tracking-wide text-gray-950">
@@ -1294,11 +1457,9 @@ export default function Resume({
                     {contact.linkedInUrl?.trim() && (
                       <span>{contact.linkedInUrl}</span>
                     )}
-
                     {contact.githubUrl?.trim() && (
                       <span>{contact.githubUrl}</span>
                     )}
-
                     {contact.portfolioUrl?.trim() && (
                       <span>{contact.portfolioUrl}</span>
                     )}
@@ -1306,7 +1467,6 @@ export default function Resume({
                 )}
               </header>
 
-              {/* Summary */}
               {content.summary?.trim() && (
                 <PreviewSection title="Professional Summary">
                   <p className="whitespace-pre-wrap text-[11px] leading-[1.65] text-gray-700">
@@ -1315,7 +1475,6 @@ export default function Resume({
                 </PreviewSection>
               )}
 
-              {/* Skills */}
               {visibleSkills.length > 0 && (
                 <PreviewSection title="Technical Skills">
                   <p className="text-[11px] leading-[1.8] text-gray-700">
@@ -1324,7 +1483,6 @@ export default function Resume({
                 </PreviewSection>
               )}
 
-              {/* Experience */}
               {visibleExperience.length > 0 && (
                 <PreviewSection title="Experience">
                   <div className="space-y-3">
@@ -1338,15 +1496,11 @@ export default function Resume({
                                 .join(' — ')}
                             </p>
 
-                            {(item.startDate ||
-                              item.endDate ||
-                              item.isCurrent) && (
+                            {(item.startDate || item.endDate || item.isCurrent) && (
                               <p className="text-[10px] text-gray-500">
                                 {[
                                   item.startDate,
-                                  item.isCurrent
-                                    ? 'Present'
-                                    : item.endDate,
+                                  item.isCurrent ? 'Present' : item.endDate,
                                 ]
                                   .filter(Boolean)
                                   .join(' – ')}
@@ -1372,7 +1526,6 @@ export default function Resume({
                 </PreviewSection>
               )}
 
-              {/* Projects */}
               {visibleProjects.length > 0 && (
                 <PreviewSection title="Projects">
                   <div className="space-y-3">
@@ -1420,7 +1573,6 @@ export default function Resume({
                 </PreviewSection>
               )}
 
-              {/* Education */}
               {visibleEducation.length > 0 && (
                 <PreviewSection title="Education">
                   <div className="space-y-3">
@@ -1463,7 +1615,6 @@ export default function Resume({
                 </PreviewSection>
               )}
 
-              {/* Achievements */}
               {visibleAchievements.length > 0 && (
                 <PreviewSection title="Achievements">
                   <div className="space-y-2">
@@ -1494,7 +1645,6 @@ export default function Resume({
                 </PreviewSection>
               )}
 
-              {/* Empty preview */}
               {!contact.fullName?.trim() &&
                 !content.headline?.trim() &&
                 !content.summary?.trim() &&
@@ -1508,7 +1658,6 @@ export default function Resume({
                       <p className="text-sm font-medium text-gray-500">
                         Your resume preview will appear here.
                       </p>
-
                       <p className="mt-1 text-xs text-gray-400">
                         Start entering your information to build your resume.
                       </p>
@@ -1530,7 +1679,7 @@ export default function Resume({
           {resumeList.isPending ? (
             <LaunchLoadingState message="Loading saved resumes..." />
           ) : resumeList.isError ? (
-            <LaunchErrorState message={resumeList.error.message} />
+            <LaunchErrorState message="Unable to load saved resumes. Please try again." />
           ) : resumeList.data.items.length === 0 ? (
             <ResumeState kind="empty" />
           ) : (
