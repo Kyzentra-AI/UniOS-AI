@@ -75,4 +75,17 @@ export const launchServices = {
     apiRequest<ATSAnalysisHistoryResponse>(
       `${BASE}/ats/analyses`,
     ),
+
+  
+  exportResume: (resumeId: string) =>
+   apiRequest<Blob>(
+    `${BASE}/resumes/${encodeURIComponent(resumeId)}/export`,
+     {
+       method: 'POST',
+     },
+     {
+       responseType: 'blob',
+     }
+   ),
+
 };

@@ -1,3 +1,4 @@
+
 export type LessonBlockType =
   | 'TEXT'
   | 'VIDEO'
@@ -42,6 +43,7 @@ export interface LearningSessionCreate {
 export interface LearningSessionUpdate {
   status?: LearningSessionStatus;
   checkpoint_block_id?: string;
+  completed_block_ids?: string[];
   progress_percentage?: number;
   notes?: string;
 }
@@ -55,6 +57,7 @@ export interface LearningSession {
   lesson_id: string;
   status: LearningSessionStatus | string;
   checkpoint_block_id?: string | null;
+  completed_block_ids?: string[] | null;
   progress_percentage: number;
   lesson_data?: Record<string, unknown> | null;
   notes?: string | null;

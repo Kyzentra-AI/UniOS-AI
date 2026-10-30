@@ -1,12 +1,20 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 
 import type { Lesson } from '@/types/learning';
-import type { MentorMessage, MentorMode } from '@/types/mentor';
+import type {
+  MentorMessage,
+  MentorMode,
+} from '@/types/mentor';
+
+import { sendMentorMessage } from '@/services/mentorServices';
 
 interface MentorPanelProps {
   lesson: Lesson;
+  roadmapId?: string;
+  missionId?: string;
 }
 
 const modes: {
@@ -36,55 +44,39 @@ const modes: {
   },
 ];
 
-const mockMessages: MentorMessage[] = [
-  {
-    id: 'mentor-message-1',
-    role: 'mentor',
-    content:
-      'You are currently learning DBMS fundamentals. I can help you understand the concept step by step.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'mentor-message-2',
-    role: 'user',
-    content: 'Can you explain DBMS in simple words?',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'mentor-message-3',
-    role: 'mentor',
-    content:
-      'Sure. A DBMS is software that helps us store, organize, retrieve, and manage data in a database.',
-    createdAt: new Date().toISOString(),
-  },
-];
-
 export default function MentorPanel({
   lesson,
+  roadmapId,
+  missionId,
 }: MentorPanelProps) {
-  const [mode, setMode] =
-    useState<MentorMode>('tutor');
-
-  const [messages, setMessages] =
-    useState<MentorMessage[]>(mockMessages);
-
+  const [mode, setMode] = useState<MentorMode>('tutor');
+  const [messages, setMessages] = useState<MentorMessage[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(
+    null,
+  );
+
   const listRef = useRef<HTMLDivElement>(null);
 
-  const currentMode = modes.find(
-    (item) => item.id === mode
-  );
+  const currentMode = modes.find((item) => item.id === mode);
 
   useEffect(() => {
     const el = listRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+
+    if (el) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  async function handleSend() {
     const trimmedInput = input.trim();
 
-    if (!trimmedInput) {
+    if (!trimmedInput || isTyping) {
       return;
     }
 
@@ -95,31 +87,51 @@ export default function MentorPanel({
       createdAt: new Date().toISOString(),
     };
 
-    setMessages((current) => [
-      ...current,
-      userMessage,
-    ]);
+    // Snapshot history before adding the current message.
+    const history = messages.map(({ role, content }) => ({
+      role,
+      content,
+    }));
 
+    setMessages((current) => [...current, userMessage]);
     setInput('');
     setIsTyping(true);
+    setError(null);
 
-    // Temporary mock response.
-    setTimeout(() => {
+    try {
+      const response = await sendMentorMessage({
+        mode,
+        message: trimmedInput,
+        context: {
+          lessonId: lesson.id,
+          topic: lesson.title,
+          roadmapId,
+          missionId,
+        },
+        history,
+        conversationId,
+      });
+
+      setConversationId(response.conversationId);
+
       const mentorMessage: MentorMessage = {
         id: `mentor-${Date.now()}`,
         role: 'mentor',
-        content:
-          'This is a mock mentor response. The actual mentor API will be connected later.',
-        createdAt: new Date().toISOString(),
+        content: response.reply,
+        createdAt: response.createdAt ?? new Date().toISOString(),
       };
 
-      setMessages((current) => [
-        ...current,
-        mentorMessage,
-      ]);
+      setMessages((current) => [...current, mentorMessage]);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to connect to the mentor. Please try again.',
+      );
+    } finally {
       setIsTyping(false);
-    }, 500);
-  };
+    }
+  }
 
   return (
     <section className="mx-auto w-full max-w-5xl">
@@ -135,12 +147,12 @@ export default function MentorPanel({
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-            Mentor is aware of your current lesson and learning
-            context.
+            Ask questions about your current lesson and get
+            guidance tailored to your selected mentor mode.
           </p>
         </div>
 
-        {/* Modes */}
+        {/* Mentor modes */}
         <div className="border-b border-[var(--border)] px-5 py-4 sm:px-6">
           <div
             role="radiogroup"
@@ -149,6 +161,7 @@ export default function MentorPanel({
           >
             {modes.map((item) => {
               const active = mode === item.id;
+
               return (
                 <button
                   key={item.id}
@@ -168,14 +181,21 @@ export default function MentorPanel({
             })}
           </div>
 
-          <p key={mode} className="rise mt-3 text-sm text-[var(--text-secondary)]">
+          <p
+            key={mode}
+            className="rise mt-3 text-sm text-[var(--text-secondary)]"
+          >
             {currentMode?.description}
           </p>
         </div>
 
-        {/* Current Context */}
+        {/* Current lesson context */}
         <div className="flex items-start gap-3 border-b border-[var(--border)] bg-[var(--surface-alt)] px-5 py-3 sm:px-6">
-          <span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--feature-blue)]" />
+          <span
+            aria-hidden="true"
+            className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--feature-blue)]"
+          />
+
           <div className="min-w-0">
             <p className="text-xs text-[var(--text-muted)]">
               Current context
@@ -191,7 +211,7 @@ export default function MentorPanel({
           </div>
         </div>
 
-        {/* Messages */}
+        {/* Conversation */}
         <div
           ref={listRef}
           role="log"
@@ -199,6 +219,25 @@ export default function MentorPanel({
           aria-label="Conversation with your mentor"
           className="h-[min(60vh,440px)] min-h-[300px] space-y-4 overflow-y-auto p-5 sm:p-6"
         >
+          {messages.length === 0 && (
+            <div className="flex min-h-[240px] items-center justify-center">
+              <div className="max-w-sm text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--surface-alt)] text-lg">
+                  ✦
+                </div>
+
+                <h3 className="mt-4 text-sm font-semibold text-[var(--text-primary)]">
+                  Start a conversation
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                  Ask a question about {lesson.title}, request an
+                  explanation, or get help planning your next steps.
+                </p>
+              </div>
+            </div>
+          )}
+
           {messages.map((message) => (
             <div
               key={message.id}
@@ -215,7 +254,7 @@ export default function MentorPanel({
                     : 'rounded-2xl rounded-bl-md border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-primary)]'
                 }`}
               >
-                <p className="break-words text-sm leading-6">
+                <p className="whitespace-pre-wrap break-words text-sm leading-6">
                   {message.content}
                 </p>
               </div>
@@ -223,7 +262,11 @@ export default function MentorPanel({
           ))}
 
           {isTyping && (
-            <div className="rise flex justify-start" aria-label="Mentor is typing">
+            <div
+              className="rise flex justify-start"
+              role="status"
+              aria-label="Mentor is responding"
+            >
               <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3.5">
                 {[0, 1, 2].map((n) => (
                   <span
@@ -237,37 +280,58 @@ export default function MentorPanel({
           )}
         </div>
 
-        {/* Input */}
-        <div className="border-t border-[var(--border)] p-4 sm:p-5">
-          <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-5 pr-1.5 transition focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_var(--primary-soft)]">
-            <input
-              type="text"
-              value={input}
-              aria-label="Message your mentor"
-              onChange={(event) =>
-                setInput(event.target.value)
-              }
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  handleSend();
-                }
-              }}
-              placeholder={`Ask your ${currentMode?.label.toLowerCase()}...`}
-              className="min-w-0 flex-1 bg-transparent py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
-            />
-
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="shrink-0 rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.97] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+        {/* API error */}
+        {error && (
+          <div className="border-t border-[var(--border)] px-5 pt-4 sm:px-6">
+            <div
+              role="alert"
+              className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
             >
-              Send
-            </button>
+              <p className="leading-6">{error}</p>
+
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                aria-label="Dismiss error"
+                className="shrink-0 font-semibold"
+              >
+                ✕
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* Message input */}
+        <div className="border-t border-[var(--border)] p-4 sm:p-5">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSend();
+            }}
+          >
+            <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-5 pr-1.5 transition focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_var(--primary-soft)]">
+              <input
+                type="text"
+                value={input}
+                aria-label="Message your mentor"
+                onChange={(event) => setInput(event.target.value)}
+                placeholder={`Ask your ${currentMode?.label.toLowerCase()}...`}
+                disabled={isTyping}
+                className="min-w-0 flex-1 bg-transparent py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] disabled:opacity-60"
+              />
+
+              <button
+                type="submit"
+                disabled={!input.trim() || isTyping}
+                className="shrink-0 rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+              >
+                {isTyping ? 'Sending…' : 'Send'}
+              </button>
+            </div>
+          </form>
 
           <p className="mt-2.5 pl-2 text-xs text-[var(--text-muted)]">
-            Mock mentor interaction — backend connection will be added later.
+            Responses are generated through your connected mentor API.
           </p>
         </div>
       </div>

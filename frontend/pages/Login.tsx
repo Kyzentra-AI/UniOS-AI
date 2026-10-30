@@ -239,7 +239,7 @@ export default function Login() {
         <div className="w-full md:w-3/5 p-8 sm:p-12 lg:p-14 z-10 bg-[var(--surface)]">
           <div className="mb-8">
             <img
-              className="h-8 w-auto mb-6"
+              className="h-16 w-auto mb-6"
               src="/logo.svg"
               alt="UniOS.ai"
             />

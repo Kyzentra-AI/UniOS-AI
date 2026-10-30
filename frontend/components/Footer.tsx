@@ -24,7 +24,7 @@ if (
           <div className="lg:col-span-2">
             <Link href="/" className="inline-block">
               <img
-                className="h-8 w-auto mb-6"
+                className="h-16 w-auto mb-6"
                 src="/logo.svg"
                 alt="UniOS.ai"
               />

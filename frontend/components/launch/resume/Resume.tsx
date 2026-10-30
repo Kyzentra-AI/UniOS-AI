@@ -1,8 +1,7 @@
-
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   useFieldArray,
@@ -14,6 +13,7 @@ import {
   generateResumeSchema,
   type GenerateResumeInput,
 } from '@/app/validations/launch';
+
 import {
   useCreateResume,
   useGenerateResume,
@@ -21,12 +21,15 @@ import {
   useResume,
   useResumes,
   useUpdateResume,
+  useExportResume,
 } from '@/hooks/useLaunch';
+
 import {
   LaunchErrorState,
   LaunchLoadingState,
   ResumeState,
 } from '@/components/launch/states/LaunchStates';
+
 import type {
   ResumeDraft,
   ResumeSource,
@@ -52,7 +55,7 @@ const emptyDraft: ResumeDraft = {
 };
 
 const inputClass =
-  'w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-soft)]';
+  'w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-soft)]';
 
 const labelClass =
   'mb-1.5 block text-sm font-medium text-[var(--text-label)]';
@@ -66,9 +69,10 @@ function SectionHeading({
 }) {
   return (
     <div className="mb-4 flex items-center justify-between gap-3">
-      <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+      <h3 className="text-base font-semibold text-[var(--text-primary)]">
         {title}
       </h3>
+
       <button
         type="button"
         onClick={onAdd}
@@ -77,6 +81,108 @@ function SectionHeading({
         + Add
       </button>
     </div>
+  );
+}
+
+function ErrorText({ message }: { message?: string }) {
+  if (!message) return null;
+
+  return (
+    <span className="mt-1 block text-xs text-red-600">
+      {message}
+    </span>
+  );
+}
+
+
+function getValidationMessages(
+  value: unknown,
+  prefix = '',
+  visited = new WeakSet<object>(),
+): string[] {
+  if (
+    value === null ||
+    typeof value !== 'object'
+  ) {
+    return [];
+  }
+
+  // Prevent circular references.
+  if (visited.has(value)) {
+    return [];
+  }
+
+  visited.add(value);
+
+  const errors: string[] = [];
+
+  // Only inspect plain objects and arrays.
+  // DOM references and other objects are ignored.
+  const prototype = Object.getPrototypeOf(value);
+
+  if (
+    !Array.isArray(value) &&
+    prototype !== Object.prototype &&
+    prototype !== null
+  ) {
+    return [];
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    // Ignore React Hook Form's DOM reference.
+    if (key === 'ref' || key === 'types') {
+      continue;
+    }
+
+    if (
+      key === 'message' &&
+      typeof child === 'string'
+    ) {
+      errors.push(
+        `${prefix || 'Field'}: ${child}`,
+      );
+      continue;
+    }
+
+    if (
+      child !== null &&
+      typeof child === 'object'
+    ) {
+      const nextPrefix = /^\d+$/.test(key)
+        ? `${prefix} ${Number(key) + 1}`
+        : prefix
+          ? `${prefix} / ${key}`
+          : key;
+
+      errors.push(
+        ...getValidationMessages(
+          child,
+          nextPrefix,
+          visited,
+        ),
+      );
+    }
+  }
+
+  return errors;
+}
+
+
+function PreviewSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-5">
+      <h3 className="mb-2 border-b border-gray-300 pb-1 text-[11px] font-bold uppercase tracking-[0.13em] text-gray-800">
+        {title}
+      </h3>
+
+      {children}
+    </section>
   );
 }
 
@@ -92,23 +198,31 @@ export default function Resume({
   const isEditing = Boolean(activeResumeId);
 
   const [mode, setMode] = useState<ResumeSource>('manual');
-  const [preferences, setPreferences] = useState({
-    targetRole: '',
-    tone: 'professional' as 'professional' | 'concise',
-  });
+
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [notice, setNotice] = useState('');
   const [generated, setGenerated] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle');
 
-  const profilePreview = useProfileResumePreview(mode === 'profile' && !isEditing);
+  const lastSavedSnapshot = useRef('');
+
+  const profilePreview = useProfileResumePreview(
+    mode === 'profile' && !isEditing,
+  );
+
   const savedResume = useResume(activeResumeId ?? '');
   const resumeList = useResumes();
+
   const createResume = useCreateResume();
   const updateResume = useUpdateResume();
   const generateResume = useGenerateResume();
+  const exportResume = useExportResume();
 
   const form = useForm<GenerateResumeInput>({
     resolver: zodResolver(generateResumeSchema),
+    mode: 'onSubmit',
     defaultValues: {
       title: '',
       source: 'manual',
@@ -140,12 +254,32 @@ export default function Resume({
     name: 'content.achievements',
   });
 
+  const content = form.watch('content');
+  const title = form.watch('title');
+  const preferences = form.watch('preferences') ?? {
+    targetRole: '',
+    tone: 'professional' as const,
+  };
+
+  const contact = content.contact;
+  const skills = content.skills ?? [];
+
+  const validationMessages = useMemo(
+    () =>
+      getValidationMessages(form.formState.errors)
+        .filter((message, index, array) =>
+          array.indexOf(message) === index,
+        ),
+    [form.formState.errors],
+  );
+
+  // Load an existing resume.
   useEffect(() => {
     if (!isEditing || !savedResume.data) return;
 
     const record = savedResume.data.resume;
 
-    form.reset({
+    const values: GenerateResumeInput = {
       title: record.title,
       source: record.source,
       content: record.content,
@@ -153,21 +287,123 @@ export default function Resume({
         targetRole: '',
         tone: 'professional',
       },
+    };
+
+    form.reset(values);
+
+    lastSavedSnapshot.current = JSON.stringify({
+      title: values.title,
+      content: values.content,
     });
 
     setMode(record.source);
+    setGenerated(true);
+    setAutoSaveStatus('saved');
   }, [isEditing, savedResume.data, form]);
 
+  // Load profile data when profile mode is selected.
   useEffect(() => {
-  if (isEditing || mode !== 'profile' || !profilePreview.data) {
-    return;
-  }
+    if (
+      isEditing ||
+      mode !== 'profile' ||
+      !profilePreview.data
+    ) {
+      return;
+    }
 
-  form.setValue('source', 'profile');
-  form.setValue('content', profilePreview.data.content);
-  setMissingFields(profilePreview.data.missingFields);
-  setNotice('');
-}, [isEditing, mode, profilePreview.data, form]);
+    form.setValue('source', 'profile');
+
+    form.setValue(
+      'content',
+      profilePreview.data.content,
+      {
+        shouldDirty: false,
+      },
+    );
+
+    setMissingFields(profilePreview.data.missingFields);
+    setNotice('');
+  }, [
+    isEditing,
+    mode,
+    profilePreview.data,
+    form,
+  ]);
+
+  // Auto-save changes to an existing resume.
+  // Existing resume ID is reused; no duplicate records are created.
+  useEffect(() => {
+    if (
+      !isEditing ||
+      !activeResumeId ||
+      !savedResume.data ||
+      !form.formState.isDirty
+    ) {
+      return;
+    }
+
+    const snapshot = JSON.stringify({
+      title,
+      content,
+    });
+
+    if (snapshot === lastSavedSnapshot.current) {
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      const valid = await form.trigger();
+
+      if (!valid) {
+        setAutoSaveStatus('error');
+        return;
+      }
+
+      try {
+        setAutoSaveStatus('saving');
+
+        await updateResume.mutateAsync({
+          resumeId: activeResumeId,
+          payload: {
+            title,
+            content,
+          },
+        });
+
+        lastSavedSnapshot.current = snapshot;
+        setAutoSaveStatus('saved');
+      } catch {
+        setAutoSaveStatus('error');
+      }
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isEditing,
+    activeResumeId,
+    savedResume.data,
+    title,
+    content,
+    form,
+    form.formState.isDirty,
+    updateResume,
+  ]);
+
+  const addSkill = () => {
+    form.setValue(
+      'content.skills',
+      [...skills, ''],
+      { shouldDirty: true },
+    );
+  };
+
+  const removeSkill = (index: number) => {
+    form.setValue(
+      'content.skills',
+      skills.filter((_, i) => i !== index),
+      { shouldDirty: true },
+    );
+  };
 
   const submit = form.handleSubmit(async (values) => {
     setNotice('');
@@ -182,6 +418,12 @@ export default function Resume({
           },
         });
 
+        lastSavedSnapshot.current = JSON.stringify({
+          title: values.title,
+          content: values.content,
+        });
+
+        setAutoSaveStatus('saved');
         setNotice('Resume saved successfully.');
         return;
       }
@@ -194,17 +436,19 @@ export default function Resume({
         });
 
         setNotice('Resume draft saved successfully.');
+
         router.push(
           `/launch/resume/${encodeURIComponent(result.resume.id)}`,
         );
+
         return;
       }
 
       const result = await generateResume.mutateAsync({
         ...values,
         preferences: {
-          targetRole: preferences.targetRole || undefined,
-          tone: preferences.tone,
+          targetRole: values.preferences?.targetRole?.trim() || undefined,
+          tone: values.preferences?.tone ?? 'professional',
         },
       });
 
@@ -216,7 +460,8 @@ export default function Resume({
       });
 
       setGenerated(true);
-      setNotice('Generated resume loaded. Review it before saving.');
+      setNotice('Resume generated successfully.');
+
       router.replace(
         `/launch/resume/${encodeURIComponent(result.resume.id)}`,
       );
@@ -224,13 +469,42 @@ export default function Resume({
       setNotice(
         error instanceof Error
           ? error.message
-          : 'The operation failed. Your existing draft has not been intentionally cleared.',
+          : 'Unable to process your resume.',
       );
     }
   });
 
+  const handleDownloadPDF = async () => {
+    if (!activeResumeId) return;
+
+    try {
+      const blob = await exportResume.mutateAsync(activeResumeId);
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = url;
+      link.download = `resume_${activeResumeId.slice(0, 8)}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      // Give the browser time to start the download before releasing the blob URL.
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : 'Unable to download PDF.',
+      );
+    }
+  };
+
   if (isEditing && savedResume.isPending) {
-    return <LaunchLoadingState message="Loading your resume..." />;
+    return (
+      <LaunchLoadingState message="Loading your resume..." />
+    );
   }
 
   if (isEditing && savedResume.isError) {
@@ -256,61 +530,112 @@ export default function Resume({
     updateResume.isPending ||
     generateResume.isPending;
 
-  const contact = form.watch('content.contact');
-  const skills = form.watch('content.skills');
-
-  const addSkill = () => {
-    form.setValue('content.skills', [...skills, ''], {
-      shouldDirty: true,
-    });
-  };
-
-  const removeSkill = (index: number) => {
-    form.setValue(
-      'content.skills',
-      skills.filter((_, i) => i !== index),
-      { shouldDirty: true },
-    );
-  };
-
-  const field = (
-    name: keyof ResumeDraft['contact'],
-    label: string,
-    type = 'text',
-  ) => (
-    <label className={labelClass}>
-      {label}
-      <input
-        type={type}
-        {...form.register(`content.contact.${name}`)}
-        className={inputClass}
-      />
-      {form.formState.errors.content?.contact?.[name]?.message && (
-        <span className="mt-1 block text-xs text-[var(--danger-text)]">
-          {form.formState.errors.content.contact[name]?.message}
-        </span>
-      )}
-    </label>
+  const visibleEducation = content.education.filter((item) =>
+    [
+      item.institution,
+      item.degree,
+      item.fieldOfStudy,
+      item.startDate,
+      item.endDate,
+      item.grade,
+    ].some((value) => value?.trim()),
   );
 
-  return (
-    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <Link
-        href="/launch"
-        className="text-sm text-[var(--text-secondary)] hover:text-[var(--primary)]"
-      >
-        ← Back to Launch
-      </Link>
+  const visibleExperience = content.experience.filter((item) =>
+    [
+      item.company,
+      item.role,
+      item.location,
+      item.startDate,
+      item.endDate,
+      item.description,
+    ].some((value) => value?.trim()),
+  );
 
-      <div className="mb-8 mt-5">
-        <h1 className="text-3xl font-semibold text-[var(--text-primary)]">
-          {isEditing ? 'Edit resume' : 'Resume Builder'}
-        </h1>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          Keep your information accurate. Generated content remains editable.
-        </p>
+  const visibleProjects = content.projects.filter((item) =>
+    [
+      item.name,
+      item.description,
+      item.projectUrl,
+      item.startDate,
+      item.endDate,
+      ...(item.technologies ?? []),
+    ].some((value) => value?.trim()),
+  );
+
+  const visibleAchievements = content.achievements.filter((item) =>
+    [
+      item.title,
+      item.description,
+      item.date,
+    ].some((value) => value?.trim()),
+  );
+
+  const visibleSkills = skills.filter((skill) => skill.trim());
+
+  const contactDetails = [
+    contact.email,
+    contact.phone,
+    contact.location,
+  ].filter((value) => value?.trim());
+
+  const socialLinks = [
+    contact.linkedInUrl,
+    contact.githubUrl,
+    contact.portfolioUrl,
+  ].filter((value) => value?.trim());
+
+  return (
+    <main className="mx-auto max-w-[1500px] px-4 py-7 sm:px-6 lg:px-8">
+
+      {/* Header */}
+      <div className="mb-7">
+        <Link
+          href="/launch"
+          className="text-sm text-[var(--text-secondary)] hover:text-[var(--primary)]"
+        >
+          ← Back to Launch
+        </Link>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)] sm:text-3xl">
+              {isEditing ? 'Edit resume' : 'Resume Builder'}
+            </h1>
+
+            <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+              Build a professional resume with accurate, editable information.
+            </p>
+          </div>
+
+          {isEditing && (
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs text-[var(--text-muted)]">
+                {autoSaveStatus === 'saving'
+                  ? 'Saving changes...'
+                  : autoSaveStatus === 'saved'
+                    ? 'Changes saved'
+                    : autoSaveStatus === 'error'
+                      ? 'Auto-save unavailable — check required fields or save manually'
+                      : ''}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                disabled={exportResume.isPending}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                {exportResume.isPending
+                  ? 'Preparing PDF...'
+                  : '↓ Download PDF'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Mode selector */}
       {!isEditing && (
         <div className="mb-6 flex flex-wrap gap-3">
           <button
@@ -320,6 +645,7 @@ export default function Resume({
               setGenerated(false);
               setMissingFields([]);
               setNotice('');
+
               form.reset({
                 title: '',
                 source: 'manual',
@@ -381,53 +707,88 @@ export default function Resume({
       {mode === 'profile' &&
         profilePreview.data &&
         missingFields.length > 0 && (
-          <div className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
-            <h3 className="font-semibold text-[var(--text-primary)]">
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <h3 className="font-semibold text-amber-900">
               Complete your resume
             </h3>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+
+            <p className="mt-1 text-sm text-amber-800">
               Your profile is missing: {missingFields.join(', ')}.
-              You can fill these fields in the form below.
+              You can fill these fields below.
             </p>
           </div>
         )}
 
-      <form onSubmit={submit} className="grid gap-6 lg:grid-cols-[1.35fr_0.85fr]">
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
+      <form
+        onSubmit={submit}
+        className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)]"
+      >
+
+        {/* LEFT: EDITOR */}
+        <div className="min-w-0 space-y-5">
+
+          {/* Basic details */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <h2 className="mb-5 text-lg font-semibold text-[var(--text-primary)]">
-              Resume details
+              Personal information
             </h2>
 
             <label className={labelClass}>
               Resume title *
               <input
                 {...form.register('title')}
-                placeholder="e.g. Software Engineer Resume, Marketer Resume"
+                placeholder="e.g. Software Engineer Resume"
                 className={inputClass}
               />
-              {form.formState.errors.title?.message && (
-                <span className="mt-1 block text-xs text-[var(--danger-text)]">
-                  {form.formState.errors.title.message}
-                </span>
-              )}
+              <ErrorText message={form.formState.errors.title?.message} />
             </label>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {field('fullName', 'Full name *')}
-              {field('email', 'Email *', 'email')}
-              {field('phone', 'Phone')}
-              {field('location', 'Location')}
-              {field('linkedInUrl', 'LinkedIn URL', 'url')}
-              {field('githubUrl', 'GitHub URL', 'url')}
-              {field('portfolioUrl', 'Portfolio URL', 'url')}
+              {([
+                ['fullName', 'Full name *', 'text'],
+                ['email', 'Email address *', 'email'],
+                ['phone', 'Phone number', 'text'],
+                ['location', 'Location', 'text'],
+                ['linkedInUrl', 'LinkedIn URL', 'url'],
+                ['githubUrl', 'GitHub URL', 'url'],
+                ['portfolioUrl', 'Portfolio URL', 'url'],
+              ] as const).map(([name, label, type]) => (
+                <label key={name} className={labelClass}>
+                  {label}
+
+                  <input
+                    type={type}
+                    {...form.register(`content.contact.${name}`)}
+                    className={inputClass}
+                    placeholder={
+                      name === 'email'
+                        ? 'name@example.com'
+                        : name === 'phone'
+                          ? '+91 ...'
+                          : name === 'linkedInUrl'
+                            ? 'https://linkedin.com/in/...'
+                            : name === 'githubUrl'
+                              ? 'https://github.com/...'
+                              : name === 'portfolioUrl'
+                                ? 'https://...'
+                                : ''
+                    }
+                  />
+
+                  <ErrorText
+                    message={
+                      form.formState.errors.content?.contact?.[name]?.message
+                    }
+                  />
+                </label>
+              ))}
             </div>
 
             <label className={`${labelClass} mt-4`}>
-              Headline
+              Professional headline
               <input
                 {...form.register('content.headline')}
-                placeholder="Your professional headline"
+                placeholder="e.g. Computer Science Student | Full Stack Developer"
                 className={inputClass}
               />
             </label>
@@ -438,7 +799,7 @@ export default function Resume({
                 {...form.register('content.summary')}
                 rows={4}
                 className={inputClass}
-                placeholder="Describe your experience and strengths accurately."
+                placeholder="Write a concise summary of your skills, experience and professional interests."
               />
             </label>
 
@@ -446,27 +807,27 @@ export default function Resume({
               <label className={labelClass}>
                 Target role (optional)
                 <input
-                  value={preferences.targetRole}
+                  value={preferences.targetRole ?? ''}
                   onChange={(e) =>
-                    setPreferences((prev) => ({
-                      ...prev,
-                      targetRole: e.target.value,
-                    }))
+                    form.setValue('preferences.targetRole', e.target.value, {
+                      shouldDirty: true,
+                    })
                   }
                   className={inputClass}
-                  placeholder="e.g. Product Manager, Marketing Specialist"
+                  placeholder="e.g. Software Engineer"
                 />
               </label>
 
               <label className={labelClass}>
                 Writing tone
                 <select
-                  value={preferences.tone}
+                  value={preferences.tone ?? 'professional'}
                   onChange={(e) =>
-                    setPreferences((prev) => ({
-                      ...prev,
-                      tone: e.target.value as 'professional' | 'concise',
-                    }))
+                    form.setValue(
+                      'preferences.tone',
+                      e.target.value as 'professional' | 'concise',
+                      { shouldDirty: true },
+                    )
                   }
                   className={inputClass}
                 >
@@ -477,23 +838,26 @@ export default function Resume({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
+          {/* Skills */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <SectionHeading
               title="Skills"
               onAdd={addSkill}
             />
+
             {skills.map((_, index) => (
               <div key={index} className="mb-3 flex gap-2">
                 <input
                   {...form.register(`content.skills.${index}`)}
                   className={inputClass}
-                  placeholder="Skill name"
+                  placeholder="e.g. React, Python, SQL"
                 />
+
                 <button
                   type="button"
                   onClick={() => removeSkill(index)}
                   aria-label="Remove skill"
-                  className="rounded-lg border border-[var(--border)] px-3 text-[var(--danger-text)]"
+                  className="rounded-lg border border-[var(--border)] px-3 text-red-600 hover:bg-red-50"
                 >
                   ×
                 </button>
@@ -501,7 +865,8 @@ export default function Resume({
             ))}
           </section>
 
-          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
+          {/* Education */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <SectionHeading
               title="Education"
               onAdd={() =>
@@ -516,16 +881,26 @@ export default function Resume({
                 })
               }
             />
+
             {education.fields.map((item, index) => (
-              <div key={item.id} className="mb-5 rounded-xl border border-[var(--border)] p-4">
+              <div
+                key={item.id}
+                className="mb-5 rounded-xl border border-[var(--border)] p-4 last:mb-0"
+              >
                 <div className="mb-3 flex justify-between">
-                  <p className="font-medium text-[var(--text-primary)]">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
                     Education {index + 1}
                   </p>
-                  <button type="button" onClick={() => education.remove(index)} className="text-sm text-[var(--danger-text)]">
+
+                  <button
+                    type="button"
+                    onClick={() => education.remove(index)}
+                    className="text-sm text-red-600"
+                  >
                     Remove
                   </button>
                 </div>
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   {([
                     ['institution', 'Institution'],
@@ -533,10 +908,11 @@ export default function Resume({
                     ['fieldOfStudy', 'Field of study'],
                     ['startDate', 'Start date'],
                     ['endDate', 'End date'],
-                    ['grade', 'Grade'],
+                    ['grade', 'Grade / CGPA'],
                   ] as const).map(([key, label]) => (
                     <label key={key} className={labelClass}>
                       {label}
+
                       <input
                         {...form.register(`content.education.${index}.${key}`)}
                         className={inputClass}
@@ -548,7 +924,8 @@ export default function Resume({
             ))}
           </section>
 
-          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
+          {/* Experience */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <SectionHeading
               title="Experience"
               onAdd={() =>
@@ -564,26 +941,37 @@ export default function Resume({
                 })
               }
             />
+
             {experience.fields.map((item, index) => (
-              <div key={item.id} className="mb-5 rounded-xl border border-[var(--border)] p-4">
+              <div
+                key={item.id}
+                className="mb-5 rounded-xl border border-[var(--border)] p-4 last:mb-0"
+              >
                 <div className="mb-3 flex justify-between">
-                  <p className="font-medium text-[var(--text-primary)]">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
                     Experience {index + 1}
                   </p>
-                  <button type="button" onClick={() => experience.remove(index)} className="text-sm text-[var(--danger-text)]">
+
+                  <button
+                    type="button"
+                    onClick={() => experience.remove(index)}
+                    className="text-sm text-red-600"
+                  >
                     Remove
                   </button>
                 </div>
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   {([
                     ['company', 'Company'],
-                    ['role', 'Role'],
+                    ['role', 'Job title'],
                     ['location', 'Location'],
                     ['startDate', 'Start date'],
                     ['endDate', 'End date'],
                   ] as const).map(([key, label]) => (
                     <label key={key} className={labelClass}>
                       {label}
+
                       <input
                         {...form.register(`content.experience.${index}.${key}`)}
                         className={inputClass}
@@ -591,23 +979,29 @@ export default function Resume({
                     </label>
                   ))}
                 </div>
+
                 <label className="mt-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                  <input type="checkbox" {...form.register(`content.experience.${index}.isCurrent`)} />
-                  Current role
+                  <input
+                    type="checkbox"
+                    {...form.register(`content.experience.${index}.isCurrent`)}
+                  />
+                  Currently working here
                 </label>
+
                 <label className={`${labelClass} mt-3`}>
                   Description
                   <textarea
                     {...form.register(`content.experience.${index}.description`)}
                     rows={3}
                     className={inputClass}
+                    placeholder="Describe your responsibilities and achievements."
                   />
-                </label>
-              </div>
+                </label></div>
             ))}
           </section>
 
-          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
+          {/* Projects */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <SectionHeading
               title="Projects"
               onAdd={() =>
@@ -622,57 +1016,102 @@ export default function Resume({
                 })
               }
             />
+
             {projects.fields.map((item, index) => (
-              <div key={item.id} className="mb-5 rounded-xl border border-[var(--border)] p-4">
+              <div
+                key={item.id}
+                className="mb-5 rounded-xl border border-[var(--border)] p-4 last:mb-0"
+              >
                 <div className="mb-3 flex justify-between">
-                  <p className="font-medium text-[var(--text-primary)]">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
                     Project {index + 1}
                   </p>
-                  <button type="button" onClick={() => projects.remove(index)} className="text-sm text-[var(--danger-text)]">
+
+                  <button
+                    type="button"
+                    onClick={() => projects.remove(index)}
+                    className="text-sm text-red-600"
+                  >
                     Remove
                   </button>
                 </div>
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className={labelClass}>
                     Project name *
-                    <input {...form.register(`content.projects.${index}.name`)} className={inputClass} />
+                    <input
+                      {...form.register(`content.projects.${index}.name`)}
+                      className={inputClass}
+                    />
+                    <ErrorText
+                      message={
+                        form.formState.errors.content?.projects?.[index]?.name?.message
+                      }
+                    />
                   </label>
+
                   <label className={labelClass}>
                     Project URL
-                    <input {...form.register(`content.projects.${index}.projectUrl`)} className={inputClass} />
+                    <input
+                      {...form.register(`content.projects.${index}.projectUrl`)}
+                      className={inputClass}
+                      placeholder="https://..."
+                    />
                   </label>
+
                   <label className={labelClass}>
                     Technologies (comma-separated)
                     <input
-                      value={form.watch(`content.projects.${index}.technologies`).join(', ')}
+                      value={(
+                        form.watch(`content.projects.${index}.technologies`) ?? []
+                      ).join(', ')}
                       onChange={(e) =>
                         form.setValue(
                           `content.projects.${index}.technologies`,
-                          e.target.value.split(',').map((v) => v.trim()).filter(Boolean),
+                          e.target.value
+                            .split(',')
+                            .map((value) => value.trim())
+                            .filter(Boolean),
                           { shouldDirty: true },
                         )
                       }
                       className={inputClass}
+                      placeholder="React, FastAPI, PostgreSQL"
                     />
                   </label>
+
                   <label className={labelClass}>
                     Start date
-                    <input {...form.register(`content.projects.${index}.startDate`)} className={inputClass} />
+                    <input
+                      {...form.register(`content.projects.${index}.startDate`)}
+                      className={inputClass}
+                    />
                   </label>
+
                   <label className={labelClass}>
                     End date
-                    <input {...form.register(`content.projects.${index}.endDate`)} className={inputClass} />
+                    <input
+                      {...form.register(`content.projects.${index}.endDate`)}
+                      className={inputClass}
+                    />
                   </label>
                 </div>
+
                 <label className={`${labelClass} mt-3`}>
                   Description
-                  <textarea {...form.register(`content.projects.${index}.description`)} rows={3} className={inputClass} />
+                  <textarea
+                    {...form.register(`content.projects.${index}.description`)}
+                    rows={3}
+                    className={inputClass}
+                    placeholder="Explain what you built and the problem it solves."
+                  />
                 </label>
               </div>
             ))}
           </section>
 
-          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
+          {/* Achievements */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
             <SectionHeading
               title="Achievements"
               onAdd={() =>
@@ -684,51 +1123,96 @@ export default function Resume({
                 })
               }
             />
+
             {achievements.fields.map((item, index) => (
-              <div key={item.id} className="mb-4 rounded-xl border border-[var(--border)] p-4">
+              <div
+                key={item.id}
+                className="mb-5 rounded-xl border border-[var(--border)] p-4 last:mb-0"
+              >
                 <div className="mb-3 flex justify-between">
-                  <p className="font-medium text-[var(--text-primary)]">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
                     Achievement {index + 1}
                   </p>
-                  <button type="button" onClick={() => achievements.remove(index)} className="text-sm text-[var(--danger-text)]">
+
+                  <button
+                    type="button"
+                    onClick={() => achievements.remove(index)}
+                    className="text-sm text-red-600"
+                  >
                     Remove
                   </button>
                 </div>
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className={labelClass}>
                     Title *
-                    <input {...form.register(`content.achievements.${index}.title`)} className={inputClass} />
+                    <input
+                      {...form.register(`content.achievements.${index}.title`)}
+                      className={inputClass}
+                    />
+                    <ErrorText
+                      message={
+                        form.formState.errors.content?.achievements?.[index]?.title?.message
+                      }
+                    />
                   </label>
+
                   <label className={labelClass}>
                     Date
-                    <input {...form.register(`content.achievements.${index}.date`)} className={inputClass} />
+                    <input
+                      {...form.register(`content.achievements.${index}.date`)}
+                      className={inputClass}
+                    />
                   </label>
                 </div>
+
                 <label className={`${labelClass} mt-3`}>
                   Description
-                  <textarea {...form.register(`content.achievements.${index}.description`)} rows={2} className={inputClass} />
+                  <textarea
+                    {...form.register(`content.achievements.${index}.description`)}
+                    rows={2}
+                    className={inputClass}
+                  />
                 </label>
               </div>
             ))}
           </section>
 
+          {/* Validation errors */}
+          {validationMessages.length > 0 && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <p className="mb-2 text-sm font-semibold text-red-800">
+                Please correct these fields:
+              </p>
+
+              <ul className="list-inside list-disc space-y-1 text-sm text-red-700">
+                {validationMessages.map((message, index) => (
+                  <li key={`${message}-${index}`}>
+                    {message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {notice && (
-            <div role="status" className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm text-[var(--text-primary)]">
+            <div
+              role="status"
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4 text-sm text-[var(--text-primary)]"
+            >
               {notice}
             </div>
           )}
 
-          {form.formState.errors.content && (
-            <p className="text-sm text-[var(--danger-text)]">
-              Please review the form. Some fields need attention.
-            </p>
-          )}
-
+          {/* Actions */}
           <div className="flex flex-wrap gap-3">
             <button
               type="submit"
-              disabled={isBusy || (mode === 'profile' && profilePreview.isPending)}
-              className="rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={
+                isBusy ||
+                (mode === 'profile' && profilePreview.isPending)
+              }
+              className="rounded-xl bg-[var(--primary)] px-6 py-3 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isBusy
                 ? 'Please wait...'
@@ -744,7 +1228,9 @@ export default function Resume({
                 type="button"
                 onClick={() => {
                   setGenerated(false);
-                  setNotice('You can review the current draft and generate again if needed.');
+                  setNotice(
+                    'Review your information and generate again if needed.',
+                  );
                 }}
                 className="rounded-xl border border-[var(--border)] px-5 py-3 text-sm text-[var(--text-primary)]"
               >
@@ -754,89 +1240,293 @@ export default function Resume({
           </div>
         </div>
 
-        <aside className="h-fit rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 lg:sticky lg:top-6">
-          <h2 className="mb-5 text-lg font-semibold text-[var(--text-primary)]">
-            Resume preview
-          </h2>
-          <div className="min-h-64 space-y-4 break-words text-sm text-[var(--text-secondary)]">
-            <div className="border-b border-[var(--border)] pb-4">
-              <h3 className="text-xl font-semibold text-[var(--text-primary)]">
-                {contact.fullName || 'Your name'}
-              </h3>
-              <p className="mt-1">{form.watch('content.headline') || 'Professional headline'}</p>
-              <p className="mt-2 text-xs">
-                {[contact.email, contact.phone, contact.location].filter(Boolean).join(' · ') || 'Contact information'}
+        {/* RIGHT: PROFESSIONAL WHITE RESUME PREVIEW */}
+        <aside className="min-w-0 xl:sticky xl:top-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                Live resume preview
+              </h2>
+
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                Standard professional layout
               </p>
             </div>
 
-            <div>
-              <h4 className="font-semibold text-[var(--text-primary)]">Summary</h4>
-              <p className="mt-1 whitespace-pre-wrap">{form.watch('content.summary') || 'Your summary will appear here.'}</p>
-            </div>
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--text-secondary)]">
+              A4 style
+            </span>
+          </div>
 
-            <div>
-              <h4 className="font-semibold text-[var(--text-primary)]">Skills</h4>
-              <p className="mt-1">{skills.filter(Boolean).join(' · ') || 'Add your skills'}</p>
-            </div>
+          <div className="max-h-[calc(100vh-130px)] overflow-y-auto rounded-xl border border-gray-200 bg-gray-100 p-3 sm:p-5">
 
-            {form.watch('content.education').length > 0 && (
-              <div>
-                <h4 className="font-semibold text-[var(--text-primary)]">Education</h4>
-                {form.watch('content.education').map((item) => (
-                  <div key={item.id} className="mt-2">
-                    <p className="font-medium text-[var(--text-primary)]">{item.institution || 'Institution'}</p>
-                    <p>{[item.degree, item.fieldOfStudy].filter(Boolean).join(', ')}</p>
-                    <p className="text-xs">{[item.startDate, item.endDate, item.grade].filter(Boolean).join(' · ')}</p>
+            <article className="mx-auto min-h-[842px] w-full max-w-[595px] bg-white px-7 py-9 text-gray-800 shadow-md sm:px-10 sm:py-11">
+
+              {/* Name and contact */}
+              <header className="border-b-2 border-gray-800 pb-4 text-center">
+                {contact.fullName?.trim() && (
+                  <h1 className="text-2xl font-bold tracking-wide text-gray-950">
+                    {contact.fullName}
+                  </h1>
+                )}
+
+                {content.headline?.trim() && (
+                  <p className="mt-1 text-sm font-medium text-gray-600">
+                    {content.headline}
+                  </p>
+                )}
+
+                {contactDetails.length > 0 && (
+                  <p className="mt-3 flex flex-wrap justify-center gap-x-2 gap-y-1 text-[10px] text-gray-600">
+                    {contactDetails.map((value, index) => (
+                      <span key={`${value}-${index}`}>
+                        {index > 0 && (
+                          <span className="mr-2 text-gray-400">|</span>
+                        )}
+                        {value}
+                      </span>
+                    ))}
+                  </p>
+                )}
+
+                {socialLinks.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[10px] text-gray-600">
+                    {contact.linkedInUrl?.trim() && (
+                      <span>{contact.linkedInUrl}</span>
+                    )}
+
+                    {contact.githubUrl?.trim() && (
+                      <span>{contact.githubUrl}</span>
+                    )}
+
+                    {contact.portfolioUrl?.trim() && (
+                      <span>{contact.portfolioUrl}</span>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
+              </header>
 
-            {form.watch('content.experience').length > 0 && (
-              <div>
-                <h4 className="font-semibold text-[var(--text-primary)]">Experience</h4>
-                {form.watch('content.experience').map((item) => (
-                  <div key={item.id} className="mt-2">
-                    <p className="font-medium text-[var(--text-primary)]">{item.role || 'Role'} {item.company ? `· ${item.company}` : ''}</p>
-                    <p className="whitespace-pre-wrap">{item.description}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+              {/* Summary */}
+              {content.summary?.trim() && (
+                <PreviewSection title="Professional Summary">
+                  <p className="whitespace-pre-wrap text-[11px] leading-[1.65] text-gray-700">
+                    {content.summary}
+                  </p>
+                </PreviewSection>
+              )}
 
-            {form.watch('content.projects').length > 0 && (
-              <div>
-                <h4 className="font-semibold text-[var(--text-primary)]">Projects</h4>
-                {form.watch('content.projects').map((item) => (
-                  <div key={item.id} className="mt-2">
-                    <p className="font-medium text-[var(--text-primary)]">{item.name || 'Project'}</p>
-                    <p className="whitespace-pre-wrap">{item.description}</p>
-                    <p className="text-xs">{item.technologies.join(', ')}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+              {/* Skills */}
+              {visibleSkills.length > 0 && (
+                <PreviewSection title="Technical Skills">
+                  <p className="text-[11px] leading-[1.8] text-gray-700">
+                    {visibleSkills.join('  •  ')}
+                  </p>
+                </PreviewSection>
+              )}
 
-            {form.watch('content.achievements').length > 0 && (
-              <div>
-                <h4 className="font-semibold text-[var(--text-primary)]">Achievements</h4>
-                {form.watch('content.achievements').map((item) => (
-                  <div key={item.id} className="mt-2">
-                    <p className="font-medium text-[var(--text-primary)]">{item.title}</p>
-                    <p>{item.description}</p>
+              {/* Experience */}
+              {visibleExperience.length > 0 && (
+                <PreviewSection title="Experience">
+                  <div className="space-y-3">
+                    {visibleExperience.map((item) => (
+                      <div key={item.id}>
+                        {(item.role || item.company) && (
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                            <p className="text-[12px] font-bold text-gray-900">
+                              {[item.role, item.company]
+                                .filter(Boolean)
+                                .join(' — ')}
+                            </p>
+
+                            {(item.startDate ||
+                              item.endDate ||
+                              item.isCurrent) && (
+                              <p className="text-[10px] text-gray-500">
+                                {[
+                                  item.startDate,
+                                  item.isCurrent
+                                    ? 'Present'
+                                    : item.endDate,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' – ')}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {item.location?.trim() && (
+                          <p className="mt-0.5 text-[10px] italic text-gray-500">
+                            {item.location}
+                          </p>
+                        )}
+
+                        {item.description?.trim() && (
+                          <p className="mt-1 whitespace-pre-wrap text-[11px] leading-[1.6] text-gray-700">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                </PreviewSection>
+              )}
+
+              {/* Projects */}
+              {visibleProjects.length > 0 && (
+                <PreviewSection title="Projects">
+                  <div className="space-y-3">
+                    {visibleProjects.map((item) => (
+                      <div key={item.id}>
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                          {item.name?.trim() && (
+                            <p className="text-[12px] font-bold text-gray-900">
+                              {item.name}
+                            </p>
+                          )}
+
+                          {(item.startDate || item.endDate) && (
+                            <p className="text-[10px] text-gray-500">
+                              {[item.startDate, item.endDate]
+                                .filter(Boolean)
+                                .join(' – ')}
+                            </p>
+                          )}
+                        </div>
+
+                        {item.description?.trim() && (
+                          <p className="mt-1 whitespace-pre-wrap text-[11px] leading-[1.6] text-gray-700">
+                            {item.description}
+                          </p>
+                        )}
+
+                        {item.technologies?.some((value) => value.trim()) && (
+                          <p className="mt-1 text-[10px] text-gray-600">
+                            <strong>Technologies:</strong>{' '}
+                            {item.technologies
+                              .filter((value) => value.trim())
+                              .join(', ')}
+                          </p>
+                        )}
+
+                        {item.projectUrl?.trim() && (
+                          <p className="mt-1 break-all text-[10px] text-gray-600">
+                            {item.projectUrl}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </PreviewSection>
+              )}
+
+              {/* Education */}
+              {visibleEducation.length > 0 && (
+                <PreviewSection title="Education">
+                  <div className="space-y-3">
+                    {visibleEducation.map((item) => (
+                      <div key={item.id}>
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                          {item.institution?.trim() && (
+                            <p className="text-[12px] font-bold text-gray-900">
+                              {item.institution}
+                            </p>
+                          )}
+
+                          {(item.startDate || item.endDate) && (
+                            <p className="text-[10px] text-gray-500">
+                              {[item.startDate, item.endDate]
+                                .filter(Boolean)
+                                .join(' – ')}
+                            </p>
+                          )}
+                        </div>
+
+                        {[item.degree, item.fieldOfStudy]
+                          .filter((value) => value?.trim())
+                          .length > 0 && (
+                          <p className="mt-0.5 text-[11px] text-gray-700">
+                            {[item.degree, item.fieldOfStudy]
+                              .filter((value) => value?.trim())
+                              .join(', ')}
+                          </p>
+                        )}
+
+                        {item.grade?.trim() && (
+                          <p className="mt-0.5 text-[10px] text-gray-600">
+                            Grade: {item.grade}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </PreviewSection>
+              )}
+
+              {/* Achievements */}
+              {visibleAchievements.length > 0 && (
+                <PreviewSection title="Achievements">
+                  <div className="space-y-2">
+                    {visibleAchievements.map((item) => (
+                      <div key={item.id}>
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                          {item.title?.trim() && (
+                            <p className="text-[11px] font-semibold text-gray-900">
+                              {item.title}
+                            </p>
+                          )}
+
+                          {item.date?.trim() && (
+                            <p className="text-[10px] text-gray-500">
+                              {item.date}
+                            </p>
+                          )}
+                        </div>
+
+                        {item.description?.trim() && (
+                          <p className="mt-0.5 text-[11px] leading-[1.5] text-gray-700">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </PreviewSection>
+              )}
+
+              {/* Empty preview */}
+              {!contact.fullName?.trim() &&
+                !content.headline?.trim() &&
+                !content.summary?.trim() &&
+                visibleSkills.length === 0 &&
+                visibleExperience.length === 0 &&
+                visibleProjects.length === 0 &&
+                visibleEducation.length === 0 &&
+                visibleAchievements.length === 0 && (
+                  <div className="flex min-h-[450px] items-center justify-center text-center">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
+                        Your resume preview will appear here.
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-400">
+                        Start entering your information to build your resume.
+                      </p>
+                    </div>
+                  </div>
+                )}
+            </article>
           </div>
         </aside>
       </form>
 
+      {/* Saved resumes */}
       {!isEditing && (
         <section className="mt-12">
           <h2 className="mb-4 text-xl font-semibold text-[var(--text-primary)]">
             Saved resumes
           </h2>
+
           {resumeList.isPending ? (
             <LaunchLoadingState message="Loading saved resumes..." />
           ) : resumeList.isError ? (
@@ -851,8 +1541,13 @@ export default function Resume({
                   href={`/launch/resume/${encodeURIComponent(item.id)}`}
                   className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 hover:border-[var(--primary)]"
                 >
-                  <p className="font-medium text-[var(--text-primary)]">{item.title}</p>
-                  <p className="mt-1 text-xs text-[var(--text-secondary)]">{item.status} · {item.source}</p>
+                  <p className="font-medium text-[var(--text-primary)]">
+                    {item.title}
+                  </p>
+
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    {item.status} · {item.source}
+                  </p>
                 </Link>
               ))}
             </div>
