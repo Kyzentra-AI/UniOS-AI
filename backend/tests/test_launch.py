@@ -786,3 +786,84 @@ def test_api_standardized_error_format(mock_supabase, mock_get_current_user):
     assert "message" in data
     assert data["code"] == "LEARNER_PROFILE_NOT_FOUND"
     assert data.get("requestId") == "err-req-123"
+
+
+def test_api_generate_resume_invalid_url_validation_error(mock_get_current_user):
+    """
+    Verifies that an invalid URL in the contact portfolioUrl triggers a 422 Unprocessable Entity
+    with a JSON-safe response rather than crashing with a 500 TypeError on ValueError serialization.
+    """
+    payload = {
+        "title": "My Resume",
+        "source": "profile",
+        "content": {
+            "contact": {
+                "fullName": "Test User",
+                "email": "test@example.com",
+                "portfolioUrl": "https://portdfolio.",
+            }
+        },
+    }
+
+    res = client.post("/api/v1/launch/resumes/generate", json=payload, headers={"X-Request-ID": "req-val-123"})
+    assert res.status_code == 422
+    data = res.json()
+    assert data["success"] is False
+    assert data["code"] == "VALIDATION_ERROR"
+    assert "Request validation failed" in data["message"]
+    assert "errors" in data
+    assert len(data["errors"]) > 0
+
+    err0 = data["errors"][0]
+    assert "portfolioUrl" in err0["loc"]
+    assert "Invalid URL format" in err0["msg"]
+    # Check that ctx error was converted to readable string and not an un-serializable object
+    assert "ctx" in err0
+    assert isinstance(err0["ctx"]["error"], str)
+    assert "Invalid URL format" in err0["ctx"]["error"]
+
+
+@patch("app.api.v1.endpoints.launch.supabase_admin")
+@patch("app.api.v1.endpoints.launch.resume_service.generate_resume", new_callable=AsyncMock)
+def test_api_generate_resume_success(mock_gen, mock_supabase, mock_get_current_user):
+    mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": TEST_LEARNER_ID}]
+    )
+
+    from app.schemas.launch import GenerateResumeResponse, ResumeRecord
+    contact = ResumeContact(fullName="Valid User", email="user@example.com", portfolioUrl="https://example.com/portfolio")
+    draft = ResumeDraft(contact=contact, headline="Engineer")
+    record = ResumeRecord(
+        id=str(uuid.uuid4()),
+        learner_id=TEST_LEARNER_ID,
+        title="Software Engineer Resume",
+        source=ResumeSource.PROFILE,
+        status=ResumeStatus.GENERATED,
+        content=draft,
+        provider="hybrid",
+        created_at="2026-10-14T12:00:00Z",
+        updated_at="2026-10-14T12:00:00Z",
+    )
+    mock_gen.return_value = GenerateResumeResponse(resume=record, provider="hybrid")
+
+    payload = {
+        "title": "Software Engineer Resume",
+        "source": "profile",
+        "content": {
+            "contact": {
+                "fullName": "Valid User",
+                "email": "user@example.com",
+                "portfolioUrl": "https://example.com/portfolio",
+            },
+            "headline": "Engineer",
+        },
+    }
+
+    res = client.post("/api/v1/launch/resumes/generate", json=payload, headers={"X-Request-ID": "gen-req-123"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "resume" in data
+    assert data["resume"]["title"] == "Software Engineer Resume"
+    assert data["resume"]["content"]["contact"]["portfolioUrl"] == "https://example.com/portfolio"
+    assert data["provider"] == "hybrid"
+

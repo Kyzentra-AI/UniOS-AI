@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import request_validation_exception_handler, http_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,21 +40,42 @@ app.add_middleware(
 )
 
 
+def _sanitize_validation_errors(raw_errors: list) -> list:
+    """Recursively converts Exceptions in error dicts (e.g. ValueError in ctx) into strings and makes them JSON-safe."""
+    safe_errors = []
+    for err in raw_errors:
+        clean = dict(err)
+        if "ctx" in clean and isinstance(clean["ctx"], dict):
+            clean["ctx"] = {
+                k: str(v) if isinstance(v, Exception) else v
+                for k, v in clean["ctx"].items()
+            }
+        safe_errors.append(clean)
+    return jsonable_encoder(safe_errors, custom_encoder={Exception: str})
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Formats validation errors on launch endpoints to match standardized APIError schema."""
+    """Formats validation errors to match standardized schema and ensure JSON serialization safety."""
+    safe_errors = _sanitize_validation_errors(exc.errors())
     if request.url.path.startswith("/api/v1/launch"):
         req_id = request.headers.get("x-request-id")
+        content = APIError(
+            code="VALIDATION_ERROR",
+            message="Request validation failed.",
+            details={"errors": safe_errors},
+            request_id=req_id,
+        ).model_dump(by_alias=True)
+        content["success"] = False
+        content["errors"] = safe_errors
         return JSONResponse(
             status_code=422,
-            content=APIError(
-                code="VALIDATION_ERROR",
-                message="Request validation failed.",
-                details={"errors": exc.errors()},
-                request_id=req_id,
-            ).model_dump(by_alias=True),
+            content=content,
         )
-    return await request_validation_exception_handler(request, exc)
+    return await request_validation_exception_handler(
+        request, RequestValidationError(safe_errors)
+    )
+
 
 
 @app.exception_handler(HTTPException)

@@ -284,3 +284,353 @@ def test_mentor_chat_continue_conversation(mock_get_current_user):
         data = response.json()
         assert data["conversationId"] == existing_conv_id
         assert "reply" in data
+
+
+# ==============================================================================
+# 4. Assessment Robustness & Edge Cases Tests
+# ==============================================================================
+
+def test_generate_assessment_persistence_failure_raises_500(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db:
+
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{"id": TEST_SESSION_ID, "learner_id": TEST_LEARNER_ID, "topic": "DBMS Fundamentals"}]
+        )
+        mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+        mock_db.table.return_value.insert.return_value.execute.side_effect = Exception("DB Connection Timeout")
+
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "topic": "DBMS Fundamentals",
+        }
+
+        response = client.post("/api/v1/assessments/generate", json=payload)
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "Failed to persist assessment" in response.json()["detail"]
+
+
+def test_submit_assessment_attempt_duplicate_question_ids(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db:
+
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "assessment_id": "assessment-123",
+            "topic": "DBMS Fundamentals",
+            "answers": [
+                {"question_id": "question-1", "answer": "option-1"},
+                {"question_id": "question-1", "answer": "option-2"},
+            ],
+            "total_time_spent_seconds": 30,
+            "is_completed": True,
+        }
+
+        response = client.post("/api/v1/assessments/attempts", json=payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Duplicate question IDs" in response.json()["detail"]
+
+
+def test_submit_assessment_attempt_invalid_question_id(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db:
+
+        def table_router(table_name):
+            t = MagicMock()
+            if table_name == "assessments":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{
+                        "id": "assessment-123",
+                        "learner_id": TEST_LEARNER_ID,
+                        "session_id": TEST_SESSION_ID,
+                        "topic": "DBMS Fundamentals",
+                        "questions": [{"id": "question-1", "type": "mcq"}],
+                        "answer_keys": {"question-1": "option-1"},
+                    }]
+                )
+            elif table_name == "learning_sessions":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{"id": TEST_SESSION_ID, "learner_id": TEST_LEARNER_ID}]
+                )
+            return t
+
+        mock_db.table.side_effect = table_router
+
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "assessment_id": "assessment-123",
+            "topic": "DBMS Fundamentals",
+            "answers": [
+                {"question_id": "non-existent-question", "answer": "option-1"}
+            ],
+            "total_time_spent_seconds": 30,
+            "is_completed": True,
+        }
+
+        response = client.post("/api/v1/assessments/attempts", json=payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Invalid question ID" in response.json()["detail"]
+
+
+def test_submit_assessment_attempt_invalid_mcq_option(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db:
+
+        def table_router(table_name):
+            t = MagicMock()
+            if table_name == "assessments":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{
+                        "id": "assessment-123",
+                        "learner_id": TEST_LEARNER_ID,
+                        "session_id": TEST_SESSION_ID,
+                        "topic": "DBMS Fundamentals",
+                        "questions": [{
+                            "id": "question-1",
+                            "type": "mcq",
+                            "options": [
+                                {"id": "option-1", "text": "DBMS"},
+                                {"id": "option-2", "text": "Compiler"},
+                            ]
+                        }],
+                        "answer_keys": {"question-1": "option-1"},
+                    }]
+                )
+            elif table_name == "learning_sessions":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{"id": TEST_SESSION_ID, "learner_id": TEST_LEARNER_ID}]
+                )
+            return t
+
+        mock_db.table.side_effect = table_router
+
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "assessment_id": "assessment-123",
+            "topic": "DBMS Fundamentals",
+            "answers": [
+                {"question_id": "question-1", "answer": "option-invalid-999"}
+            ],
+            "total_time_spent_seconds": 30,
+            "is_completed": True,
+        }
+
+        response = client.post("/api/v1/assessments/attempts", json=payload)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Invalid option" in response.json()["detail"]
+
+
+def test_submit_assessment_attempt_foreign_assessment_ownership(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db:
+
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{
+                "id": "assessment-123",
+                "learner_id": "different-learner-uuid",
+                "session_id": TEST_SESSION_ID,
+                "topic": "DBMS Fundamentals",
+                "questions": [{"id": "question-1", "type": "mcq"}],
+            }]
+        )
+
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "assessment_id": "assessment-123",
+            "topic": "DBMS Fundamentals",
+            "answers": [{"question_id": "question-1", "answer": "option-1"}],
+        }
+
+        response = client.post("/api/v1/assessments/attempts", json=payload)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Assessment does not belong to the authenticated learner" in response.json()["detail"]
+
+
+def test_submit_assessment_attempt_foreign_session_ownership(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db:
+
+        def table_router(table_name):
+            t = MagicMock()
+            if table_name == "assessments":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{
+                        "id": "assessment-123",
+                        "learner_id": TEST_LEARNER_ID,
+                        "session_id": TEST_SESSION_ID,
+                        "topic": "DBMS Fundamentals",
+                        "questions": [{"id": "question-1", "type": "mcq"}],
+                    }]
+                )
+            elif table_name == "learning_sessions":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{"id": TEST_SESSION_ID, "learner_id": "different-learner-uuid"}]
+                )
+            return t
+
+        mock_db.table.side_effect = table_router
+
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "assessment_id": "assessment-123",
+            "topic": "DBMS Fundamentals",
+            "answers": [{"question_id": "question-1", "answer": "option-1"}],
+        }
+
+        response = client.post("/api/v1/assessments/attempts", json=payload)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "Learning session does not belong to the authenticated learner" in response.json()["detail"]
+
+
+def test_submit_assessment_attempt_persistence_failure_raises_500(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db:
+
+        def table_router(table_name):
+            t = MagicMock()
+            if table_name == "assessments":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{
+                        "id": "assessment-123",
+                        "learner_id": TEST_LEARNER_ID,
+                        "session_id": TEST_SESSION_ID,
+                        "topic": "DBMS Fundamentals",
+                        "questions": [{"id": "question-1", "type": "mcq"}],
+                        "answer_keys": {"question-1": "option-1"},
+                    }]
+                )
+            elif table_name == "learning_sessions":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{"id": TEST_SESSION_ID, "learner_id": TEST_LEARNER_ID}]
+                )
+            elif table_name == "assessment_attempts":
+                t.insert.return_value.execute.side_effect = Exception("DB Disk Full")
+            return t
+
+        mock_db.table.side_effect = table_router
+
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "assessment_id": "assessment-123",
+            "topic": "DBMS Fundamentals",
+            "answers": [{"question_id": "question-1", "answer": "option-1"}],
+            "total_time_spent_seconds": 25,
+            "is_completed": True,
+        }
+
+        response = client.post("/api/v1/assessments/attempts", json=payload)
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "Failed to persist assessment attempt" in response.json()["detail"]
+
+
+def test_submit_assessment_attempt_kie_zero_score_not_converted_to_one(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db, \
+         patch("app.services.assessment_service.AssessmentService._evaluate_with_kie") as mock_kie:
+
+        mock_kie.return_value = (0.0, {"Computer Science": {"DBMS": {"score": 0.0, "status": "NOVICE"}}}, "Needs improvement.", True)
+
+        def table_router(table_name):
+            t = MagicMock()
+            if table_name == "assessments":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{
+                        "id": "assessment-subj-1",
+                        "learner_id": TEST_LEARNER_ID,
+                        "session_id": TEST_SESSION_ID,
+                        "topic": "DBMS Fundamentals",
+                        "questions": [{"id": "q-subj-1", "type": "subjective"}],
+                        "answer_keys": {},
+                    }]
+                )
+            elif table_name == "learning_sessions":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{"id": TEST_SESSION_ID, "learner_id": TEST_LEARNER_ID}]
+                )
+            elif table_name == "assessment_attempts":
+                t.insert.return_value.execute.return_value = MagicMock(
+                    data=[{
+                        "id": "attempt-zero-1",
+                        "learner_id": TEST_LEARNER_ID,
+                        "score": 0.0,
+                        "is_completed": True,
+                    }]
+                )
+            elif table_name == "learner_mastery":
+                t.upsert.return_value.execute.return_value = MagicMock(data=[{}])
+            return t
+
+        mock_db.table.side_effect = table_router
+
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "assessment_id": "assessment-subj-1",
+            "topic": "DBMS Fundamentals",
+            "answers": [{"question_id": "q-subj-1", "answer": "completely incorrect answer"}],
+            "total_time_spent_seconds": 40,
+            "is_completed": True,
+        }
+
+        response = client.post("/api/v1/assessments/attempts", json=payload)
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["score"] == 0.0  # Must NOT be 1.0!
+
+
+def test_submit_assessment_attempt_incomplete_scoring_denominator(mock_get_current_user):
+    with patch("app.api.v1.endpoints.assessments._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.assessment_service.supabase_admin") as mock_db, \
+         patch("app.services.assessment_service.AssessmentService._evaluate_with_kie") as mock_kie:
+
+        mock_kie.return_value = (None, {}, None, False)
+
+        def table_router(table_name):
+            t = MagicMock()
+            if table_name == "assessments":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{
+                        "id": "assessment-multi-q",
+                        "learner_id": TEST_LEARNER_ID,
+                        "session_id": TEST_SESSION_ID,
+                        "topic": "DBMS Fundamentals",
+                        "questions": [
+                            {"id": "q1", "type": "mcq"},
+                            {"id": "q2", "type": "mcq"},
+                        ],
+                        "answer_keys": {"q1": "option-1", "q2": "option-2"},
+                    }]
+                )
+            elif table_name == "learning_sessions":
+                t.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                    data=[{"id": TEST_SESSION_ID, "learner_id": TEST_LEARNER_ID}]
+                )
+            elif table_name == "assessment_attempts":
+                t.insert.return_value.execute.return_value = MagicMock(
+                    data=[{
+                        "id": "attempt-half-1",
+                        "learner_id": TEST_LEARNER_ID,
+                        "score": 0.5,
+                        "is_completed": True,
+                    }]
+                )
+            return t
+
+        mock_db.table.side_effect = table_router
+
+        # Learner submits only 1 correct answer out of 2 total questions
+        payload = {
+            "session_id": TEST_SESSION_ID,
+            "assessment_id": "assessment-multi-q",
+            "topic": "DBMS Fundamentals",
+            "answers": [{"question_id": "q1", "answer": "option-1"}],
+            "total_time_spent_seconds": 15,
+            "is_completed": True,
+        }
+
+        response = client.post("/api/v1/assessments/attempts", json=payload)
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["score"] == 0.5  # 1 out of 2, not 1.0!
+
