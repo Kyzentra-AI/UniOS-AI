@@ -1,7 +1,7 @@
-
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import type { Assessment } from '@/types/assessment';
 
@@ -33,10 +33,13 @@ export default function LearningWorkspace({
   roadmapId,
   missionId,
 }: LearningWorkspaceProps) {
+  const router = useRouter();
+
   const [activePanel, setActivePanel] =
     useState<WorkspacePanel>('lesson');
 
   const [saved, setSaved] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [isAssessmentLoading, setIsAssessmentLoading] = useState(false);
@@ -44,6 +47,9 @@ export default function LearningWorkspace({
     null,
   );
   const [assessmentRetryKey, setAssessmentRetryKey] = useState(0);
+
+  // Prevent duplicate pause requests from pagehide + popstate.
+  const pauseStartedRef = useRef(false);
 
   const learningSession = useMemo(
     () => ({
@@ -56,21 +62,43 @@ export default function LearningWorkspace({
   );
 
   const {
-  sessionData,
-  lesson,
-  currentBlockIndex,
-  completedBlockIds,
-  markBlockComplete,
-  progress,
-  isLoading,
-  isSaving,
-  error,
-  syncCheckpoint,
-  nextBlock,
-  previousBlock,
-} = useLearning({
-  session: learningSession,
-});
+    sessionData,
+    lesson,
+    currentBlockIndex,
+    completedBlockIds,
+    markBlockComplete,
+    progress,
+    isLoading,
+    isSaving,
+    error,
+    syncCheckpoint,
+    pauseSession,
+    pauseSessionOnExit,
+    nextBlock,
+    previousBlock,
+  } = useLearning({
+    session: learningSession,
+  });
+
+  // Best-effort pause when the user closes the tab or uses browser Back.
+  useEffect(() => {
+    const handlePageExit = () => {
+      if (pauseStartedRef.current) {
+        return;
+      }
+
+      pauseStartedRef.current = true;
+      pauseSessionOnExit();
+    };
+
+    window.addEventListener('pagehide', handlePageExit);
+    window.addEventListener('popstate', handlePageExit);
+
+    return () => {
+      window.removeEventListener('pagehide', handlePageExit);
+      window.removeEventListener('popstate', handlePageExit);
+    };
+  }, [pauseSessionOnExit]);
 
   // Generate/load assessment when its tab is opened.
   useEffect(() => {
@@ -127,6 +155,46 @@ export default function LearningWorkspace({
     assessment,
     assessmentRetryKey,
   ]);
+
+  async function handleSaveProgress() {
+    try {
+      await syncCheckpoint();
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+    } catch {
+      // The learning hook exposes the save error.
+    }
+  }
+
+  async function handlePauseAndExit() {
+    if (isExiting || isSaving || !sessionData) {
+      return;
+    }
+
+    setIsExiting(true);
+    pauseStartedRef.current = true;
+
+    try {
+      // Wait until the backend confirms that the session is paused.
+      await pauseSession();
+
+      if (missionId) {
+        router.push(`/missions/${encodeURIComponent(missionId)}`);
+      } else {
+        router.push('/missions');
+      }
+    } catch {
+      // Keep the user on the lesson if the pause request fails.
+      pauseStartedRef.current = false;
+      setIsExiting(false);
+    }
+  }
+
+  function retryAssessment() {
+    setAssessment(null);
+    setAssessmentError(null);
+    setAssessmentRetryKey((key) => key + 1);
+  }
 
   // Loading state.
   if (isLoading) {
@@ -199,22 +267,6 @@ export default function LearningWorkspace({
   const activeIndex = panels.findIndex(
     (panel) => panel.id === activePanel,
   );
-
-  async function handleSaveProgress() {
-    try {
-      await syncCheckpoint();
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2200);
-    } catch {
-      // The learning hook exposes the save error.
-    }
-  }
-
-  function retryAssessment() {
-    setAssessment(null);
-    setAssessmentError(null);
-    setAssessmentRetryKey((key) => key + 1);
-  }
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -319,26 +371,44 @@ export default function LearningWorkspace({
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleSaveProgress}
-                    disabled={isSaving}
-                    className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--primary)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                  >
-                    {isSaving ? (
-                      <>
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        Saving…
-                      </>
-                    ) : saved ? (
-                      <>
-                        <Check className="text-[var(--primary)]" />
-                        Saved
-                      </>
-                    ) : (
-                      'Save progress'
-                    )}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveProgress}
+                      disabled={isSaving || isExiting}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--primary)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                    >
+                      {isSaving ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Saving…
+                        </>
+                      ) : saved ? (
+                        <>
+                          <Check className="text-[var(--primary)]" />
+                          Saved
+                        </>
+                      ) : (
+                        'Save progress'
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handlePauseAndExit}
+                      disabled={isSaving || isExiting}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                    >
+                      {isExiting ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Pausing…
+                        </>
+                      ) : (
+                        'Pause & Exit'
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--surface-alt)]">
@@ -350,14 +420,14 @@ export default function LearningWorkspace({
               </section>
 
               <LessonRenderer
-  lesson={lesson}
-  completedBlockIds={completedBlockIds}
-  currentBlockIndex={currentBlockIndex}
-  isSaving={isSaving}
-  onMarkBlockComplete={markBlockComplete}
-  onPreviousBlock={previousBlock}
-  onNextBlock={nextBlock}
-/>
+                lesson={lesson}
+                completedBlockIds={completedBlockIds}
+                currentBlockIndex={currentBlockIndex}
+                isSaving={isSaving || isExiting}
+                onMarkBlockComplete={markBlockComplete}
+                onPreviousBlock={previousBlock}
+                onNextBlock={nextBlock}
+              />
 
               {error && (
                 <p

@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -19,6 +18,7 @@ import {
   generateLesson,
   getLearningSession,
   saveLearningCheckpoint,
+  saveLearningCheckpointOnExit,
 } from '@/services/learningServices';
 
 interface UseLearningOptions {
@@ -41,6 +41,8 @@ interface UseLearningResult {
   markBlockComplete: (blockId: string) => Promise<void>;
   isBlockCompleted: (blockId: string) => boolean;
   syncCheckpoint: () => Promise<void>;
+  pauseSession: () => Promise<void>;
+  pauseSessionOnExit: () => void;
   refreshSession: () => Promise<void>;
 }
 
@@ -166,7 +168,6 @@ export function useLearning({
         return;
       }
 
-      // Never allow navigation to a section that has not been unlocked.
       const firstIncomplete = lesson.blocks.findIndex(
         (block) => !completedBlockIds.includes(block.id),
       );
@@ -219,7 +220,6 @@ export function useLearning({
         return;
       }
 
-      // Only the current section can be completed.
       if (blockIndex !== currentBlockIndex) {
         throw new Error('Complete the current section first.');
       }
@@ -257,7 +257,6 @@ export function useLearning({
 
         setSessionData(updated);
 
-        // Use the server's saved list when provided.
         const savedIds = (
           updated.completed_block_ids ?? nextCompletedIds
         ).filter((id) =>
@@ -266,7 +265,6 @@ export function useLearning({
 
         setCompletedBlockIds(savedIds);
 
-        // Move forward only after the checkpoint is saved.
         if (nextProgress < 100) {
           setCurrentBlockIndex(nextIndex);
         } else {
@@ -298,6 +296,7 @@ export function useLearning({
     [completedBlockIds],
   );
 
+  // Save Progress: saves the checkpoint but keeps the session active.
   const syncCheckpoint = useCallback(async () => {
     if (!sessionData || !lesson) {
       throw new Error('Learning session or lesson is not loaded.');
@@ -335,6 +334,77 @@ export function useLearning({
     } finally {
       setIsSaving(false);
     }
+  }, [
+    sessionData,
+    lesson,
+    currentBlockIndex,
+    completedBlockIds,
+    progress,
+  ]);
+
+  // Explicit Pause & Exit: wait for the backend to confirm the pause.
+  const pauseSession = useCallback(async () => {
+    if (!sessionData || !lesson) {
+      throw new Error('Learning session or lesson is not loaded.');
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const block = lesson.blocks[currentBlockIndex];
+
+      const updated = await saveLearningCheckpoint(
+        sessionData.id,
+        {
+          checkpoint_block_id: block?.id,
+          completed_block_ids: completedBlockIds,
+          progress_percentage: progress,
+          status: progress >= 100 ? 'COMPLETED' : 'PAUSED',
+        },
+      );
+
+      setSessionData(updated);
+
+      if (updated.completed_block_ids) {
+        setCompletedBlockIds(updated.completed_block_ids);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Unable to pause your learning session.';
+
+      setError(message);
+      throw err;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    sessionData,
+    lesson,
+    currentBlockIndex,
+    completedBlockIds,
+    progress,
+  ]);
+
+  // Browser Back / tab close: fire a keepalive request without waiting.
+  const pauseSessionOnExit = useCallback(() => {
+    if (!sessionData || !lesson) {
+      return;
+    }
+
+    const block = lesson.blocks[currentBlockIndex];
+
+    saveLearningCheckpointOnExit(
+      sessionData.id,
+      {
+        checkpoint_block_id: block?.id,
+        completed_block_ids: completedBlockIds,
+        progress_percentage: progress,
+        status: progress >= 100 ? 'COMPLETED' : 'PAUSED',
+      },
+    );
   }, [
     sessionData,
     lesson,
@@ -402,6 +472,8 @@ export function useLearning({
     markBlockComplete,
     isBlockCompleted,
     syncCheckpoint,
+    pauseSession,
+    pauseSessionOnExit,
     refreshSession,
   };
 }
