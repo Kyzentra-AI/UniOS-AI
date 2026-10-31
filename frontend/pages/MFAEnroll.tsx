@@ -3,11 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { getProfile } from '@/services/profileServices';
 import { getOnboardingState } from '@/services/onboardingServices';
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 import { ApiError} from '@/lib/api';
 
 export default function MFAChoice() {
   const router = useRouter();
+  const {theme} =useTheme();
 
   const handleSetupMFA = () => {
     router.push('/mfa-setup');
@@ -53,7 +55,7 @@ export default function MFAChoice() {
         <div className="text-center mb-8">
           <img
             className="h-16 w-auto mx-auto mb-8"
-            src="/logo.png"
+            src={theme === "dark" ? "/logo1.png" : "/logo.png"}
             alt="UniOS.ai"
           />
 

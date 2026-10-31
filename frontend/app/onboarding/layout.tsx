@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 const steps = [
   {
@@ -43,6 +44,7 @@ export default function OnboardingLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const {theme} = useTheme();
 
   const currentStep =
     steps.find((step) => pathname === step.path)?.id ?? 1;
@@ -55,7 +57,7 @@ export default function OnboardingLayout({
           {/* Logo */}
           <Link href="/" className="flex items-center">
             <Image
-              src="/logo.png"
+              src={theme === "dark" ? "/logo1.png" : "/logo.png"}
               alt="UniOS"
               width={180}
               height={120}

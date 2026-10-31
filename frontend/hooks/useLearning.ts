@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -64,6 +65,37 @@ function getLessonFromSession(
   return data as unknown as Lesson;
 }
 
+/**
+ * Resolve the section to display.
+ *
+ * Priority:
+ * 1. Valid, incomplete saved checkpoint.
+ * 2. First incomplete section.
+ * 3. First section if the lesson is fully completed.
+ */
+function getResumeBlockIndex(
+  lesson: Lesson,
+  completedIds: string[],
+  checkpointBlockId?: string | null,
+): number {
+  const checkpointIndex = lesson.blocks.findIndex(
+    (block) => block.id === checkpointBlockId,
+  );
+
+  if (
+    checkpointIndex >= 0 &&
+    !completedIds.includes(lesson.blocks[checkpointIndex].id)
+  ) {
+    return checkpointIndex;
+  }
+
+  const firstIncompleteIndex = lesson.blocks.findIndex(
+    (block) => !completedIds.includes(block.id),
+  );
+
+  return firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0;
+}
+
 export function useLearning({
   session,
 }: UseLearningOptions): UseLearningResult {
@@ -71,7 +103,9 @@ export function useLearning({
     useState<LearningSession | null>(null);
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
+
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+
   const [completedBlockIds, setCompletedBlockIds] =
     useState<string[]>([]);
 
@@ -85,6 +119,7 @@ export function useLearning({
 
     try {
       const created = await createLearningSession(session);
+
       setSessionData(created);
 
       let loadedLesson = getLessonFromSession(created);
@@ -99,6 +134,7 @@ export function useLearning({
       setLesson(loadedLesson);
 
       const latest = await getLearningSession(created.id);
+
       setSessionData(latest);
 
       const validBlockIds = new Set(
@@ -111,27 +147,13 @@ export function useLearning({
 
       setCompletedBlockIds(savedCompletedIds);
 
-      const firstIncompleteIndex = loadedLesson.blocks.findIndex(
-        (block) => !savedCompletedIds.includes(block.id),
+      const resumeIndex = getResumeBlockIndex(
+        loadedLesson,
+        savedCompletedIds,
+        latest.checkpoint_block_id,
       );
 
-      const checkpointIndex = loadedLesson.blocks.findIndex(
-        (block) => block.id === latest.checkpoint_block_id,
-      );
-
-      const resumeIndex =
-        checkpointIndex >= 0 &&
-        !savedCompletedIds.includes(
-          loadedLesson.blocks[checkpointIndex].id,
-        )
-          ? checkpointIndex
-          : firstIncompleteIndex;
-
-      setCurrentBlockIndex(
-        resumeIndex >= 0
-          ? resumeIndex
-          : Math.max(loadedLesson.blocks.length - 1, 0),
-      );
+      setCurrentBlockIndex(resumeIndex);
     } catch (err) {
       setError(
         err instanceof Error
@@ -417,6 +439,7 @@ export function useLearning({
     if (!sessionData) return;
 
     const latest = await getLearningSession(sessionData.id);
+
     setSessionData(latest);
 
     const updatedLesson = getLessonFromSession(latest);
@@ -434,25 +457,13 @@ export function useLearning({
 
       setCompletedBlockIds(savedIds);
 
-      const firstIncomplete = updatedLesson.blocks.findIndex(
-        (block) => !savedIds.includes(block.id),
+      const resumeIndex = getResumeBlockIndex(
+        updatedLesson,
+        savedIds,
+        latest.checkpoint_block_id,
       );
 
-      const checkpointIndex = updatedLesson.blocks.findIndex(
-        (block) => block.id === latest.checkpoint_block_id,
-      );
-
-      const resumeIndex =
-        checkpointIndex >= 0 &&
-        !savedIds.includes(updatedLesson.blocks[checkpointIndex].id)
-          ? checkpointIndex
-          : firstIncomplete;
-
-      setCurrentBlockIndex(
-        resumeIndex >= 0
-          ? resumeIndex
-          : Math.max(updatedLesson.blocks.length - 1, 0),
-      );
+      setCurrentBlockIndex(resumeIndex);
     }
   }, [sessionData]);
 

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 import {
   loginUser,
@@ -34,6 +35,7 @@ interface LoginResponse {
 
 export default function Login() {
   const router = useRouter();
+  const {theme} = useTheme();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -240,7 +242,7 @@ export default function Login() {
           <div className="mb-8">
             <img
               className="h-16 w-auto mb-6"
-              src="/logo.png"
+              src={theme === "dark" ? "/logo1.png" : "/logo.png"}
               alt="UniOS.ai"
             />
 

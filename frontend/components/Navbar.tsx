@@ -266,7 +266,7 @@ export default function Navbar() {
           className="flex shrink-0 items-center"
         >
           <Image
-            src="/logo.png"
+            src={theme === "dark" ? "/logo1.png" : "/logo.png"}
             alt="UniOS.AI"
             width={120}
             height={150}

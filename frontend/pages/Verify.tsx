@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { resendVerification } from '@/lib/api';
-
+import { useTheme } from '@/components/providers/ThemeProvider';
 interface VerifyProps {
   email?: string;
 }
@@ -12,6 +12,7 @@ interface VerifyProps {
 export default function Verify({ email = '' }: VerifyProps) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const {theme} = useTheme();
 
   const resendMutation = useMutation({
     mutationFn: resendVerification,
@@ -53,7 +54,7 @@ export default function Verify({ email = '' }: VerifyProps) {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <img
-            src="/logo.png"
+            src={theme === "dark" ? "/logo1.png" : "/logo.png"}
             alt="UniOS.ai"
             className="h-16 w-auto"
           />

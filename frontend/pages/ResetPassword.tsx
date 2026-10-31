@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 import { useMutation } from '@tanstack/react-query';
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 import {
   useForm,
@@ -46,6 +47,7 @@ export default function ResetPassword() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const {theme} = useTheme();
 
   useEffect(() => {
     const checkMFAStatus = async (
@@ -214,7 +216,7 @@ export default function ResetPassword() {
         <div className="mb-8">
           <img
             className="h-16 w-auto mb-6"
-            src="/logo.png"
+            src={theme === "dark" ? "/logo1.png" : "/logo.png"}
             alt="UniOS.ai"
           />
 
