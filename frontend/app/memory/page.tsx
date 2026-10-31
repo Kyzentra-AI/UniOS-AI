@@ -140,63 +140,160 @@ export default function MemoryPage() {
   const isError = !!error;
   const isFetching = isLoading;
 
-  if (isLoading) {
-    return (
-      <main className="min-h-screen bg-[var(--background)] px-4 py-8 sm:px-8">
-        <div className="mx-auto max-w-6xl animate-pulse space-y-6">
+  
+if (isLoading) {
+  return (
+    <main className="min-h-screen bg-[var(--background)] px-4 py-8 sm:px-8 sm:py-10">
+      <div className="mx-auto max-w-6xl space-y-8">
+
+        {/* Loading header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-3">
-            <div className="h-3 w-32 rounded bg-[var(--border)]" />
-            <div className="h-9 w-48 rounded-lg bg-[var(--border)]" />
+            <div className="h-7 w-36 animate-pulse rounded-lg bg-[var(--border)]" />
+            <div className="h-10 w-52 animate-pulse rounded-lg bg-[var(--border)]" />
+            <div className="h-4 w-72 max-w-full animate-pulse rounded bg-[var(--border)]" />
+          </div>
+          <div className="h-10 w-28 animate-pulse rounded-xl bg-[var(--border)]" />
+        </div>
+
+        {/* Animated loading center */}
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-9 text-center shadow-sm sm:py-12">
+          <div className="relative mb-6 flex h-20 w-20 items-center justify-center">
+            <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-[var(--border)] border-t-[var(--primary)]" />
+
+            <div className="absolute inset-3 rounded-full border border-[var(--primary)]/15 bg-[var(--primary)]/[0.045]" />
+
+            <Brain
+              size={27}
+              strokeWidth={1.7}
+              className="relative animate-pulse text-[var(--primary)]"
+            />
+
+            <span className="absolute right-0 top-1 h-3 w-3 animate-ping rounded-full bg-[var(--primary)]/50" />
+            <span className="absolute bottom-1 left-0 h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--feature-orange)]" />
           </div>
 
-          <div className="h-44 rounded-2xl bg-[var(--surface)]" />
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+            Preparing your memory
+          </h2>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={index}
-                className="h-64 rounded-2xl bg-[var(--surface)]"
-              />
+          <p className="mt-2 max-w-md text-sm leading-6 text-[var(--text-secondary)]">
+            Gathering your learning profile, career goals, skills and preferences.
+          </p>
+
+          <div className="mt-6 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--primary)]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--primary)] [animation-delay:150ms]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--primary)] [animation-delay:300ms]" />
+          </div>
+        </div>
+
+        {/* Profile overview skeleton */}
+        <div className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-7">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 shrink-0 rounded-2xl bg-[var(--border)]" />
+            <div className="flex-1 space-y-3">
+              <div className="h-3 w-28 rounded bg-[var(--border)]" />
+              <div className="h-6 w-64 max-w-full rounded bg-[var(--border)]" />
+              <div className="h-3 w-48 max-w-full rounded bg-[var(--border)]" />
+            </div>
+          </div>
+
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-20 rounded-xl bg-[var(--background)]" />
             ))}
           </div>
         </div>
-      </main>
-    );
-  }
 
-  if (isError || !profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-12 sm:px-8">
-        <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-sm">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-600">
-            <AlertCircle size={23} />
-          </div>
+        {/* Information cards skeleton */}
+        <div className="grid gap-5 md:grid-cols-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6"
+            >
+              <div className="mb-6 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-[var(--border)]" />
+                <div className="space-y-2">
+                  <div className="h-4 w-32 rounded bg-[var(--border)]" />
+                  <div className="h-3 w-44 max-w-full rounded bg-[var(--border)]" />
+                </div>
+              </div>
 
-          <h1 className="mt-4 text-xl font-semibold text-[var(--text-primary)]">
-            Couldn't load your memory
-          </h1>
+              <div className="grid grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((line) => (
+                  <div key={line} className="h-[68px] rounded-xl bg-[var(--background)]" />
+                ))}
+              </div>
 
-          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-            We couldn't retrieve your saved profile information.
-            Please try again.
-          </p>
-
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
-          >
-            <RefreshCw
-              size={15}
-              className={isFetching ? "animate-spin" : ""}
-            />
-            Try again
-          </button>
+              <div className="mt-6 flex gap-2">
+                {[1, 2, 3].map((tag) => (
+                  <div key={tag} className="h-7 w-20 rounded-lg bg-[var(--border)]" />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-      </main>
-    );
-  }
+
+        <p className="pb-3 text-center text-xs text-[var(--text-muted)]">
+          Personalizing your learning experience...
+        </p>
+      </div>
+    </main>
+  );
+}
+
+
+  
+if (isError || !profile) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-12 sm:px-8">
+      <div className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-7 text-center shadow-[0_8px_30px_rgba(24,52,58,0.05)] sm:p-9">
+
+        <div className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center">
+          <div className="absolute inset-0 rounded-full border border-[var(--danger-border)] bg-[var(--danger-soft)]" />
+          <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--surface)] text-[var(--danger)] shadow-sm">
+            <AlertCircle size={27} strokeWidth={1.8} />
+          </div>
+        </div>
+
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--danger-text)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--danger)]" />
+          Connection issue
+        </span>
+
+        <h1 className="mt-4 text-xl font-bold tracking-tight text-[var(--text-primary)] sm:text-2xl">
+          Couldn't load your memory
+        </h1>
+
+        <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+          We couldn't retrieve your saved profile information.
+          Your learning context is not being displayed right now.
+          Please try again.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-hover)] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw
+            size={16}
+            className={isFetching ? "animate-spin" : ""}
+          />
+          {isFetching ? "Retrying..." : "Try again"}
+        </button>
+
+        <p className="mt-5 text-xs text-[var(--text-muted)]">
+          Your saved profile information remains unchanged.
+        </p>
+      </div>
+    </main>
+  );
+}
+
 
   const education = profile.education;
   const career = profile.career_goals;
