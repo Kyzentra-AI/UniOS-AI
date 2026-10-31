@@ -23,6 +23,9 @@ export default defineConfig({
       logs: {
         enabled: true,
       },
+      issues: {
+    enabled: false,
+  },
     },
   }),
 });
