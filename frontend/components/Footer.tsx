@@ -63,7 +63,7 @@ export default function Footer() {
 
             <Link href="/" className="inline-flex items-center">
               <Image
-            src="/logo.svg"
+            src="/logo.png"
             alt="UniOS.AI"
             width={120}
             height={150}

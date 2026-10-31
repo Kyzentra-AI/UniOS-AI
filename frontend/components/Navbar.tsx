@@ -24,9 +24,7 @@ const AUTH_LINKS = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Roadmap', href: '/roadmap' },
   { label: 'Build', href: '/build' },
-  { label: 'Launch', href: '/launch' },
-  { label: 'Compete', href: '/compete' },
-  { label: 'Pricing', href: '/billing' },
+  { label: 'Launch', href: '/launch' }
 ];
 
 const PUBLIC_MENUS = [
@@ -239,7 +237,7 @@ export default function Navbar() {
           className="flex shrink-0 items-center"
         >
           <Image
-            src="/logo.svg"
+            src="/logo.png"
             alt="UniOS.AI"
             width={120}
             height={150}
