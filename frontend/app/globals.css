@@ -2,6 +2,8 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
+
   --background: #F7F1E7;
   --foreground: #18343A;
 
@@ -51,26 +53,19 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0F2428;
-    --foreground: #F7F1E7;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-
-/* Append this to your globals.css. No existing tokens are touched. */
+/* Animations */
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: none; }
+  to { opacity: 1; transform: none; }
 }
+
 .rise {
   animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(var(--i, 0) * 55ms);
@@ -78,8 +73,9 @@ body {
 
 @keyframes grow {
   from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
+  to { transform: scaleX(1); }
 }
+
 .bar-grow {
   transform-origin: left;
   animation: grow 0.9s 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -87,8 +83,9 @@ body {
 
 @keyframes shimmer {
   from { background-position: 200% 0; }
-  to   { background-position: -200% 0; }
+  to { background-position: -200% 0; }
 }
+
 .skeleton {
   background: linear-gradient(
     90deg,
@@ -101,5 +98,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise, .bar-grow, .skeleton { animation: none; }
+  .rise,
+  .bar-grow,
+  .skeleton {
+    animation: none;
+  }
 }

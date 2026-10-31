@@ -75,29 +75,107 @@ export default function BillingPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <main className="mx-auto max-w-6xl px-6 py-16">
-        <p className="text-sm text-slate-500">
-          Loading your subscription and plans...
-        </p>
-      </main>
-    );
-  }
+  
+if (isLoading) {
+  return (
+    <main className="min-h-screen bg-[#F7F1E7] px-5 py-16">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-center">
+        {/* Animated loader */}
+        <div className="relative mb-8 flex h-24 w-24 items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-4 border-[#D8CCBA] opacity-50" />
 
-  if (plansError) {
-    return (
-      <main className="mx-auto max-w-6xl px-6 py-16">
-        <h1 className="text-2xl font-semibold text-slate-900">
+          <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-[#0C3A47] border-r-[#0C3A47]" />
+
+          <div className="absolute h-14 w-14 animate-pulse rounded-full bg-[#DCE8E6]" />
+
+          <div className="relative h-5 w-5 rounded-full bg-[#0C3A47] shadow-lg shadow-[#0C3A47]/20" />
+        </div>
+
+        <h2 className="text-xl font-semibold tracking-tight text-[#18343A]">
+          Preparing your plans
+        </h2>
+
+        <p className="mt-2 text-center text-sm text-[#5F6D6D]">
+          Loading your subscription and finding the right plan for you.
+        </p>
+
+        {/* Loading indicator */}
+        <div className="mt-6 flex items-center gap-2">
+          <span className="h-2 w-2 animate-bounce rounded-full bg-[#0C3A47]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-[#0C3A47] [animation-delay:150ms]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-[#0C3A47] [animation-delay:300ms]" />
+        </div>
+
+        {/* Skeleton placeholders */}
+        <div className="mt-14 grid w-full max-w-4xl gap-5 md:grid-cols-3">
+          {[1, 2, 3].map((item) => (
+            <div
+              key={item}
+              className="rounded-2xl border border-[#D8CCBA] bg-[#FFF9F0] p-6 shadow-sm"
+            >
+              <div className="skeleton mb-5 h-4 w-24 rounded-md" />
+              <div className="skeleton mb-3 h-8 w-32 rounded-lg" />
+              <div className="skeleton mb-7 h-3 w-40 rounded-md" />
+
+              <div className="skeleton mb-3 h-10 w-full rounded-xl" />
+
+              <div className="mt-7 space-y-4">
+                {[1, 2, 3, 4].map((line) => (
+                  <div key={line} className="flex items-center gap-3">
+                    <div className="skeleton h-4 w-4 rounded-full" />
+                    <div className="skeleton h-3 flex-1 rounded-md" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-8 text-xs text-[#87918F]">
+          This usually takes just a moment.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+if (plansError) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#F7F1E7] px-5 py-16">
+      <div className="w-full max-w-md rounded-3xl border border-[#D8CCBA] bg-[#FFF9F0] p-8 text-center shadow-sm">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F8E8E5]">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            className="h-8 w-8 text-[#B94A48]"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4" />
+            <path d="M12 16h.01" />
+          </svg>
+        </div>
+
+        <h1 className="text-2xl font-semibold tracking-tight text-[#18343A]">
           Unable to load plans
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
+
+        <p className="mt-3 text-sm leading-6 text-[#5F6D6D]">
+          We couldn't retrieve your subscription details right now.
           Please try again in a moment.
         </p>
-      </main>
-    );
-  }
 
+        <div className="mt-7 rounded-xl border border-[#E7C3BD] bg-[#F8E8E5] px-4 py-3 text-xs text-[#9F3836]">
+          Your subscription information hasn't been changed.
+        </div>
+      </div>
+    </main>
+  );
+}
   const canActivateTrial =
     entitlement?.currentPlan === 'FREE' &&
     entitlement.trialUsed === false;
