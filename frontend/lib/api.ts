@@ -6,8 +6,28 @@ import {
   getRememberMe,
 } from '@/lib/auth';
 
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL;
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL;
+  rawApiUrl && rawApiUrl !== 'undefined'
+    ? rawApiUrl.replace(/\/+$/, '')
+    : '';
+
+export function getFullApiUrl(endpoint: string): string {
+  const normalizedEndpoint = endpoint.startsWith('/')
+    ? endpoint
+    : `/${endpoint}`;
+
+  if (!API_URL) {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+      console.warn(
+        `[API] NEXT_PUBLIC_API_URL is not configured. Requesting relative path: ${normalizedEndpoint}`
+      );
+    }
+    return normalizedEndpoint;
+  }
+
+  return `${API_URL}${normalizedEndpoint}`;
+}
 
 // Common API types
 export interface ApiValidationError {
@@ -118,7 +138,7 @@ export async function apiRequest<T>(
   } = {}
 ): Promise<T> {
   const makeRequest = async (accessToken?: string) => {
-    return fetch(`${API_URL}${endpoint}`, {
+    return fetch(getFullApiUrl(endpoint), {
       ...options,
       headers: {
         ...(options.body instanceof FormData
@@ -150,7 +170,7 @@ export async function apiRequest<T>(
 
     try {
       const refreshResponse = await fetch(
-        `${API_URL}/api/v1/auth/refresh`,
+        getFullApiUrl('/api/v1/auth/refresh'),
         {
           method: 'POST',
           headers: {
