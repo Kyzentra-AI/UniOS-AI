@@ -37,6 +37,13 @@ class KIEGatewayService:
         # Fetch the session
         session = learning_session_service.get_session(session_id, learner_id)
         
+        # If already generated, return cached lesson to resume unless explicitly asked to force regenerate
+        if session.get("lesson_data") and not payload.get("force_regenerate"):
+            try:
+                return Lesson(**session["lesson_data"])
+            except Exception:
+                pass
+
         # Assemble context
         syllabus_id = payload.get("syllabus_id")
         context = await ContextV2Assembler.assemble(learner_id, syllabus_id=syllabus_id)
@@ -92,13 +99,14 @@ class KIEGatewayService:
                 raise HTTPException(status_code=500, detail=f"Invalid lesson format returned from KIE: {str(e)}")
             
             # Persist lesson in session
-            # Note: We update lesson_data or checkpoint
             from app.schemas.learning import LearningSessionUpdate
+            checkpoint_id = session.get("checkpoint_block_id") or (lesson.blocks[-1].id if lesson.blocks else None)
             learning_session_service.update_checkpoint(
                 session_id, 
                 learner_id, 
                 LearningSessionUpdate(
-                    checkpoint_block_id=lesson.blocks[-1].id if lesson.blocks else None
+                    checkpoint_block_id=checkpoint_id,
+                    lesson_data=lesson.model_dump()
                 )
             )
             
