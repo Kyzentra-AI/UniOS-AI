@@ -1,3 +1,4 @@
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -85,11 +86,11 @@ def test_sprint2_model_routing_is_returned():
 
     routing = data["metadata"]["model_routing"]
 
-    assert routing["intent"]["provider"] == "local"
-    assert routing["intent"]["model"] == "fast-structured-model"
+    assert routing["intent"]["provider"] == "ollama"
+    assert routing["intent"]["model"] == "qwen2.5:3b"
 
-    assert routing["planning"]["provider"] == "local"
-    assert routing["planning"]["model"] == "reasoning-model"
+    assert routing["planning"]["provider"] == "ollama"
+    assert routing["planning"]["model"] == "qwen2.5:3b"
 
 
 def test_sprint2_learner_context_reaches_agent():

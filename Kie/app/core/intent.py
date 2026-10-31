@@ -20,7 +20,6 @@ class IntentEngine:
 
         # Preserve existing Sprint 3 roadmap behavior.
         if "roadmap" in task_lower:
-            # Explicit learning roadmaps remain learning requests.
             if any(
                 word in task_lower
                 for word in ["learning", "learn", "study", "weekly"]
@@ -31,8 +30,6 @@ class IntentEngine:
                     learning_action=None,
                 )
 
-            # Explicit career roadmap requests use the career agent,
-            # except for the legacy UniOS-style wording.
             if (
                 "career" in task_lower
                 and "create a roadmap for becoming" not in task_lower
@@ -47,7 +44,7 @@ class IntentEngine:
                 confidence=0.80,
             )
 
-        # Handle other explicit career planning requests.
+        # Handle explicit career planning requests.
         if any(
             phrase in task_lower
             for phrase in [
@@ -61,8 +58,32 @@ class IntentEngine:
                 confidence=0.80,
             )
 
-        # Detect specific Build actions.
+        # Career and resume requests must route to LAUNCH.
+        # Projects created for a portfolio remain BUILD.
+        if (
+            any(
+                word in task_lower
+                for word in [
+                    "resume",
+                    "interview",
+                    "job",
+                    "career",
+                    "placement",
+                ]
+            )
+            or (
+                "portfolio" in task_lower
+                and "project" not in task_lower
+            )
+        ):
+            return IntentResult(
+                name="LAUNCH",
+                confidence=0.90,
+            )
+
+        # Detect Build actions.
         build_action = self._detect_build_action(task_lower)
+
         if build_action is not None:
             return IntentResult(
                 name="BUILD",
@@ -72,6 +93,7 @@ class IntentEngine:
 
         # Detect learning actions.
         learning_action = self._detect_learning_action(task_lower)
+
         if learning_action is not None:
             return IntentResult(
                 name="LEARN",
@@ -110,23 +132,13 @@ class IntentEngine:
                 confidence=0.80,
             )
 
-        if any(
-            word in task_lower
-            for word in [
-                "resume", "interview", "job", "career", "placement",
-            ]
-        ):
-            return IntentResult(
-                name="LAUNCH",
-                confidence=0.80,
-            )
-
         return IntentResult(
             name="GENERAL",
             confidence=0.80,
         )
 
     def _detect_build_action(self, task: str) -> str | None:
+
         # DEBUG
         if any(
             phrase in task
@@ -212,7 +224,7 @@ class IntentEngine:
         ):
             return "plan"
 
-        # CREATE
+        # CREATE a software project.
         if any(
             phrase in task
             for phrase in [
@@ -230,6 +242,7 @@ class IntentEngine:
         return None
 
     def _detect_learning_action(self, task: str) -> str | None:
+
         if any(
             phrase in task
             for phrase in [
