@@ -15,9 +15,14 @@ export default defineConfig({
     env: {
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
-      ...(process.env.NEXT_PUBLIC_API_URL
-        ? { NEXT_PUBLIC_API_URL: bindings.text(process.env.NEXT_PUBLIC_API_URL) }
-        : {}),
+      NEXT_PUBLIC_API_URL: bindings.text(
+        process.env.NEXT_PUBLIC_API_URL || "https://unios-ai.onrender.com"
+      ),
+    },
+    observability: {
+      logs: {
+        enabled: true,
+      },
     },
   }),
 });

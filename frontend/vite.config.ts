@@ -6,7 +6,10 @@ import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const apiUrl = env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || "";
+  const apiUrl =
+    env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    (mode === "production" ? "https://unios-ai.onrender.com" : "");
 
   return {
     define: {
