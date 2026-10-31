@@ -56,18 +56,21 @@ export default function LearningWorkspace({
   );
 
   const {
-    sessionData,
-    lesson,
-    completedBlockIds,
-    markBlockComplete,
-    progress,
-    isLoading,
-    isSaving,
-    error,
-    syncCheckpoint,
-  } = useLearning({
-    session: learningSession,
-  });
+  sessionData,
+  lesson,
+  currentBlockIndex,
+  completedBlockIds,
+  markBlockComplete,
+  progress,
+  isLoading,
+  isSaving,
+  error,
+  syncCheckpoint,
+  nextBlock,
+  previousBlock,
+} = useLearning({
+  session: learningSession,
+});
 
   // Generate/load assessment when its tab is opened.
   useEffect(() => {
@@ -347,10 +350,14 @@ export default function LearningWorkspace({
               </section>
 
               <LessonRenderer
-                lesson={lesson}
-                completedBlockIds={completedBlockIds}
-                onMarkBlockComplete={markBlockComplete}
-              />
+  lesson={lesson}
+  completedBlockIds={completedBlockIds}
+  currentBlockIndex={currentBlockIndex}
+  isSaving={isSaving}
+  onMarkBlockComplete={markBlockComplete}
+  onPreviousBlock={previousBlock}
+  onNextBlock={nextBlock}
+/>
 
               {error && (
                 <p

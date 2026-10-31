@@ -5,7 +5,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { Sun, Moon } from 'lucide-react';
 import { getSession, logout } from '@/lib/auth';
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 const HIDDEN_ROUTES = [
   '/login',
@@ -24,7 +26,7 @@ const AUTH_LINKS = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Roadmap', href: '/roadmap' },
   { label: 'Build', href: '/build' },
-  { label: 'Launch', href: '/launch' }
+  { label: 'Launch', href: '/launch' },
 ];
 
 const PUBLIC_MENUS = [
@@ -128,10 +130,36 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
+function ThemeToggle() {
+  const { theme, toggleTheme, mounted } = useTheme();
+
+  if (!mounted) {
+    return <div className="h-10 w-10 shrink-0" aria-hidden="true" />;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-primary)] transition-all duration-200 hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+    >
+      {theme === 'light' ? (
+        <Moon size={19} />
+      ) : (
+        <Sun size={19} />
+      )}
+    </button>
+  );
+}
+
 export default function Navbar() {
   const pathname = usePathname() ?? '';
   const router = useRouter();
   const navRef = useRef<HTMLElement>(null);
+
+  const { theme } = useTheme();
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -230,6 +258,7 @@ export default function Navbar() {
         aria-label="Main navigation"
         className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
       >
+        {/* Logo */}
         <Link
           href={isLoggedIn ? '/dashboard' : '/'}
           onClick={closeMenus}
@@ -246,6 +275,7 @@ export default function Navbar() {
           />
         </Link>
 
+        {/* Desktop Navigation */}
         <div className="hidden items-center gap-6 md:flex">
           {isLoggedIn ? (
             AUTH_LINKS.map((item) => (
@@ -314,7 +344,10 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* Desktop Actions */}
         <div className="hidden shrink-0 items-center gap-3 md:flex">
+          <ThemeToggle />
+
           {isLoggedIn ? (
             <>
               <Link
@@ -354,42 +387,63 @@ export default function Navbar() {
           )}
         </div>
 
-        <button
-          type="button"
-          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={isMobileMenuOpen}
-          onClick={() => setIsMobileMenuOpen((open) => !open)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)] transition hover:bg-[var(--primary-soft)] md:hidden"
-        >
-          {isMobileMenuOpen ? (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="h-6 w-6"
-              aria-hidden="true"
-            >
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          ) : (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="h-6 w-6"
-              aria-hidden="true"
-            >
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
-        </button>
+        {/* Mobile Header Actions */}
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
+
+          <button
+            type="button"
+            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isMobileMenuOpen}
+            onClick={() => setIsMobileMenuOpen((open) => !open)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)] transition hover:bg-[var(--primary-soft)]"
+          >
+            {isMobileMenuOpen ? (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="h-6 w-6"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="h-6 w-6"
+                aria-hidden="true"
+              >
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
+        </div>
       </nav>
 
+      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-4 shadow-md md:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-1">
+
+            {/* Appearance */}
+            <div className="mb-2 flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2">
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">
+                  Appearance
+                </p>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {theme === 'light' ? 'Light mode' : 'Dark mode'}
+                </p>
+              </div>
+
+              <ThemeToggle />
+            </div>
+
             {isLoggedIn ? (
               AUTH_LINKS.map((item) => (
                 <Link
