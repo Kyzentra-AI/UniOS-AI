@@ -50,7 +50,7 @@ You can also run any specific service in isolation by passing its name:
 
 ---
 
-## How to Stop Services
+## Stop Services
 
 To quickly stop all running services and free ports `3000`, `8000`, `8001`, and `8002`:
 
