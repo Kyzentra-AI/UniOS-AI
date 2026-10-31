@@ -48,6 +48,7 @@ class LearningSessionUpdate(BaseModel):
     completed_block_ids: Optional[List[str]] = None
     progress_percentage: Optional[int] = Field(None, ge=0, le=100)
     notes: Optional[str] = None
+    lesson_data: Optional[Dict[str, Any]] = None
 
 class LearningSessionResponse(BaseModel):
     id: UUID

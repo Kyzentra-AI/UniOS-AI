@@ -1,5 +1,5 @@
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from app.core.supabase import supabase_admin
 from app.schemas.learning import LearningSessionCreate, LearningSessionUpdate, SessionStatus
@@ -9,15 +9,31 @@ class LearningSessionService:
     @staticmethod
     def create_or_get_session(learner_id: str, session_in: LearningSessionCreate) -> dict:
         """
-        Creates a new learning session or gets an existing active one for the same lesson.
+        Creates a new learning session or gets an existing active/paused one for the same lesson.
         """
-        # Check for existing IN_PROGRESS session
-        existing = supabase_admin.table("learning_sessions").select("*").eq(
+        # Check for existing IN_PROGRESS or PAUSED session for this lesson
+        query = supabase_admin.table("learning_sessions").select("*").eq(
             "learner_id", learner_id
-        ).eq("lesson_id", session_in.lesson_id).eq("status", "IN_PROGRESS").execute()
+        ).eq("lesson_id", session_in.lesson_id).in_("status", ["IN_PROGRESS", "PAUSED"]).order("updated_at", desc=True)
+        existing = query.execute()
+
+        # If not found by lesson_id but mission_id was provided, check by mission_id as fallback
+        if not existing.data and session_in.mission_id:
+            existing = supabase_admin.table("learning_sessions").select("*").eq(
+                "learner_id", learner_id
+            ).eq("mission_id", str(session_in.mission_id)).in_("status", ["IN_PROGRESS", "PAUSED"]).order("updated_at", desc=True).execute()
 
         if existing.data:
-            return existing.data[0]
+            session = existing.data[0]
+            # If the session was PAUSED, resume it back to IN_PROGRESS
+            if session.get("status") == "PAUSED":
+                res = supabase_admin.table("learning_sessions").update({
+                    "status": "IN_PROGRESS",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }).eq("id", session["id"]).execute()
+                event_service.record_event(learner_id, "SESSION_RESUMED", "LESSON", session.get("lesson_id", session_in.lesson_id))
+                return res.data[0] if (res and res.data) else session
+            return session
 
         # Create new
         data = {
@@ -27,7 +43,8 @@ class LearningSessionService:
             "topic": session_in.topic,
             "lesson_id": session_in.lesson_id,
             "status": "IN_PROGRESS",
-            "completed_block_ids": []
+            "completed_block_ids": [],
+            "progress_percentage": 0
         }
         res = supabase_admin.table("learning_sessions").insert(data).execute()
         
@@ -51,7 +68,7 @@ class LearningSessionService:
         """
         session = LearningSessionService.get_session(session_id, learner_id)
         
-        update_data = {"updated_at": datetime.utcnow().isoformat()}
+        update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
         if update_in.status is not None:
             update_data["status"] = update_in.status
         if update_in.checkpoint_block_id is not None:
@@ -62,12 +79,18 @@ class LearningSessionService:
             update_data["progress_percentage"] = update_in.progress_percentage
         if update_in.notes is not None:
             update_data["notes"] = update_in.notes
+        if update_in.lesson_data is not None:
+            update_data["lesson_data"] = update_in.lesson_data
             
         res = supabase_admin.table("learning_sessions").update(update_data).eq("id", session_id).execute()
         updated_session = res.data[0]
         
         if updated_session["status"] == "COMPLETED" and session["status"] != "COMPLETED":
             event_service.record_event(learner_id, "SESSION_COMPLETED", "LESSON", updated_session["lesson_id"])
+        elif updated_session["status"] == "PAUSED" and session["status"] != "PAUSED":
+            event_service.record_event(learner_id, "SESSION_PAUSED", "LESSON", updated_session["lesson_id"])
+        elif updated_session["status"] == "IN_PROGRESS" and session["status"] == "PAUSED":
+            event_service.record_event(learner_id, "SESSION_RESUMED", "LESSON", updated_session["lesson_id"])
             
         return updated_session
 

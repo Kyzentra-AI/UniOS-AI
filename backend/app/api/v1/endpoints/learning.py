@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
 from app.core.deps import get_current_user
 from app.schemas.learning import (
@@ -22,6 +22,24 @@ def _get_learner_id(user_id: str) -> str:
     if not res.data:
         raise HTTPException(status_code=404, detail="Learner profile not found")
     return res.data[0]["id"]
+
+@router.get("/sessions", response_model=List[LearningSessionResponse])
+async def list_sessions(
+    mission_id: Optional[str] = None,
+    lesson_id: Optional[str] = None,
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    learner_id = _get_learner_id(current_user["user_id"])
+    query = supabase_admin.table("learning_sessions").select("*").eq("learner_id", learner_id)
+    if mission_id:
+        query = query.eq("mission_id", mission_id)
+    if lesson_id:
+        query = query.eq("lesson_id", lesson_id)
+    if status:
+        query = query.eq("status", status)
+    res = query.order("updated_at", desc=True).execute()
+    return res.data if (res and res.data) else []
 
 @router.post("/sessions", response_model=LearningSessionResponse)
 async def start_or_resume_session(
