@@ -12,6 +12,7 @@ import {
   getRememberMe,
 } from '@/lib/auth';
 import { getOnboardingState } from '@/services/onboardingServices';
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -19,6 +20,7 @@ import QRCode from 'qrcode';
 
 export default function MFASetup() {
   const router = useRouter();
+  const {theme} = useTheme();
 
   const [factorId, setFactorId] = useState('');
   const [secret, setSecret] = useState('');
@@ -218,7 +220,7 @@ export default function MFASetup() {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <img
-            src="/logo.png"
+            src={theme === "dark" ? "/logo1.png" : "/logo.png"}
             alt="UniOS.ai"
             className="h-16 w-auto"
           />

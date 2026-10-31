@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api';
+import { apiRequest, API_URL } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 
 import type {
@@ -39,9 +39,7 @@ export function createLearningSession(
   );
 }
 
-export function getLearningSession(
-  sessionId: string,
-) {
+export function getLearningSession(sessionId: string) {
   return apiRequest<LearningSession>(
     `${LEARNING_BASE}/sessions/${encodeURIComponent(sessionId)}`,
     {
@@ -63,6 +61,34 @@ export function saveLearningCheckpoint(
       body: JSON.stringify(payload),
     },
   );
+}
+
+/**
+ * Best-effort checkpoint request for page unload / browser exit.
+ *
+ * This intentionally uses fetch directly with keepalive.
+ * It does not attempt token refresh because the page may be closing.
+ */
+export function saveLearningCheckpointOnExit(
+  sessionId: string,
+  payload: LearningSessionUpdate,
+): void {
+  try {
+    const request = fetch(
+      `${API_URL}${LEARNING_BASE}/sessions/${encodeURIComponent(sessionId)}/checkpoint`,
+      {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+        keepalive: true,
+      },
+    );
+
+    // There may be no page left to handle the response.
+    void request.catch(() => undefined);
+  } catch {
+    // Unload handlers must never throw.
+  }
 }
 
 export function generateLesson(

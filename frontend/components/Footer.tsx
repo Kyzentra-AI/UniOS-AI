@@ -13,6 +13,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import Image from "next/image";
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 const productLinks = [
   { label: "AI Roadmaps", href: "/roadmap" },
@@ -44,8 +45,10 @@ const socialLinks = [
   },
 ];
 
+
 export default function Footer() {
   const pathname = usePathname();
+  const { theme } = useTheme();
 
   // Hide footer on onboarding pages
   if (pathname?.startsWith("/onboarding")) {
@@ -63,7 +66,7 @@ export default function Footer() {
 
             <Link href="/" className="inline-flex items-center">
               <Image
-                src="/logo.png"
+                src={theme === "dark" ? "/logo1.png" : "/logo.png"}
                 alt="UniOS.AI"
                 width={120}
                 height={150}

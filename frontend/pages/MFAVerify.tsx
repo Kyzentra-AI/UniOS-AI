@@ -8,6 +8,7 @@ import {
 import { ApiError, verifyMFA } from '@/lib/api';
 import { getProfile } from '@/services/profileServices';
 import { getOnboardingState } from '@/services/onboardingServices';
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,6 +16,7 @@ import Link from 'next/link';
 
 export default function MFAVerify() {
   const router = useRouter();
+  const {theme} = useTheme();
 
   useEffect(() => {
   const userId = sessionStorage.getItem('mfa_user_id');
@@ -148,7 +150,7 @@ try {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <img
-            src="/logo.png"
+            src={theme === "dark" ? "/logo1.png" : "/logo.png"}
             alt="UniOS.ai"
             className="h-16 w-auto"
           />

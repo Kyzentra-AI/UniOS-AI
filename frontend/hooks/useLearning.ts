@@ -19,6 +19,7 @@ import {
   generateLesson,
   getLearningSession,
   saveLearningCheckpoint,
+  saveLearningCheckpointOnExit,
 } from '@/services/learningServices';
 
 interface UseLearningOptions {
@@ -41,6 +42,8 @@ interface UseLearningResult {
   markBlockComplete: (blockId: string) => Promise<void>;
   isBlockCompleted: (blockId: string) => boolean;
   syncCheckpoint: () => Promise<void>;
+  pauseSession: () => Promise<void>;
+  pauseSessionOnExit: () => void;
   refreshSession: () => Promise<void>;
 }
 
@@ -62,6 +65,37 @@ function getLessonFromSession(
   return data as unknown as Lesson;
 }
 
+/**
+ * Resolve the section to display.
+ *
+ * Priority:
+ * 1. Valid, incomplete saved checkpoint.
+ * 2. First incomplete section.
+ * 3. First section if the lesson is fully completed.
+ */
+function getResumeBlockIndex(
+  lesson: Lesson,
+  completedIds: string[],
+  checkpointBlockId?: string | null,
+): number {
+  const checkpointIndex = lesson.blocks.findIndex(
+    (block) => block.id === checkpointBlockId,
+  );
+
+  if (
+    checkpointIndex >= 0 &&
+    !completedIds.includes(lesson.blocks[checkpointIndex].id)
+  ) {
+    return checkpointIndex;
+  }
+
+  const firstIncompleteIndex = lesson.blocks.findIndex(
+    (block) => !completedIds.includes(block.id),
+  );
+
+  return firstIncompleteIndex >= 0 ? firstIncompleteIndex : 0;
+}
+
 export function useLearning({
   session,
 }: UseLearningOptions): UseLearningResult {
@@ -69,7 +103,9 @@ export function useLearning({
     useState<LearningSession | null>(null);
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
+
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+
   const [completedBlockIds, setCompletedBlockIds] =
     useState<string[]>([]);
 
@@ -83,6 +119,7 @@ export function useLearning({
 
     try {
       const created = await createLearningSession(session);
+
       setSessionData(created);
 
       let loadedLesson = getLessonFromSession(created);
@@ -97,6 +134,7 @@ export function useLearning({
       setLesson(loadedLesson);
 
       const latest = await getLearningSession(created.id);
+
       setSessionData(latest);
 
       const validBlockIds = new Set(
@@ -109,27 +147,13 @@ export function useLearning({
 
       setCompletedBlockIds(savedCompletedIds);
 
-      const firstIncompleteIndex = loadedLesson.blocks.findIndex(
-        (block) => !savedCompletedIds.includes(block.id),
+      const resumeIndex = getResumeBlockIndex(
+        loadedLesson,
+        savedCompletedIds,
+        latest.checkpoint_block_id,
       );
 
-      const checkpointIndex = loadedLesson.blocks.findIndex(
-        (block) => block.id === latest.checkpoint_block_id,
-      );
-
-      const resumeIndex =
-        checkpointIndex >= 0 &&
-        !savedCompletedIds.includes(
-          loadedLesson.blocks[checkpointIndex].id,
-        )
-          ? checkpointIndex
-          : firstIncompleteIndex;
-
-      setCurrentBlockIndex(
-        resumeIndex >= 0
-          ? resumeIndex
-          : Math.max(loadedLesson.blocks.length - 1, 0),
-      );
+      setCurrentBlockIndex(resumeIndex);
     } catch (err) {
       setError(
         err instanceof Error
@@ -166,7 +190,6 @@ export function useLearning({
         return;
       }
 
-      // Never allow navigation to a section that has not been unlocked.
       const firstIncomplete = lesson.blocks.findIndex(
         (block) => !completedBlockIds.includes(block.id),
       );
@@ -219,7 +242,6 @@ export function useLearning({
         return;
       }
 
-      // Only the current section can be completed.
       if (blockIndex !== currentBlockIndex) {
         throw new Error('Complete the current section first.');
       }
@@ -257,7 +279,6 @@ export function useLearning({
 
         setSessionData(updated);
 
-        // Use the server's saved list when provided.
         const savedIds = (
           updated.completed_block_ids ?? nextCompletedIds
         ).filter((id) =>
@@ -266,7 +287,6 @@ export function useLearning({
 
         setCompletedBlockIds(savedIds);
 
-        // Move forward only after the checkpoint is saved.
         if (nextProgress < 100) {
           setCurrentBlockIndex(nextIndex);
         } else {
@@ -298,6 +318,7 @@ export function useLearning({
     [completedBlockIds],
   );
 
+  // Save Progress: saves the checkpoint but keeps the session active.
   const syncCheckpoint = useCallback(async () => {
     if (!sessionData || !lesson) {
       throw new Error('Learning session or lesson is not loaded.');
@@ -343,10 +364,82 @@ export function useLearning({
     progress,
   ]);
 
+  // Explicit Pause & Exit: wait for the backend to confirm the pause.
+  const pauseSession = useCallback(async () => {
+    if (!sessionData || !lesson) {
+      throw new Error('Learning session or lesson is not loaded.');
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const block = lesson.blocks[currentBlockIndex];
+
+      const updated = await saveLearningCheckpoint(
+        sessionData.id,
+        {
+          checkpoint_block_id: block?.id,
+          completed_block_ids: completedBlockIds,
+          progress_percentage: progress,
+          status: progress >= 100 ? 'COMPLETED' : 'PAUSED',
+        },
+      );
+
+      setSessionData(updated);
+
+      if (updated.completed_block_ids) {
+        setCompletedBlockIds(updated.completed_block_ids);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Unable to pause your learning session.';
+
+      setError(message);
+      throw err;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    sessionData,
+    lesson,
+    currentBlockIndex,
+    completedBlockIds,
+    progress,
+  ]);
+
+  // Browser Back / tab close: fire a keepalive request without waiting.
+  const pauseSessionOnExit = useCallback(() => {
+    if (!sessionData || !lesson) {
+      return;
+    }
+
+    const block = lesson.blocks[currentBlockIndex];
+
+    saveLearningCheckpointOnExit(
+      sessionData.id,
+      {
+        checkpoint_block_id: block?.id,
+        completed_block_ids: completedBlockIds,
+        progress_percentage: progress,
+        status: progress >= 100 ? 'COMPLETED' : 'PAUSED',
+      },
+    );
+  }, [
+    sessionData,
+    lesson,
+    currentBlockIndex,
+    completedBlockIds,
+    progress,
+  ]);
+
   const refreshSession = useCallback(async () => {
     if (!sessionData) return;
 
     const latest = await getLearningSession(sessionData.id);
+
     setSessionData(latest);
 
     const updatedLesson = getLessonFromSession(latest);
@@ -364,25 +457,13 @@ export function useLearning({
 
       setCompletedBlockIds(savedIds);
 
-      const firstIncomplete = updatedLesson.blocks.findIndex(
-        (block) => !savedIds.includes(block.id),
+      const resumeIndex = getResumeBlockIndex(
+        updatedLesson,
+        savedIds,
+        latest.checkpoint_block_id,
       );
 
-      const checkpointIndex = updatedLesson.blocks.findIndex(
-        (block) => block.id === latest.checkpoint_block_id,
-      );
-
-      const resumeIndex =
-        checkpointIndex >= 0 &&
-        !savedIds.includes(updatedLesson.blocks[checkpointIndex].id)
-          ? checkpointIndex
-          : firstIncomplete;
-
-      setCurrentBlockIndex(
-        resumeIndex >= 0
-          ? resumeIndex
-          : Math.max(updatedLesson.blocks.length - 1, 0),
-      );
+      setCurrentBlockIndex(resumeIndex);
     }
   }, [sessionData]);
 
@@ -402,6 +483,8 @@ export function useLearning({
     markBlockComplete,
     isBlockCompleted,
     syncCheckpoint,
+    pauseSession,
+    pauseSessionOnExit,
     refreshSession,
   };
 }

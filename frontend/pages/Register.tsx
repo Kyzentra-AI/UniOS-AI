@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { useTheme } from '@/components/providers/ThemeProvider';
+
 
 import {
   registerUser,
@@ -19,6 +21,7 @@ import {
 
 export default function Register() {
   const router = useRouter();
+  const {theme} = useTheme();
 
   const [apiError, setApiError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -125,7 +128,7 @@ export default function Register() {
           <div className="mb-8">
             <img
               className="h-16 w-auto mb-6"
-              src="/logo.png"
+              src={theme === "dark" ? "/logo1.png" : "/logo.png"}
               alt="UniOS.ai"
             />
 
