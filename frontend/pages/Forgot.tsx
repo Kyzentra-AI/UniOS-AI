@@ -94,7 +94,7 @@ export default function Forgot() {
         <div className="mb-8">
           <img
             className="h-16 w-auto mb-6"
-            src="/logo.svg"
+            src="/logo.png"
             alt="UniOS.ai"
           />
 

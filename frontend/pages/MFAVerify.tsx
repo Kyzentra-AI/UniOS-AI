@@ -148,7 +148,7 @@ try {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <img
-            src="/logo.svg"
+            src="/logo.png"
             alt="UniOS.ai"
             className="h-16 w-auto"
           />
