@@ -46,6 +46,52 @@
   --feature-blue: #35656A;
 }
 
+/* Dark Theme */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #101C20;
+  --foreground: #EAF1EF;
+
+  --auth-bg: #142328;
+
+  /* Main cards / surfaces */
+  --surface: #1B2C31;
+  --surface-alt: #22363B;
+  --surface-muted: #263A3F;
+
+  /* Borders */
+  --border: #354B4F;
+
+  /* Text */
+  --text-primary: #EAF1EF;
+  --text-secondary: #B0BFBC;
+  --text-label: #D0DCDA;
+  --text-muted: #849795;
+
+  /* Primary */
+  --primary: #4B9297;
+  --primary-hover: #62A7AA;
+  --primary-soft: #29484B;
+  --primary-shadow: rgba(0, 0, 0, 0.25);
+
+  /* Status */
+  --danger: #F07870;
+  --danger-soft: #442B2B;
+  --danger-border: #70413F;
+  --danger-text: #FFAAA3;
+
+  /* Feature card accents */
+  --feature-purple-soft: #382F29;
+  --feature-purple: #C2A184;
+
+  --feature-orange-soft: #3C3027;
+  --feature-orange: #E6A16B;
+
+  --feature-blue-soft: #263C40;
+  --feature-blue: #80B6B6;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -57,6 +103,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Animations */

@@ -53,7 +53,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className="border-t border-[#18343A]/10 bg-[#F7F1E7] text-[#18343A]">
+    <footer className="border-t border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]">
       <div className="mx-auto max-w-7xl px-6 py-14 lg:px-10">
 
         <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
@@ -63,22 +63,22 @@ export default function Footer() {
 
             <Link href="/" className="inline-flex items-center">
               <Image
-            src="/logo.png"
-            alt="UniOS.AI"
-            width={120}
-            height={150}
-            priority
-            className="h-16 w-auto"
-          />
-        </Link>
+                src="/logo.png"
+                alt="UniOS.AI"
+                width={120}
+                height={150}
+                priority
+                className="h-16 w-auto"
+              />
+            </Link>
 
-            <p className="mt-5 max-w-md text-sm leading-7 text-[#18343A]/70">
+            <p className="mt-5 max-w-md text-sm leading-7 text-[var(--text-secondary)]">
               An intelligent learning ecosystem designed to help students
               learn better, build real-world skills, compete with confidence,
               and launch their careers.
             </p>
 
-            <p className="mt-3 text-sm font-semibold text-[#18343A]">
+            <p className="mt-3 text-sm font-semibold text-[var(--text-primary)]">
               Your Learning. Your Growth. Your Future.
             </p>
 
@@ -92,7 +92,7 @@ export default function Footer() {
                   title={label}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#18343A]/15 bg-[#FFF9F0] text-[#18343A] transition-all duration-200 hover:-translate-y-1 hover:border-[#B68A45] hover:bg-[#18343A] hover:text-white"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] transition-all duration-200 hover:-translate-y-1 hover:border-[var(--feature-orange)] hover:bg-[var(--primary)] hover:text-white"
                 >
                   <Icon size={18} />
                 </a>
@@ -102,7 +102,7 @@ export default function Footer() {
             {/* Contact */}
             <a
               href="mailto:support@kyzentra.in"
-              className="mt-5 inline-flex items-center gap-2 text-sm text-[#18343A]/70 transition-colors hover:text-[#B68A45]"
+              className="mt-5 inline-flex items-center gap-2 text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--feature-orange)]"
             >
               <Mail size={15} />
               support@kyzentra.in
@@ -111,7 +111,7 @@ export default function Footer() {
 
           {/* Platform Links */}
           <div>
-            <h3 className="mb-5 text-sm font-bold uppercase tracking-[0.15em] text-[#0C3A47]">
+            <h3 className="mb-5 text-sm font-bold uppercase tracking-[0.15em] text-[var(--primary)]">
               Platform
             </h3>
 
@@ -120,7 +120,7 @@ export default function Footer() {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className="text-sm text-[#18343A]/70 transition-colors hover:text-[#B68A45]"
+                    className="text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--feature-orange)]"
                   >
                     {item.label}
                   </Link>
@@ -131,7 +131,7 @@ export default function Footer() {
 
           {/* Company Links */}
           <div>
-            <h3 className="mb-5 text-sm font-bold uppercase tracking-[0.15em] text-[#0C3A47]">
+            <h3 className="mb-5 text-sm font-bold uppercase tracking-[0.15em] text-[var(--primary)]">
               Company
             </h3>
 
@@ -140,7 +140,7 @@ export default function Footer() {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className="text-sm text-[#18343A]/70 transition-colors hover:text-[#B68A45]"
+                    className="text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--feature-orange)]"
                   >
                     {item.label}
                   </Link>
@@ -152,7 +152,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 flex flex-col gap-4 border-t border-[#18343A]/10 pt-6 text-xs text-[#18343A]/60 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-4 border-t border-[var(--border)] pt-6 text-xs text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
 
           <p>
             © {new Date().getFullYear()} Kyzentra.AI Private Limited.
@@ -163,7 +163,7 @@ export default function Footer() {
             href="https://kyzentra.in"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 transition-colors hover:text-[#B68A45]"
+            className="inline-flex items-center gap-1 transition-colors hover:text-[var(--feature-orange)]"
           >
             Developed by Kyzentra.AI
             <ArrowUpRight size={13} />

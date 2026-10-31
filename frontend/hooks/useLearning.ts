@@ -38,7 +38,7 @@ interface UseLearningResult {
   goToBlock: (index: number) => void;
   nextBlock: () => void;
   previousBlock: () => void;
-  markBlockComplete: (blockId: string) => void;
+  markBlockComplete: (blockId: string) => Promise<void>;
   isBlockCompleted: (blockId: string) => boolean;
   syncCheckpoint: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -109,15 +109,27 @@ export function useLearning({
 
       setCompletedBlockIds(savedCompletedIds);
 
+      const firstIncompleteIndex = loadedLesson.blocks.findIndex(
+        (block) => !savedCompletedIds.includes(block.id),
+      );
+
       const checkpointIndex = loadedLesson.blocks.findIndex(
         (block) => block.id === latest.checkpoint_block_id,
       );
 
-      if (checkpointIndex >= 0) {
-        setCurrentBlockIndex(checkpointIndex);
-      } else {
-        setCurrentBlockIndex(0);
-      }
+      const resumeIndex =
+        checkpointIndex >= 0 &&
+        !savedCompletedIds.includes(
+          loadedLesson.blocks[checkpointIndex].id,
+        )
+          ? checkpointIndex
+          : firstIncompleteIndex;
+
+      setCurrentBlockIndex(
+        resumeIndex >= 0
+          ? resumeIndex
+          : Math.max(loadedLesson.blocks.length - 1, 0),
+      );
     } catch (err) {
       setError(
         err instanceof Error
@@ -136,12 +148,8 @@ export function useLearning({
   const progress = useMemo(() => {
     if (!lesson?.blocks.length) return 0;
 
-    const validBlockIds = new Set(
-      lesson.blocks.map((block) => block.id),
-    );
-
-    const completedCount = completedBlockIds.filter(
-      (id) => validBlockIds.has(id),
+    const completedCount = lesson.blocks.filter((block) =>
+      completedBlockIds.includes(block.id),
     ).length;
 
     return Math.round(
@@ -158,28 +166,132 @@ export function useLearning({
         return;
       }
 
-      setCurrentBlockIndex(index);
+      // Never allow navigation to a section that has not been unlocked.
+      const firstIncomplete = lesson.blocks.findIndex(
+        (block) => !completedBlockIds.includes(block.id),
+      );
+
+      const lastUnlockedIndex =
+        firstIncomplete === -1
+          ? lesson.blocks.length - 1
+          : firstIncomplete;
+
+      if (index <= lastUnlockedIndex) {
+        setCurrentBlockIndex(index);
+      }
     },
-    [lesson],
+    [lesson, completedBlockIds],
   );
 
   const nextBlock = useCallback(() => {
+    if (!lesson) return;
+
+    const current = lesson.blocks[currentBlockIndex];
+
+    if (!current || !completedBlockIds.includes(current.id)) {
+      return;
+    }
+
     setCurrentBlockIndex((index) =>
-      Math.min(index + 1, (lesson?.blocks.length ?? 1) - 1),
+      Math.min(index + 1, lesson.blocks.length - 1),
     );
-  }, [lesson]);
+  }, [lesson, currentBlockIndex, completedBlockIds]);
 
   const previousBlock = useCallback(() => {
-    setCurrentBlockIndex((index) => Math.max(0, index - 1));
+    setCurrentBlockIndex((index) => Math.max(index - 1, 0));
   }, []);
 
-  const markBlockComplete = useCallback((blockId: string) => {
-    setCompletedBlockIds((previous) =>
-      previous.includes(blockId)
-        ? previous
-        : [...previous, blockId],
-    );
-  }, []);
+  const markBlockComplete = useCallback(
+    async (blockId: string) => {
+      if (!sessionData || !lesson || isSaving) {
+        return;
+      }
+
+      const blockIndex = lesson.blocks.findIndex(
+        (block) => block.id === blockId,
+      );
+
+      if (blockIndex < 0) {
+        throw new Error('Lesson section not found.');
+      }
+
+      if (completedBlockIds.includes(blockId)) {
+        return;
+      }
+
+      // Only the current section can be completed.
+      if (blockIndex !== currentBlockIndex) {
+        throw new Error('Complete the current section first.');
+      }
+
+      const nextCompletedIds = [
+        ...completedBlockIds,
+        blockId,
+      ];
+
+      const nextProgress = Math.round(
+        (nextCompletedIds.length / lesson.blocks.length) * 100,
+      );
+
+      const nextIndex = Math.min(
+        blockIndex + 1,
+        lesson.blocks.length - 1,
+      );
+
+      const nextBlockId = lesson.blocks[nextIndex]?.id;
+
+      setIsSaving(true);
+      setError(null);
+
+      try {
+        const updated = await saveLearningCheckpoint(
+          sessionData.id,
+          {
+            checkpoint_block_id: nextBlockId,
+            completed_block_ids: nextCompletedIds,
+            progress_percentage: nextProgress,
+            status:
+              nextProgress >= 100 ? 'COMPLETED' : 'IN_PROGRESS',
+          },
+        );
+
+        setSessionData(updated);
+
+        // Use the server's saved list when provided.
+        const savedIds = (
+          updated.completed_block_ids ?? nextCompletedIds
+        ).filter((id) =>
+          lesson.blocks.some((block) => block.id === id),
+        );
+
+        setCompletedBlockIds(savedIds);
+
+        // Move forward only after the checkpoint is saved.
+        if (nextProgress < 100) {
+          setCurrentBlockIndex(nextIndex);
+        } else {
+          setCurrentBlockIndex(blockIndex);
+        }
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Unable to save your progress. Please try again.';
+
+        setError(message);
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [
+      sessionData,
+      lesson,
+      isSaving,
+      completedBlockIds,
+      currentBlockIndex,
+    ],
+  );
 
   const isBlockCompleted = useCallback(
     (blockId: string) => completedBlockIds.includes(blockId),
@@ -246,19 +358,31 @@ export function useLearning({
         updatedLesson.blocks.map((block) => block.id),
       );
 
-      setCompletedBlockIds(
-        (latest.completed_block_ids ?? []).filter(
-          (id) => validIds.has(id),
-        ),
+      const savedIds = (
+        latest.completed_block_ids ?? []
+      ).filter((id) => validIds.has(id));
+
+      setCompletedBlockIds(savedIds);
+
+      const firstIncomplete = updatedLesson.blocks.findIndex(
+        (block) => !savedIds.includes(block.id),
       );
 
-      const index = updatedLesson.blocks.findIndex(
+      const checkpointIndex = updatedLesson.blocks.findIndex(
         (block) => block.id === latest.checkpoint_block_id,
       );
 
-      if (index >= 0) {
-        setCurrentBlockIndex(index);
-      }
+      const resumeIndex =
+        checkpointIndex >= 0 &&
+        !savedIds.includes(updatedLesson.blocks[checkpointIndex].id)
+          ? checkpointIndex
+          : firstIncomplete;
+
+      setCurrentBlockIndex(
+        resumeIndex >= 0
+          ? resumeIndex
+          : Math.max(updatedLesson.blocks.length - 1, 0),
+      );
     }
   }, [sessionData]);
 
