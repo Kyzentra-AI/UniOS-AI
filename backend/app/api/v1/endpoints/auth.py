@@ -1,6 +1,6 @@
 import datetime
 from datetime import timezone
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas.auth import (
     RegisterRequest,
@@ -29,9 +29,10 @@ DEFAULT_RESET_PASSWORD_PATH = "/reset-password"
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(request: RegisterRequest):
+async def register(request: RegisterRequest, req: Request):
     try:
-        redirect_url = validate_redirect_url(None, default_path=DEFAULT_AUTH_CALLBACK_PATH)
+        origin = req.headers.get("origin") or req.headers.get("referer")
+        redirect_url = validate_redirect_url(request.redirect_to, default_path=DEFAULT_AUTH_CALLBACK_PATH, request_origin=origin)
         res = await supabase_auth_api.sign_up(
             email=request.email,
             password=request.password,
@@ -49,9 +50,10 @@ async def register(request: RegisterRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/resend-verification")
-async def resend_verification(request: ResendVerificationRequest):
+async def resend_verification(request: ResendVerificationRequest, req: Request):
     try:
-        redirect_url = validate_redirect_url(None, default_path=DEFAULT_AUTH_CALLBACK_PATH)
+        origin = req.headers.get("origin") or req.headers.get("referer")
+        redirect_url = validate_redirect_url(request.redirect_to, default_path=DEFAULT_AUTH_CALLBACK_PATH, request_origin=origin)
         await supabase_auth_api.resend_verification(request.email, redirect_to=redirect_url)
         return {"message": "Verification email resent successfully."}
     except HTTPException:
@@ -165,11 +167,12 @@ async def login(request: LoginRequest):
         )
 
 @router.post("/social")
-async def social_login(request: SocialLoginRequest):
+async def social_login(request: SocialLoginRequest, req: Request):
     if request.provider not in ("google", "github", "facebook"):
         raise HTTPException(status_code=400, detail="Unsupported social provider")
     
-    redirect_to = validate_redirect_url(None, default_path=DEFAULT_AUTH_CALLBACK_PATH)
+    origin = req.headers.get("origin") or req.headers.get("referer")
+    redirect_to = validate_redirect_url(request.redirect_to, default_path=DEFAULT_AUTH_CALLBACK_PATH, request_origin=origin)
     # Construct PKCE authorization URL for Supabase Auth redirect
     url = f"{supabase_admin.supabase_url}/auth/v1/authorize?provider={request.provider}&redirect_to={redirect_to}"
     return {"url": url}

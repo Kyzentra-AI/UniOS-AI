@@ -99,8 +99,14 @@ export default function Register() {
     setApiError('');
     setSocialLoading(provider);
 
+    const redirect_to =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback`
+        : undefined;
+
     socialMutation.mutate({
       provider,
+      redirect_to,
     });
   };
 
@@ -109,11 +115,17 @@ export default function Register() {
   ) => {
     setApiError('');
 
+    const redirect_to =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback`
+        : undefined;
+
     registerMutation.mutate({
       full_name: formData.fullName.trim(),
       email: formData.email.trim(),
       password: formData.password,
       terms_accepted: formData.termsAccepted,
+      redirect_to,
     });
   };
 

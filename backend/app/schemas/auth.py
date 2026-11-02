@@ -8,6 +8,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     terms_accepted: bool
+    redirect_to: str | None = None
 
     @field_validator("terms_accepted")
     @classmethod
@@ -32,6 +33,7 @@ class LoginRequest(BaseModel):
 
 class ResendVerificationRequest(BaseModel):
     email: EmailStr
+    redirect_to: str | None = None
 
 class EmailStatusRequest(BaseModel):
     email: EmailStr
@@ -67,6 +69,7 @@ class MFAVerifyRequest(BaseModel):
 
 class SocialLoginRequest(BaseModel):
     provider: str # "google", "facebook", "github"
+    redirect_to: str | None = None
 
 class MFAEnrollVerifyRequest(BaseModel):
     factor_id: str

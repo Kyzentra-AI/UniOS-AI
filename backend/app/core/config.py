@@ -14,7 +14,35 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:8000",
         "http://127.0.0.1:3000",
-        "http://127.0.0.1:8000"
+        "http://127.0.0.1:8000",
+        "https://unios-ai.round-paper-f740.workers.dev",
+        "https://unios-ai.round-paper-f740.workers.dev/",
+        "https://unios-ai.onrender.com",
+        "https://unios-ai.onrender.com/",
+        "https://unios-ai-q0th.onrender.com",
+        "https://unios-ai-q0th.onrender.com/",
+        "https://unios-kie2.onrender.com",
+        "https://unios-kie2.onrender.com/",
+    ]
+
+    ALLOWED_CALLBACK_URLS: list[str] = [
+        "https://unios-ai.round-paper-f740.workers.dev/auth/callback",
+        "https://unios-ai.round-paper-f740.workers.dev/reset-password",
+        "https://unios-ai.round-paper-f740.workers.dev/billing/return",
+        "https://unios-ai.onrender.com/api/v1/auth/callback",
+        "https://unios-ai.onrender.com/auth/callback",
+        "https://unios-ai.onrender.com/api/v1/webhooks/cashfree",
+        "https://unios-ai.onrender.com/api/v1/onboarding/kie/webhook/questions",
+        "https://unios-ai.onrender.com/api/v1/onboarding/kie/webhook/resolved",
+        "https://unios-ai-q0th.onrender.com",
+        "https://unios-kie2.onrender.com",
+        "http://localhost:3000/auth/callback",
+        "http://localhost:3000/reset-password",
+        "http://localhost:3000/billing/return",
+        "http://localhost:8000/api/v1/auth/callback",
+        "http://localhost:8000/api/v1/webhooks/cashfree",
+        "http://127.0.0.1:3000/auth/callback",
+        "http://127.0.0.1:8000/api/v1/auth/callback",
     ]
 
     # Cashfree Payment Gateway Settings

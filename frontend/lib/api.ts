@@ -52,6 +52,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   terms_accepted: boolean;
+  redirect_to?: string;
 }
 
 export interface RegisterResponse {
@@ -62,6 +63,7 @@ export interface RegisterResponse {
 // Social auth
 export interface SocialLoginRequest {
   provider: 'google' | 'github' | 'facebook';
+  redirect_to?: string;
 }
 
 export interface SocialLoginResponse {

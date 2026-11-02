@@ -63,25 +63,43 @@ class RequireRole:
             )
 from urllib.parse import urlparse
 
-def validate_redirect_url(redirect_to: str | None, default_path: str = "") -> str:
+def validate_redirect_url(
+    redirect_to: str | None,
+    default_path: str = "",
+    request_origin: str | None = None
+) -> str:
     """
-    Validates redirect_to against allowed frontend origins to prevent Open Redirect Vulnerabilities.
-    Supports relative paths (e.g. '/reset-password') by prepending FRONTEND_URL.
+    Validates redirect_to against allowed frontend origins and callback URLs to prevent Open Redirect Vulnerabilities.
+    Supports relative paths (e.g. '/reset-password') by prepending FRONTEND_URL or request_origin.
     Raises HTTP 400 Bad Request if redirect_to points to an untrusted external origin.
     """
     if not redirect_to:
-        base = settings.FRONTEND_URL.rstrip('/')
-        path = default_path.lstrip('/')
-        return f"{base}/{path}".rstrip('/') if path else base
+        if request_origin and any(
+            request_origin.rstrip("/").lower() == o.rstrip("/").lower()
+            for o in settings.ALLOWED_REDIRECT_ORIGINS
+        ):
+            base = request_origin.rstrip("/")
+        else:
+            base = settings.FRONTEND_URL.rstrip("/")
+        path = default_path.lstrip("/")
+        return f"{base}/{path}".rstrip("/") if path else base
 
     # Convert relative path to absolute frontend URL
     if redirect_to.startswith("/"):
+        if request_origin and any(
+            request_origin.rstrip("/").lower() == o.rstrip("/").lower()
+            for o in settings.ALLOWED_REDIRECT_ORIGINS
+        ):
+            return f"{request_origin.rstrip('/')}{redirect_to}"
         return f"{settings.FRONTEND_URL.rstrip('/')}{redirect_to}"
 
     parsed = urlparse(redirect_to)
     origin = f"{parsed.scheme}://{parsed.netloc}".lower()
 
-    if origin not in [o.lower() for o in settings.ALLOWED_REDIRECT_ORIGINS]:
+    allowed_origins = [o.rstrip("/").lower() for o in settings.ALLOWED_REDIRECT_ORIGINS]
+    allowed_callbacks = [u.rstrip("/").lower() for u in getattr(settings, "ALLOWED_CALLBACK_URLS", [])]
+
+    if origin not in allowed_origins and redirect_to.rstrip("/").lower() not in allowed_callbacks:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Untrusted redirect URL: '{redirect_to}'. Target domain is not in the whitelist of allowed origins."

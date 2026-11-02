@@ -205,8 +205,14 @@ export default function Login() {
     setSocialLoading(provider);
     setServerError(null);
 
+    const redirect_to =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback`
+        : undefined;
+
     socialMutation.mutate({
       provider,
+      redirect_to,
     });
   };
 
