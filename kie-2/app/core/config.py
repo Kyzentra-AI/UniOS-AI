@@ -21,6 +21,10 @@ class Settings:
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 
+    # Backend webhook & callback configuration
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
+    KIE_WEBHOOK_SECRET: str = os.getenv("KIE_WEBHOOK_SECRET", "placeholder-kie-secret").strip()
+
 
 # Singleton instance for import throughout the app
 settings = Settings()

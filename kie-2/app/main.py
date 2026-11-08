@@ -4,6 +4,22 @@ from app.api.v1.api import api_router
 
 tags_metadata = [
     {
+        "name": "KIE Context Intelligence",
+        "description": "Unified KIE: Onboarding Context Analysis & Resolution with asynchronous webhook delivery.",
+    },
+    {
+        "name": "KIE Syllabus Intelligence",
+        "description": "Unified KIE: Structured curriculum, subject & topic extraction from syllabus documents.",
+    },
+    {
+        "name": "KIE Roadmap Intelligence",
+        "description": "Unified KIE: Dynamic academic & career roadmap synthesis and mission generation.",
+    },
+    {
+        "name": "KIE Memory Intelligence",
+        "description": "Unified KIE: Pedagogical memory summary for ContextV2Assembler.",
+    },
+    {
         "name": "Memory Intelligence",
         "description": "AI/ML-2 Capabilities: Learner Memory Engine, Context Retrieval & Roadmap Adaptation.",
     },
@@ -69,14 +85,19 @@ def root_index():
         "openapi_schema": "/openapi.json",
         "health_check": "/health",
         "primary_endpoints": {
+            "context_analyze": "/api/v1/kie/context/analyze",
+            "context_resolve": "/api/v1/kie/context/resolve",
+            "syllabus_extract": "/api/v1/kie/syllabus/extract",
+            "roadmap_generate": "/api/v1/kie/roadmap/generate",
+            "memory_summary": "/api/v1/kie/memory/summary",
+            "learn_interpret": "/api/v1/kie/learn/interpret",
             "lesson_generation": "/api/v1/kie/lesson/generate",
-            "learning_plan": "/api/v1/learning/plan-lesson",
-            "onboarding": "/api/v1/onboarding/analyze",
-            "memory": "/api/v1/memory/relevant-context",
-            "build_coach": "/api/v1/kie/build/coach",
-            "career_ats": "/api/v1/kie/career/ats-analyze",
-            "assessments_generate": "/api/v1/kie/assessments/generate",
             "mastery_evaluate": "/api/v1/kie/mastery/evaluate",
+            "build_coach": "/api/v1/kie/build/coach",
+            "build_recommend": "/api/v1/kie/build/recommend",
+            "career_resume": "/api/v1/kie/career/resume/generate",
+            "career_ats": "/api/v1/kie/career/ats/analyze",
+            "assessments_generate": "/api/v1/kie/assessments/generate",
             "mentor_chat": "/api/v1/kie/mentor/chat",
         },
     }

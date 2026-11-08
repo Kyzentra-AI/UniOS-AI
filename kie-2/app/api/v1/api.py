@@ -4,8 +4,34 @@ from app.api.v1.endpoints import build
 from app.api.v1.endpoints import career
 from app.api.v1.endpoints import assessment
 from app.api.v1.endpoints import mentor
+from app.api.v1.endpoints import context
+from app.api.v1.endpoints import syllabus
+from app.api.v1.endpoints import roadmap
+from app.api.v1.endpoints import memory_summary
 
 api_router = APIRouter()
+
+# --- Unified KIE Migration Endpoints (Absorbing KIE-1 into KIE-2) ---
+# Endpoint 1 & 2: Context Analysis & Resolution — /api/v1/kie/context/*
+api_router.include_router(
+    context.router, prefix="/kie/context", tags=["KIE Context Intelligence"]
+)
+
+# Endpoint 3: Syllabus Extraction — /api/v1/kie/syllabus/*
+api_router.include_router(
+    syllabus.router, prefix="/kie/syllabus", tags=["KIE Syllabus Intelligence"]
+)
+
+# Endpoint 4: Roadmap & Missions Generation — /api/v1/kie/roadmap/*
+api_router.include_router(
+    roadmap.router, prefix="/kie/roadmap", tags=["KIE Roadmap Intelligence"]
+)
+
+# Endpoint 5: Memory Summary for ContextV2Assembler — /api/v1/kie/memory/*
+api_router.include_router(
+    memory_summary.router, prefix="/kie/memory", tags=["KIE Memory Intelligence"]
+)
+
 # Sprint 1-4 learning routes — /api/v1/learning/*
 api_router.include_router(
     learning.router, prefix="/learning", tags=["Learning Intelligence"]
