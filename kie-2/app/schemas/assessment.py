@@ -173,7 +173,7 @@ class SubmittedAnswer(BaseModel):
         validation_alias=AliasChoices("question_id", "questionId"),
         description="Referenced question ID",
     )
-    answer: str = Field(..., description="Submitted option ID or textual / code solution")
+    answer: Any = Field(..., description="Submitted option ID or textual / code solution")
     hints_used: Optional[int] = Field(
         default=0,
         validation_alias=AliasChoices("hints_used", "hintsUsed"),
@@ -256,7 +256,7 @@ class MasteryEvaluateResponse(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0, description="Normalized total attempt score between 0.0 and 1.0")
     feedback: str = Field(..., description="Overall executive pedagogical feedback")
     question_evaluations: List[QuestionEvaluation] = Field(
-        ...,
+        default_factory=list,
         validation_alias=AliasChoices("question_evaluations", "questionEvaluations"),
         description="Question-level evaluations",
     )

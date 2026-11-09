@@ -85,6 +85,12 @@ class AssessmentService:
             # Ensure score is clamped strictly between 0.0 and 1.0
             if "score" in raw_data:
                 raw_data["score"] = max(0.0, min(1.0, float(raw_data["score"])))
+            if "mastery_updates" in raw_data and isinstance(raw_data["mastery_updates"], dict):
+                for subj, topics in raw_data["mastery_updates"].items():
+                    if isinstance(topics, dict):
+                        for top_name, detail in topics.items():
+                            if isinstance(detail, dict) and "score" in detail:
+                                detail["score"] = max(0.0, min(1.0, float(detail["score"])))
             return MasteryEvaluateResponse.model_validate(raw_data)
         except ValidationError as val_err:
             logger.error(
