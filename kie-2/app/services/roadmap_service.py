@@ -100,6 +100,42 @@ Syllabus: {json.dumps(syllabus.get('subjects', [])[:4]) if syllabus else 'Standa
         json_text = extract_json_payload(raw)
         data = json.loads(json_text)
         if isinstance(data, dict) and "missions" in data and isinstance(data["missions"], list):
+            valid_types = {t.value for t in MissionType}
+            sanitized_missions = []
+            for idx, m in enumerate(data["missions"]):
+                if not isinstance(m, dict):
+                    continue
+                # Normalize mission type to valid enum
+                raw_type = str(m.get("type", "LEARNING")).upper()
+                if raw_type not in valid_types:
+                    if any(k in raw_type for k in ["READ", "STUDY", "LEAD", "THEORY", "CONCEPT"]):
+                        m["type"] = "LEARNING"
+                    elif any(k in raw_type for k in ["PRACT", "CODE", "EXERCISE", "HANDS"]):
+                        m["type"] = "PRACTICAL"
+                    elif any(k in raw_type for k in ["REV", "RECAP", "SUMMARY"]):
+                        m["type"] = "REVISION"
+                    elif any(k in raw_type for k in ["ASSIGN", "TEST", "QUIZ", "HOMEWORK"]):
+                        m["type"] = "ASSIGNMENT"
+                    elif any(k in raw_type for k in ["ARTIF", "PROJ", "BUILD"]):
+                        m["type"] = "ARTIFACT"
+                    elif any(k in raw_type for k in ["CAREER", "JOB", "RESUME", "INTERVIEW"]):
+                        m["type"] = "CAREER"
+                    else:
+                        m["type"] = "LEARNING"
+                
+                # Normalize priority
+                raw_prio = str(m.get("priority", "MEDIUM")).upper()
+                if raw_prio not in {"HIGH", "MEDIUM", "LOW"}:
+                    m["priority"] = "MEDIUM"
+
+                # Ensure positive integers
+                m["estimated_minutes"] = max(15, int(m.get("estimated_minutes") or 60))
+                m["week"] = max(1, int(m.get("week") or ((idx // 3) + 1)))
+                m["sequence"] = max(1, int(m.get("sequence") or ((idx % 3) + 1)))
+                sanitized_missions.append(m)
+
+            data["missions"] = sanitized_missions
+            data["scope"] = scope
             return AIMLRoadmapResponse.model_validate(data)
         return None
 
