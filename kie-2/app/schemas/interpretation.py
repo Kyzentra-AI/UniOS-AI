@@ -1,6 +1,7 @@
+import uuid
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class IntentCategory(str, Enum):
@@ -21,18 +22,65 @@ class PedagogicalStrategy(str, Enum):
 class InterpretRequest(BaseModel):
     """Section 14.1.1 Payload Sent by Backend → KIE (AI-1 Request)."""
 
-    request_id: str = Field(..., description="Correlation ID for distributed tracing")
-    learner_id: str = Field(..., description="Identifier of the learner")
-    topic: str = Field(..., description="Current topic being studied")
-    user_intent: str = Field(default="", description="Explicit learner guidance/prompt from client")
-    references: List[Dict[str, Any]] = Field(
+    request_id: Optional[str] = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Correlation ID for distributed tracing",
+    )
+    learner_id: Optional[str] = Field(
+        default="learner_001",
+        description="Identifier of the learner",
+    )
+    topic: Optional[str] = Field(
+        default="General Concepts",
+        description="Current topic being studied",
+    )
+    user_intent: Optional[str] = Field(
+        default="",
+        description="Explicit learner guidance/prompt from client",
+    )
+    references: Optional[List[Any]] = Field(
         default_factory=list,
         description="Grounding excerpts extracted from syllabus",
     )
-    context: Dict[str, Any] = Field(
+    context: Optional[Dict[str, Any]] = Field(
         default_factory=dict,
         description="Unified multi-dimensional ContextV2 assembled for the learner",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_interpret_payload(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        if not data.get("request_id"):
+            data["request_id"] = str(uuid.uuid4())
+        if not data.get("learner_id"):
+            data["learner_id"] = data.get("user_id") or "learner_001"
+        if not data.get("topic"):
+            data["topic"] = data.get("current_topic") or data.get("title") or "General Concepts"
+        if data.get("user_intent") is None:
+            data["user_intent"] = ""
+
+        # Normalize references (can be strings, dicts, or None)
+        raw_refs = data.get("references")
+        if raw_refs is None:
+            data["references"] = []
+        elif isinstance(raw_refs, list):
+            cleaned_refs = []
+            for r in raw_refs:
+                if isinstance(r, dict):
+                    cleaned_refs.append(r)
+                elif r is not None:
+                    cleaned_refs.append({"content": str(r)})
+            data["references"] = cleaned_refs
+        else:
+            data["references"] = [{"content": str(raw_refs)}]
+
+        if data.get("context") is None or not isinstance(data["context"], dict):
+            data["context"] = {}
+
+        return data
 
 
 class InterpretResponse(BaseModel):

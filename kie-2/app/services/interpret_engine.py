@@ -50,15 +50,20 @@ class InterpretEngine:
             "}"
         )
 
-        user_prompt = f"""TOPIC: {request.topic}
+        ctx = request.context or {}
+        learner = (ctx.get("learner") if isinstance(ctx.get("learner"), dict) else {}) or {}
+        education = (ctx.get("education") if isinstance(ctx.get("education"), dict) else {}) or {}
+        memory_summary = (ctx.get("memory_summary") if isinstance(ctx.get("memory_summary"), dict) else {}) or {}
+
+        user_prompt = f"""TOPIC: {request.topic or 'General Concepts'}
 USER INTENT: {request.user_intent or 'Master fundamentals and application'}
 REFERENCES: {json.dumps(request.references[:3]) if request.references else 'Standard syllabus'}
 LEARNER CONTEXT:
-- Learner ID: {request.learner_id}
-- Goal: {request.context.get('learner', {}).get('primary_goal', 'Technical mastery')}
-- Target Skills: {request.context.get('learner', {}).get('target_skills', [])}
-- Academic: {request.context.get('education', {}).get('degree_program', 'Undergraduate')} ({request.context.get('education', {}).get('academic_status', 'BACHELOR')})
-- Memory Summary: {json.dumps(request.context.get('memory_summary', {}))}
+- Learner ID: {request.learner_id or 'learner_001'}
+- Goal: {learner.get('primary_goal', 'Technical mastery')}
+- Target Skills: {learner.get('target_skills', [])}
+- Academic: {education.get('degree_program', 'Undergraduate')} ({education.get('academic_status', 'BACHELOR')})
+- Memory Summary: {json.dumps(memory_summary)}
 """
         raw_content = provider._safe_chat_completion(
             messages=[
@@ -74,12 +79,12 @@ LEARNER CONTEXT:
 
     def _interpret_deterministic(self, request: InterpretRequest) -> InterpretResponse:
         intent_lower = (request.user_intent or "").lower()
-        topic_lower = request.topic.lower()
+        topic_lower = (request.topic or "General Concepts").lower()
         context = request.context or {}
-        learner = context.get("learner") or {}
-        education = context.get("education") or {}
-        memory_summary = context.get("memory_summary") or {}
-        inferred_context = learner.get("inferred_context") or {}
+        learner = (context.get("learner") if isinstance(context.get("learner"), dict) else {}) or {}
+        education = (context.get("education") if isinstance(context.get("education"), dict) else {}) or {}
+        memory_summary = (context.get("memory_summary") if isinstance(context.get("memory_summary"), dict) else {}) or {}
+        inferred_context = (learner.get("inferred_context") if isinstance(learner.get("inferred_context"), dict) else {}) or {}
 
         # 1. Intent Categorization
         if any(w in intent_lower for w in ["code", "walkthrough", "syntax", "snippet", "implementation", "traversal"]):
