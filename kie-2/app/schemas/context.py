@@ -15,8 +15,8 @@ class NormalizedLearningContext(BaseModel):
         default=None,
         description="Canonical cross-service tracing ID (synced with context_id)",
     )
-    topic: str
-    objective: str
+    topic: str = "General Concepts"
+    objective: str = "Understand and implement core concepts."
     learner_id: Optional[str] = Field(
         default=None,
         description="Optional top-level learner identifier shortcut",
@@ -30,15 +30,15 @@ class NormalizedLearningContext(BaseModel):
         description="Target lesson identifier from Backend (mapped to context_id)",
     )
     user_intent: Optional[str] = Field(
-        default=None,
+        default="",
         description="Explicit learner prompt or intent from Backend/AI-1",
     )
     interpreted_data: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Full AI-1 interpretation data from POST /api/v1/kie/learn/interpret",
     )
-    references: Optional[List[Dict[str, Any]]] = Field(
-        default=None,
+    references: Optional[List[Any]] = Field(
+        default_factory=list,
         description="Grounding syllabus reference objects from Backend ContentReferenceService",
     )
     context: Optional[Dict[str, Any]] = Field(
@@ -89,16 +89,30 @@ class NormalizedLearningContext(BaseModel):
         if not isinstance(data, dict):
             return data
 
-        # If data is completely empty or has no topic, let standard Pydantic validation reject it
-        topic = data.get("topic") or data.get("current_topic") or data.get("title")
-        if not topic:
-            return data
+        # Ensure topic exists
+        topic = data.get("topic") or data.get("current_topic") or data.get("title") or "General Concepts"
+        data["topic"] = str(topic)
 
-        data["topic"] = topic
-
-        # Ensure objective exists if topic is provided
+        # Ensure objective exists
         if not data.get("objective"):
             data["objective"] = f"Understand and apply core concepts of {topic}."
+
+        # Ensure user_intent is string
+        if data.get("user_intent") is None:
+            data["user_intent"] = ""
+
+        # Normalize references
+        raw_refs = data.get("references")
+        if raw_refs is None:
+            data["references"] = []
+        elif isinstance(raw_refs, list):
+            cleaned_refs = []
+            for r in raw_refs:
+                if isinstance(r, dict):
+                    cleaned_refs.append(r)
+                elif r is not None:
+                    cleaned_refs.append({"content": str(r)})
+            data["references"] = cleaned_refs
 
         top_lid = data.get("learner_id")
         raw_state = data.get("learner_state")

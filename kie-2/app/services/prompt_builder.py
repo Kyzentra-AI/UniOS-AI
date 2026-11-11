@@ -1,15 +1,24 @@
+from typing import Any
 from app.schemas import NormalizedLearningContext, PedagogyDecision, LearnerStage
+
+
+def _val(x: Any) -> str:
+    """Safely extracts value from Enum or returns string representation."""
+    if hasattr(x, "value"):
+        return str(x.value)
+    return str(x) if x is not None else ""
 
 
 def get_stage_guidelines(stage: LearnerStage) -> str:
     """Returns pedagogical guidelines based on the learner's academic stage (Section 17)."""
-    if stage == LearnerStage.BACHELOR:
+    clean_stage = _val(stage).lower()
+    if clean_stage == "bachelor":
         return (
             "- Learner Stage: Bachelor's Degree\n"
             "- Guidelines: Provide foundational sequencing, step-by-step prerequisite reinforcement, "
             "and clear concept progression."
         )
-    elif stage == LearnerStage.MASTER:
+    elif clean_stage == "master":
         return (
             "- Learner Stage: Master's Degree\n"
             "- Guidelines: Provide specialization depth, architectural trade-offs, and advanced theoretical insight."
@@ -67,7 +76,7 @@ RELEVANT LEARNER MEMORY INTELLIGENCE:
 LEARNER CONTEXT:
 {stage_guide}
 - Academic Domain / Program: {domain_info}
-- Current Confidence: {learner.confidence.value}
+- Current Confidence: {_val(learner.confidence)}
 - Weak Topics: {', '.join(learner.weak_topics) if learner.weak_topics else 'None reported'}
 - Known Concept Mastery: {learner.concept_mastery}
 - Career Goal: {learner.career_goal or 'Not specified'}
@@ -95,11 +104,11 @@ def build_lesson_prompt(
     domain_info = context.academic_domain or (learner.academic_domain if learner else None) or (learner.academic_program if learner else "Standard")
 
     # Honor memory preference if available, else learner state preference
-    preferred_mode = learner.learning_preference
+    preferred_mode = _val(learner.learning_preference)
     format_priorities_line = ""
     if context.memory_context and context.memory_context.relevant_preferences:
         pref = context.memory_context.relevant_preferences
-        preferred_mode = context.memory_context.recommended_pedagogical_mode or pref.dominant_modality or preferred_mode
+        preferred_mode = _val(context.memory_context.recommended_pedagogical_mode or pref.dominant_modality or preferred_mode)
         if pref.content_format_priorities:
             format_priorities_line = f"- Content Format Priorities: {', '.join(pref.content_format_priorities)}\n"
 
@@ -115,12 +124,12 @@ LEARNER CONTEXT:
 - Preferred Mode: {preferred_mode}
 {format_priorities_line}
 SELECTED PEDAGOGICAL STRATEGY:
-- Strategy: {pedagogy.strategy.value}
-- Difficulty: {pedagogy.difficulty.value}
-- Presentation Mode: {pedagogy.presentation_mode.value}
+- Strategy: {_val(pedagogy.strategy)}
+- Difficulty: {_val(pedagogy.difficulty)}
+- Presentation Mode: {_val(pedagogy.presentation_mode)}
 - Explanation Depth: {pedagogy.explanation_depth}
 - Pedagogical Sequence: {', '.join(pedagogy.sequence)}
-- Practice Level: {pedagogy.practice_level.value}
+- Practice Level: {_val(pedagogy.practice_level)}
 {grounded_refs}
 TOPIC & OBJECTIVE:
 - Topic: {context.topic}
@@ -131,6 +140,6 @@ STRICT GENERATION RULES:
 1. Generate an ordered sequence of structured LessonBlocks (objective, explanation, worked_example, visual_spec, practice_task, or domain-adaptive blocks).
 2. Under no circumstances should you generate raw HTML, React, JSX, or frontend UI code.
 3. For visual_spec blocks, provide structured layout/renderer metadata (e.g. renderer type, step instructions).
-4. Ensure the content strictly matches the {pedagogy.difficulty.value} level and domain context.
+4. Ensure the content strictly matches the {_val(pedagogy.difficulty)} level and domain context.
 """
 

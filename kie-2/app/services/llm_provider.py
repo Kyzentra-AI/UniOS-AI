@@ -1116,6 +1116,7 @@ class GroqLLMProvider(BaseLLMProvider):
                 response_format={"type": "json_object"},
                 temperature=temperature,
                 max_tokens=max_tokens,
+                timeout=18.0,
             )
             return response.choices[0].message.content
         except Exception as err:

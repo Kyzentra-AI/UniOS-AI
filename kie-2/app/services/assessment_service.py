@@ -82,6 +82,13 @@ class AssessmentService:
             raw_data = self._mock_provider.evaluate_mastery_attempt(prompt)
 
         try:
+            # Defensive defaults for LLM response
+            if "feedback" not in raw_data or not raw_data["feedback"]:
+                score_val = raw_data.get("score", 0.8)
+                raw_data["feedback"] = f"Assessment evaluation completed for {request.topic} with score {float(score_val):.2f}."
+            if "question_evaluations" not in raw_data:
+                raw_data["question_evaluations"] = []
+
             # Ensure score is clamped strictly between 0.0 and 1.0
             if "score" in raw_data:
                 raw_data["score"] = max(0.0, min(1.0, float(raw_data["score"])))

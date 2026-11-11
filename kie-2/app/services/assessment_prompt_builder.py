@@ -112,5 +112,27 @@ Evaluate the learner's submitted assessment answers, compute normalized scoring,
      }}
 4. Actionable Overall Feedback:
    - Provide encouragement, validate effort, and specify targeted next steps.
-5. Output strictly valid JSON matching the schema.
+5. Output strictly valid JSON matching this schema:
+{{
+  "score": 0.85,
+  "feedback": "Actionable overall feedback on the learner's performance.",
+  "question_evaluations": [
+    {{
+      "question_id": "q1",
+      "is_correct": true,
+      "score": 1.0,
+      "feedback": "Correct reasoning on BST complexity."
+    }}
+  ],
+  "mastery_updates": {{
+    "{request.topic}": {{
+      "Core Concepts": {{
+        "score": 0.85,
+        "status": "PROFICIENT",
+        "delta": 0.15,
+        "reason": "Demonstrated solid understanding."
+      }}
+    }}
+  }}
+}}
 """
