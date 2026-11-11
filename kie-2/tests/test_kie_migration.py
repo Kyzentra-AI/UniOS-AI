@@ -274,6 +274,29 @@ class TestKIEMigrationContracts(unittest.TestCase):
         self.assertIn("feedback", data)
         self.assertIn("mastery_updates", data)
 
+    # ------------------------------------------------------------------------
+    # Endpoint 9: POST /api/v1/kie/build/plan
+    # ------------------------------------------------------------------------
+    def test_endpoint_9_build_plan(self):
+        payload = {
+            "project_id": "proj-xyz",
+            "title": "Autonomous Drone Navigation",
+            "description": "SLAM and computer vision for drones",
+            "type": "CODING",
+            "domain": "Robotics",
+            "goal": "Build real-time path planning",
+            "skills": ["Python", "ROS2", "OpenCV"],
+        }
+        resp = self.client.post("/api/v1/kie/build/plan", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("milestones", data)
+        self.assertGreater(len(data["milestones"]), 0)
+        first_m = data["milestones"][0]
+        self.assertIn("title", first_m)
+        self.assertIn("tasks", first_m)
+        self.assertGreater(len(first_m["tasks"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

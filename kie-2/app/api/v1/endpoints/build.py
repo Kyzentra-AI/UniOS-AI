@@ -29,13 +29,48 @@ from app.schemas.build import (
     BuildRecommendContext,
     BuildRecommendResponse,
 )
+from app.schemas.build_plan import (
+    BuildPlanRequest,
+    BuildPlanResponse,
+)
 from app.services.build_coach_service import (
     coaching_response_to_public,
     get_build_coach_service,
 )
+from app.services.build_plan_service import (
+    BuildPlanGenerationEngine,
+)
 from app.services.llm_provider import LLMParseError, LLMProviderError
 
 router = APIRouter()
+_build_plan_engine = BuildPlanGenerationEngine()
+
+
+# ---------------------------------------------------------------------------
+# POST /plan
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/plan",
+    response_model=BuildPlanResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Universal Build Plan Generator",
+    description=(
+        "Generates bounded, structured milestones and actionable tasks for "
+        "different project artifact types (CODING, RESEARCH, BUSINESS, ANALYSIS, DESIGN). "
+        "Backend auto-inserts these into the project workspace."
+    ),
+    responses={
+        200: {"description": "Structured build plan returned successfully."},
+        422: {"description": "Validation error: Malformed request payload."},
+    },
+)
+def generate_build_plan(request: BuildPlanRequest) -> BuildPlanResponse:
+    """
+    Generates domain-adaptive build plan with milestones and tasks.
+    Deterministic, instant execution matching backend workspace schema.
+    """
+    return _build_plan_engine.generate(request)
 
 
 # ---------------------------------------------------------------------------
