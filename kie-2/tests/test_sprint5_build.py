@@ -123,10 +123,23 @@ class TestSprint5URLConstruction(unittest.TestCase):
         res = self.client.get("/health")
         self.assertEqual(res.status_code, 200)
 
-    def test_06_plan_endpoint_not_exposed(self):
-        """POST /api/v1/kie/build/plan must NOT be exposed (AI/ML-1 boundary)."""
-        res = self.client.post("/api/v1/kie/build/plan", json={})
-        self.assertEqual(res.status_code, 404, "AI/ML-2 must NOT implement the plan endpoint")
+    def test_06_plan_endpoint_exposed(self):
+        """POST /api/v1/kie/build/plan must generate valid milestones and tasks."""
+        payload = {
+            "project_id": "test-p1",
+            "title": "Portfolio Web App",
+            "description": "Full stack portfolio project",
+            "type": "CODING",
+            "domain": "Web Development",
+            "goal": "Build responsive portfolio",
+            "skills": ["React", "FastAPI"],
+        }
+        res = self.client.post("/api/v1/kie/build/plan", json=payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("milestones", data)
+        self.assertGreater(len(data["milestones"]), 0)
+        self.assertIn("tasks", data["milestones"][0])
 
 
 # ---------------------------------------------------------------------------

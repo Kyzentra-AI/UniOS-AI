@@ -14,7 +14,7 @@ class ContextQuestion(BaseModel):
 
 class AnalyzeContextRequest(BaseModel):
     """
-    Inbound request from Backend: POST /api/v1/kie/context/analyze
+    Inbound request from Backend: POST /api/v1/kie/context/analyze or /api/v1/kie/roadmap/generate
     Backend passes the full ContextV2 payload.
     Backend sends either learner_id or user_id (or both).
     """
@@ -22,6 +22,9 @@ class AnalyzeContextRequest(BaseModel):
 
     learner_id: Optional[str] = None
     user_id: Optional[str] = None
+    scope: Optional[str] = "ACADEMIC"
+    target_subject: Optional[str] = None          # When generating a dedicated subject track
+    selected_subjects: Optional[List[str]] = None  # Subset of subjects to include
     learner: Optional[Dict[str, Any]] = None
     education: Optional[Dict[str, Any]] = None
     preferences: Optional[Dict[str, Any]] = None
@@ -29,7 +32,6 @@ class AnalyzeContextRequest(BaseModel):
     roadmap: Optional[Dict[str, Any]] = None
     recent_history: Optional[List[Dict[str, Any]]] = None
     memory_summary: Optional[Dict[str, Any]] = None
-    scope: Optional[str] = None
 
 
 class AnalyzeContextResponse(BaseModel):

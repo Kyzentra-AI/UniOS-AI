@@ -282,7 +282,8 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
         # Align with Section 14.2 Backend requirements if lesson_id or interpreted_data provided
         if context.lesson_id or context.interpreted_data:
             lesson.id = context.lesson_id or lesson.id or context.context_id
-            lesson.title = f"Mastering {context.topic}"
+            if not lesson.title or lesson.title.lower().startswith("lesson for") or lesson.title == context.topic:
+                lesson.title = f"Mastering {context.topic}"
             if context.interpreted_data and context.interpreted_data.get("knowledge_gaps_identified"):
                 lesson.prerequisites = [
                     str(gap).replace("_", " ").title() for gap in context.interpreted_data["knowledge_gaps_identified"]
@@ -292,11 +293,11 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                 "objective": "TEXT",
                 "explanation": "TEXT",
                 "text": "TEXT",
-                "worked_example": "CODE",
+                "worked_example": "TEXT",
                 "code": "CODE",
-                "visual_spec": "INTERACTIVE",
+                "visual_spec": "TEXT",
                 "interactive": "INTERACTIVE",
-                "practice_task": "QUIZ",
+                "practice_task": "INTERACTIVE",
                 "quiz": "QUIZ",
                 "video": "VIDEO",
             }
@@ -308,7 +309,7 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
 
                 code_val = blk.code
                 lang_val = blk.language
-                if canonical_type in ["CODE", "INTERACTIVE"] and not code_val:
+                if canonical_type == "CODE" and not code_val:
                     code_val = (
                         f"# Implementation for {context.topic}\n"
                         f"def solution_{context.topic.lower().replace(' ', '_')}():\n"
@@ -322,13 +323,13 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                 if canonical_type == "QUIZ":
                     if not opts_val:
                         opts_val = [
-                            "A) Linear time O(N)",
-                            "B) Logarithmic time O(log N)",
-                            "C) Constant time O(1)",
-                            "D) None of the above",
+                            f"A) Maintains structural invariants and predictable asymptotic performance.",
+                            f"B) Bypasses runtime validation to maximize unconstrained execution speed.",
+                            f"C) Converts all hierarchical nodes into flat unstructured strings unconditionally.",
+                            f"D) Discards persistent state upon completing each individual transaction.",
                         ]
-                        ans_val = ans_val or "A) Linear time O(N)"
-                        expl_val = expl_val or f"Comprehension check for {context.topic}."
+                        ans_val = ans_val or opts_val[0]
+                        expl_val = expl_val or f"Option A is correct: {context.topic} enforces deterministic structural invariants, ensuring data integrity and predictable system behavior."
 
                 aligned_blocks.append(
                     LessonBlock(
@@ -353,15 +354,15 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                         id=f"blk-{len(aligned_blocks)+1:02d}-quiz",
                         type="QUIZ",
                         title=f"Comprehension Check: {context.topic}",
-                        content=f"What is the primary operational invariant for {context.topic}?",
+                        content=f"Which of the following statements most accurately reflects the primary operational invariant or core advantage of {context.topic}?",
                         options=[
-                            "A) Keys are strictly ordered",
-                            "B) All elements are randomized",
-                            "C) Elements are stored as arrays",
-                            "D) None of the above",
+                            f"A) Enforces structural invariants, predictable asymptotic complexity, and verifiable data integrity.",
+                            f"B) Bypasses all runtime validation checks to maximize raw execution speed without constraints.",
+                            f"C) Converts all non-linear data structures into flat unstructured strings unconditionally.",
+                            f"D) Operates strictly in volatile cache memory without supporting secondary persistent storage.",
                         ],
-                        answer="A) Keys are strictly ordered",
-                        explanation=f"A fundamental property of {context.topic} is maintaining structural invariants.",
+                        answer=f"A) Enforces structural invariants, predictable asymptotic complexity, and verifiable data integrity.",
+                        explanation=f"Option A is correct: {context.topic} is engineered specifically to maintain structural consistency, validate state transitions, and deliver predictable asymptotic performance.",
                     )
                 )
             lesson.blocks = aligned_blocks

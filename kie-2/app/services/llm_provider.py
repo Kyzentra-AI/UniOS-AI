@@ -443,38 +443,141 @@ class MockLLMProvider(BaseLLMProvider):
         if pedagogy_decision is None:
             pedagogy_decision = self.generate_pedagogy_decision(prompt)
 
-        # Context-aware content tailoring
         prompt_lower = prompt.lower()
+        is_db = any(w in prompt_lower for w in ["database", "sql", "dbms", "relational", "table"])
+
         if "commerce" in prompt_lower or "b.com" in prompt_lower or "finance" in prompt_lower:
             example_title = "Financial Analysis Case"
-            example_content = f"Case analysis applying {topic} to evaluate fiscal balance, ledger adjustments, and cash flow."
-            practice_title = "Applied Financial Assessment"
-            practice_content = f"Calculate the adjusted ratios for {topic} given the provided business scenario."
         elif "law" in prompt_lower or "legal" in prompt_lower:
             example_title = "Case Law Analysis"
-            example_content = f"Statutory interpretation and case brief illustrating the doctrine of {topic}."
-            practice_title = "Statutory Analysis Task"
-            practice_content = f"Draft an analytical argument reconciling conflicting precedents under {topic}."
         elif "mba" in prompt_lower or "management" in prompt_lower:
             example_title = "Executive Business Case"
-            example_content = f"Strategic evaluation of {topic} demonstrating ROI trade-offs and organizational risk."
-            practice_title = "Strategic Decision Scenario"
-            practice_content = f"Develop an executive recommendation resolving the operational friction in {topic}."
         elif "science" in prompt_lower or "biotech" in prompt_lower or "physics" in prompt_lower:
             example_title = "Experimental Methodology"
-            example_content = f"Scientific protocol and hypothesis testing demonstrating empirical validation of {topic}."
-            practice_title = "Laboratory Data Analysis"
-            practice_content = f"Formulate a testable hypothesis and analyze simulation outcomes for {topic}."
-        elif pedagogy_decision.remediation:
-            example_title = "Scaffolded Walkthrough"
-            example_content = f"Step-by-step remediation breaking down {topic} with simplified prerequisites."
-            practice_title = "Guided Practice Check"
-            practice_content = f"Targeted check for understanding on {topic} with immediate hints."
         else:
-            example_title = "Walkthrough Example"
-            example_content = f"A concrete, beginner-friendly walkthrough demonstrating {topic} in practice."
-            practice_title = "Check for Understanding"
-            practice_content = f"Apply your understanding of {topic} to solve a simple challenge."
+            example_title = "Implementation Walkthrough"
+
+        obj_content = (
+            f"### 🎯 Learning Outcomes & Competencies\n"
+            f"By completing this session on **{topic}**, you will establish a rigorous theoretical and applied mastery over its core invariants, algorithmic mechanics, and operational principles.\n\n"
+            f"### 📚 Prerequisites & Readiness\n"
+            f"- Foundational computing abstractions, data organization, and procedural execution flow.\n"
+            f"- Basic understanding of system boundaries, runtime validation, and state persistence.\n\n"
+            f"### 💡 Why This Topic Matters\n"
+            f"In enterprise systems and scalable architectures, **{topic}** ensures reliable throughput, fault isolation, and deterministic performance under real-world workloads."
+        )
+
+        expl_content = (
+            f"### 1. Conceptual Foundation & Abstraction\n"
+            f"At its core, **{topic}** defines a structured abstraction designed to manage state, compute transitions, and isolate execution complexity from downstream consumers.\n\n"
+            f"### 2. Core Mechanics & Operational Lifecycle\n"
+            f"- **State Invariants**: Formal guarantees that the underlying structure remains consistent before, during, and after mutations.\n"
+            f"- **Validation & Boundary Handling**: Guarding against null inputs, duplicate keys, memory fragmentation, and invalid transitions.\n"
+            f"- **Execution Pipeline**: Data transitions from ingestion through validation, transformation, and persistent storage.\n\n"
+            f"### 3. Engineering Best Practices & Trade-offs\n"
+            f"- **Time vs. Space Efficiency**: Balancing cache utilization and low-latency queries against memory footprint.\n"
+            f"- **ACID & Consistency Guarantees**: Enforcing durability and atomic isolation across multi-user environments.\n"
+            f"- **Maintainability**: Writing modular, self-documenting code with comprehensive automated test coverage."
+        )
+
+        if is_db:
+            code_snippet = (
+                f"-- Relational Schema and DML for {topic}\n"
+                f"CREATE TABLE {topic.replace(' ', '_').lower()} (\n"
+                f"    id SERIAL PRIMARY KEY,\n"
+                f"    name VARCHAR(100) NOT NULL,\n"
+                f"    category VARCHAR(50) NOT NULL,\n"
+                f"    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n"
+                f");\n\n"
+                f"-- Insert verified production record\n"
+                f"INSERT INTO {topic.replace(' ', '_').lower()} (name, category)\n"
+                f"VALUES ('Enterprise Alpha', 'Production');\n\n"
+                f"-- Query with indexed filtering\n"
+                f"SELECT id, name, category, created_at\n"
+                f"FROM {topic.replace(' ', '_').lower()}\n"
+                f"WHERE category = 'Production'\n"
+                f"ORDER BY created_at DESC;\n"
+            )
+            code_lang = "sql"
+        else:
+            code_snippet = (
+                f"# Production-grade implementation for {topic}\n"
+                f"class {topic.replace(' ', '').replace('-', '')}Manager:\n"
+                f"    \"\"\"Manages state transitions, validation, and operations for {topic}.\"\"\"\n\n"
+                f"    def __init__(self, initial_capacity: int = 100) -> None:\n"
+                f"        self._records = []\n"
+                f"        self._capacity = initial_capacity\n\n"
+                f"    def insert(self, record_id: int, payload: dict) -> bool:\n"
+                f"        \"\"\"Validates and inserts a new entry, guaranteeing state integrity.\"\"\"\n"
+                f"        if len(self._records) >= self._capacity:\n"
+                f"            raise OverflowError('Capacity limit exceeded')\n"
+                f"        self._records.append({{'id': record_id, 'data': payload}})\n"
+                f"        return True\n\n"
+                f"    def retrieve(self, record_id: int) -> dict:\n"
+                f"        \"\"\"Fetches a record by unique identifier with bounds checking.\"\"\"\n"
+                f"        for item in self._records:\n"
+                f"            if item['id'] == record_id:\n"
+                f"                return item['data']\n"
+                f"        raise KeyError(f'Record {{record_id}} not found')\n"
+            )
+            code_lang = "python"
+
+        example_content = (
+            f"### 🔍 Step-by-Step Implementation Walkthrough\n"
+            f"Review the production implementation below illustrating how **{topic}** is constructed and validated.\n\n"
+            f"### 🛠️ Key Architectural Decisions\n"
+            f"- **Entity Definition**: Schema fields use strict types and explicit primary constraints.\n"
+            f"- **Validation Gateways**: Operations check boundaries before mutating persistent records.\n"
+            f"- **Query Optimization**: Indexed lookups minimize full scans and reduce query latency.\n\n"
+            f"```\n{code_snippet}```\n"
+        )
+
+        visual_content = (
+            f"### 📐 System Topology & Data Flow Map\n\n"
+            f"```\n"
+            f"+-------------------------------------------------------------+\n"
+            f"|                      SYSTEM ARCHITECTURE                    |\n"
+            f"+-------------------------------------------------------------+\n"
+            f"| [Client Request / Query Interface]                         |\n"
+            f"|              │                                              |\n"
+            f"|              ▼ (Validated Payload / Command)                |\n"
+            f"| [Execution Engine: {topic}]                                |\n"
+            f"|              │                                              |\n"
+            f"|              ▼ (State Transition / Relational Commit)       |\n"
+            f"| [Durable Storage / Persistence Layer]                       |\n"
+            f"+-------------------------------------------------------------+\n"
+            f"```\n\n"
+            f"### 🔄 Structural Breakdown & Cardinality\n"
+            f"- **Ingestion Interface**: Normalizes incoming caller requests and checks structural constraints.\n"
+            f"- **Operational Pipeline**: Executes algorithmic business logic within transactional boundaries.\n"
+            f"- **Durable Persistence**: Enforces referential integrity, ACID durability, and indexed retrieval."
+        )
+
+        practice_content = (
+            f"### 🎯 Guided Challenge: Applied {topic}\n\n"
+            f"#### Scenario & Goal\n"
+            f"You are tasked with designing and implementing a robust solution that applies **{topic}** to manage real-time workload data.\n\n"
+            f"#### 📋 Technical Requirements\n"
+            f"1. Define the primary models or schema with appropriate types, keys, and boundary constraints.\n"
+            f"2. Implement insertion and query workflows ensuring edge cases (empty states, duplicate keys) are handled gracefully.\n"
+            f"3. Write verification checks to validate that structural invariants remain unbroken.\n\n"
+            f"#### 💻 Starter Template & Guidance\n"
+            f"- Outline the inputs and outputs before writing logic.\n"
+            f"- Ensure error handling raises descriptive exceptions on invalid transitions.\n\n"
+            f"#### 💡 Pro Tip\n"
+            f"- Test your solution under edge case inputs to confirm stability and performance."
+        )
+
+        quiz_title = f"Comprehension Check: {topic}"
+        quiz_content = f"Which of the following statements most accurately reflects the primary operational invariant or architectural advantage of {topic}?"
+        quiz_options = [
+            f"A) It enforces structural invariants, predictable asymptotic complexity, and verifiable data integrity.",
+            f"B) It bypasses all runtime validation checks to maximize raw execution speed without constraints.",
+            f"C) It converts all non-linear data structures into flat unstructured strings unconditionally.",
+            f"D) It only operates in volatile cache memory without supporting secondary persistent storage.",
+        ]
+        quiz_answer = f"A) It enforces structural invariants, predictable asymptotic complexity, and verifiable data integrity."
+        quiz_explanation = f"Option A is correct: {topic} is designed specifically to maintain formal structural consistency, enforce state validity, and provide deterministic execution performance."
 
         from app.schemas.lesson import AssessmentIntent, NextLearningAction
 
@@ -508,34 +611,40 @@ class MockLLMProvider(BaseLLMProvider):
             blocks=[
                 LessonBlock(
                     type=LessonBlockType.OBJECTIVE,
-                    title="Learning Objective",
-                    content=f"Understand the fundamental mechanics and efficiency of {topic}.",
+                    title="Learning Outcomes & Overview",
+                    content=obj_content,
                 ),
                 LessonBlock(
                     type=LessonBlockType.EXPLANATION,
-                    title="Core Concept",
-                    content=f"This structured lesson explains {topic} using step-by-step conceptual breakdowns.",
+                    title="Core Conceptual Architecture",
+                    content=expl_content,
                 ),
                 LessonBlock(
                     type=LessonBlockType.WORKED_EXAMPLE,
                     title=example_title,
                     content=example_content,
+                    code=code_snippet,
+                    language=code_lang,
                 ),
                 LessonBlock(
                     type=LessonBlockType.VISUAL_SPEC,
-                    title="Visual Representation Spec",
-                    content="Visual layout instructions for LessonRenderer.",
+                    title="Visual Representation & Flow",
+                    content=visual_content,
                     metadata={"renderer": "diagram", "diagram_type": "flowchart"},
                 ),
                 LessonBlock(
                     type=LessonBlockType.PRACTICE_TASK,
-                    title=practice_title,
+                    title="Guided Engineering Practice",
                     content=practice_content,
-                    metadata={
-                        "task_type": "mcq",
-                        "options": ["A", "B", "C"],
-                        "answer": "B",
-                    },
+                    metadata={"task_type": "guided_project"},
+                ),
+                LessonBlock(
+                    type=LessonBlockType.QUIZ,
+                    title=quiz_title,
+                    content=quiz_content,
+                    options=quiz_options,
+                    answer=quiz_answer,
+                    explanation=quiz_explanation,
                 ),
             ],
         )
@@ -1116,7 +1225,7 @@ class GroqLLMProvider(BaseLLMProvider):
                 response_format={"type": "json_object"},
                 temperature=temperature,
                 max_tokens=max_tokens,
-                timeout=18.0,
+                timeout=22.0,
             )
             return response.choices[0].message.content
         except Exception as err:
@@ -1175,17 +1284,57 @@ class GroqLLMProvider(BaseLLMProvider):
             pedagogy_decision = self.generate_pedagogy_decision(prompt)
 
         system_instruction = (
-            "You are a structured lesson generation engine for UniOS. "
-            "Generate EXACTLY 5 structured learning blocks in this EXACT ORDER: "
-            "1) objective, 2) explanation, 3) worked_example, 4) visual_spec, 5) practice_task.\n"
-            "CRITICAL BOUNDARY: Under NO circumstances should you output raw HTML, JSX, or React UI code.\n"
-            "Output strictly valid JSON matching this schema:\n"
+            "You are the senior pedagogical content architect for UniOS. "
+            "Your mission is to generate comprehensive, in-depth, university-grade learning modules.\n"
+            "DO NOT write brief, superficial summaries. Provide rich, rigorous, structured educational material.\n\n"
+            "Generate 5 or 6 structured learning blocks in this sequence:\n"
+            "1. type: 'objective'\n"
+            "   - title: Clear, motivating learning outcome title.\n"
+            "   - content: Multi-paragraph breakdown explaining the core goal, prerequisites, why this topic matters in industry/academics, and key competencies the student will master. Use markdown subheadings (###) and bullet points.\n\n"
+            "2. type: 'explanation'\n"
+            "   - title: In-depth conceptual masterclass.\n"
+            "   - content: Detailed deep-dive with structured sections. Include:\n"
+            "     ### 1. Foundational Theory & Intuition\n"
+            "     ### 2. Core Mechanics & Architecture\n"
+            "     ### 3. Key Invariants, Rules, & Constraints\n"
+            "     ### 4. Real-World Industry Application & Trade-offs\n"
+            "     Use bold technical terms (**keyword**), inline code (`syntax`), and formatted bullet lists (- item).\n\n"
+            "3. type: 'worked_example'\n"
+            "   - title: Complete step-by-step implementation walkthrough.\n"
+            "   - content: Rich walkthrough explaining the problem scenario, architectural breakdown, and commentary.\n"
+            "   - code: Production-quality, fully commented code or schema snippet (e.g. SQL, Python, TypeScript) illustrating the concept end-to-end.\n"
+            "   - language: Programming/query language (e.g. 'sql', 'python', 'typescript').\n\n"
+            "4. type: 'visual_spec'\n"
+            "   - title: Architectural & Data Flow Visualization.\n"
+            "   - content: A clear, beautiful ASCII box diagram or entity-relationship table diagram mapping the system layout, memory state, or relational tables, accompanied by a detailed textual explanation of the flow and data relationships.\n\n"
+            "5. type: 'practice_task'\n"
+            "   - title: Applied Hands-On Challenge & Verification.\n"
+            "   - content: An active engineering challenge with:\n"
+            "     ### 🎯 Challenge Objective\n"
+            "     ### 📋 Requirements & Edge Cases\n"
+            "     ### 💻 Starter Template / Guidance\n"
+            "     ### 💡 Hints & Self-Check Criteria\n\n"
+            "6. type: 'quiz'\n"
+            "   - title: Concept Comprehension Check.\n"
+            "   - content: An insightful scenario-based question assessing understanding.\n"
+            "   - options: 4 distinct choices ['A) ...', 'B) ...', 'C) ...', 'D) ...'].\n"
+            "   - answer: Correct choice matching one of the options.\n"
+            "   - explanation: In-depth pedagogical justification of why the answer is correct and why other options are invalid.\n\n"
+            "CRITICAL FORMAT RULES:\n"
+            "- Under NO circumstances should you output raw HTML, JSX, or React UI code.\n"
+            "- Always format text using standard markdown (headings '###', bold '**term**', code '`code`', lists '- item').\n"
+            "- Output strictly valid JSON matching this schema:\n"
             "{\n"
             '  "blocks": [\n'
             "    {\n"
-            '      "type": "objective" | "explanation" | "worked_example" | "visual_spec" | "practice_task",\n'
+            '      "type": "objective" | "explanation" | "worked_example" | "visual_spec" | "practice_task" | "quiz",\n'
             '      "title": "<block title>",\n'
-            '      "content": "<structured block text content>",\n'
+            '      "content": "<rich structured markdown content>",\n'
+            '      "code": "<optional executable code snippet>",\n'
+            '      "language": "<optional programming language>",\n'
+            '      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
+            '      "answer": "<correct option>",\n'
+            '      "explanation": "<why correct>",\n'
             '      "metadata": {}\n'
             "    }\n"
             "  ]\n"
@@ -1196,7 +1345,7 @@ class GroqLLMProvider(BaseLLMProvider):
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=900,
+            max_tokens=2800,
             temperature=settings.LLM_TEMPERATURE,
         )
         json_text = extract_json_payload(raw_content)
