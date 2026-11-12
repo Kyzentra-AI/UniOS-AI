@@ -27,14 +27,18 @@ router = APIRouter()
 def generate_roadmap(request: AnalyzeContextRequest) -> AIMLRoadmapResponse:
     learner_id = request.learner_id or request.user_id or "unknown"
     scope = request.scope or "ACADEMIC"
-    logger.info(f"[API POST /api/v1/kie/roadmap/generate] Generating roadmap for learner '{learner_id}', scope={scope}")
+    target_subj = request.target_subject or "ALL"
+    logger.info(
+        f"[API POST /api/v1/kie/roadmap/generate] Generating roadmap for learner '{learner_id}', "
+        f"scope={scope}, target_subject={target_subj}"
+    )
 
     service = get_roadmap_service()
     try:
         response = service.generate(request)
         logger.info(
             f"[API POST /api/v1/kie/roadmap/generate] Generated {len(response.missions)} missions, "
-            f"{len(response.semesters)} semesters for learner '{learner_id}'"
+            f"{len(response.subject_tracks)} subject tracks for learner '{learner_id}'"
         )
         return response
     except Exception as e:

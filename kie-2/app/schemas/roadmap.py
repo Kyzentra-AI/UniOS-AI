@@ -12,6 +12,16 @@ class MissionType(str, Enum):
     CAREER = "CAREER"
 
 
+class SubjectTrack(BaseModel):
+    """Metadata summarizing progression for an individual subject track."""
+    model_config = ConfigDict(extra="ignore")
+
+    subject_name: str
+    mission_count: int
+    estimated_total_minutes: int
+    core_topics: List[str] = Field(default_factory=list)
+
+
 class RoadmapMission(BaseModel):
     """A structured learning or practical mission inserted into the missions table."""
     model_config = ConfigDict(extra="ignore")
@@ -21,7 +31,7 @@ class RoadmapMission(BaseModel):
     description: str = Field(..., min_length=1, description="Detailed actionable mission description")
     priority: str = Field(default="MEDIUM", description="Priority level: HIGH | MEDIUM | LOW")
     estimated_minutes: int = Field(default=90, ge=1, description="Estimated duration in minutes")
-    subject: Optional[str] = Field(default=None, description="Curriculum subject name")
+    subject: str = Field(default="General", min_length=1, description="Exact subject name this mission belongs to")
     week: int = Field(default=1, ge=1, description="Week number in the progression plan")
     sequence: int = Field(default=1, ge=1, description="Sequence order within the week")
 
@@ -57,6 +67,8 @@ class AIMLRoadmapResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     scope: str = Field(default="ACADEMIC", description="Echoed scope: ACADEMIC | CAREER | BOTH")
+    target_subject: Optional[str] = Field(default=None, description="Targeted subject when single-subject track is requested")
+    subject_tracks: List[SubjectTrack] = Field(default_factory=list, description="Curated progression tracks by subject")
     semesters: List[RoadmapSemester] = Field(default_factory=list)
     career: Optional[RoadmapCareer] = None
     goals: List[str] = Field(default_factory=list)

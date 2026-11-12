@@ -171,6 +171,116 @@ class TestKIEMigrationContracts(unittest.TestCase):
             self.assertGreater(m.estimated_minutes, 0)
             self.assertGreater(m.week, 0)
             self.assertGreater(m.sequence, 0)
+            self.assertTrue(len(m.subject) > 0)
+
+        # Subject tracks should be present
+        self.assertGreaterEqual(len(validated.subject_tracks), 1)
+
+    def test_endpoint_4_roadmap_targeted_single_subject(self):
+        """Mode 1: Verify targeted single-subject track generation strictly tags and focuses on target_subject."""
+        payload = {
+            "learner_id": "usr_test_target_01",
+            "scope": "ACADEMIC",
+            "target_subject": "Operating Systems",
+            "syllabus": {
+                "subjects": [
+                    {
+                        "name": "Operating Systems",
+                        "topics": ["Process Scheduling", "Virtual Memory", "Deadlocks", "File Systems"],
+                    },
+                    {
+                        "name": "Database Management Systems",
+                        "topics": ["B-Trees", "ACID Transactions", "Query Optimization"],
+                    },
+                ]
+            },
+            "learner": {
+                "primary_goal": "Systems Engineer",
+                "experience_level": "intermediate",
+            },
+        }
+
+        resp = self.client.post("/api/v1/kie/roadmap/generate", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+
+        validated = AIMLRoadmapResponse.model_validate(data)
+        self.assertEqual(validated.target_subject, "Operating Systems")
+        self.assertGreaterEqual(len(validated.missions), 6)
+
+        # 100% of missions MUST belong to Operating Systems
+        for m in validated.missions:
+            self.assertEqual(m.subject, "Operating Systems")
+            self.assertTrue(len(m.title) > 0)
+            self.assertTrue(len(m.description) > 30)
+
+        # Subject track must be generated
+        self.assertEqual(len(validated.subject_tracks), 1)
+        self.assertEqual(validated.subject_tracks[0].subject_name, "Operating Systems")
+        self.assertEqual(validated.subject_tracks[0].mission_count, len(validated.missions))
+
+    def test_endpoint_4_roadmap_multi_subject_interleaved(self):
+        """Mode 2: Verify multi-subject roadmap interleaves subjects with strict tagging."""
+        payload = {
+            "learner_id": "usr_test_multi_01",
+            "scope": "CAREER",
+            "target_subject": None,
+            "syllabus": {
+                "subjects": [
+                    {
+                        "name": "Operating Systems",
+                        "topics": ["Process Scheduling", "Virtual Memory"],
+                    },
+                    {
+                        "name": "Database Management Systems",
+                        "topics": ["B-Trees", "ACID Transactions"],
+                    },
+                ]
+            },
+            "learner": {
+                "primary_goal": "Backend Engineer",
+            },
+        }
+
+        resp = self.client.post("/api/v1/kie/roadmap/generate", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+
+        validated = AIMLRoadmapResponse.model_validate(data)
+        self.assertIsNone(validated.target_subject)
+        self.assertGreaterEqual(len(validated.missions), 6)
+
+        subjects_in_missions = {m.subject for m in validated.missions}
+        self.assertIn("Operating Systems", subjects_in_missions)
+        self.assertIn("Database Management Systems", subjects_in_missions)
+
+        # Verify subject tracks summarize both subjects
+        track_names = {t.subject_name for t in validated.subject_tracks}
+        self.assertIn("Operating Systems", track_names)
+        self.assertIn("Database Management Systems", track_names)
+
+    def test_endpoint_4_roadmap_selected_subjects_filtering(self):
+        """Verify selected_subjects restricts the generated roadmap missions."""
+        payload = {
+            "learner_id": "usr_test_filtered_01",
+            "scope": "ACADEMIC",
+            "selected_subjects": ["Database Management Systems"],
+            "syllabus": {
+                "subjects": [
+                    {"name": "Operating Systems", "topics": ["Process Scheduling"]},
+                    {"name": "Database Management Systems", "topics": ["B-Trees", "ACID"]},
+                    {"name": "Computer Networks", "topics": ["TCP/IP", "DNS"]},
+                ]
+            },
+        }
+
+        resp = self.client.post("/api/v1/kie/roadmap/generate", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+
+        validated = AIMLRoadmapResponse.model_validate(data)
+        for m in validated.missions:
+            self.assertEqual(m.subject, "Database Management Systems")
 
     # ------------------------------------------------------------------------
     # Endpoint 5: POST /api/v1/kie/memory/summary
