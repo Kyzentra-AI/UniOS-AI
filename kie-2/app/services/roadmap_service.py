@@ -49,8 +49,18 @@ class RoadmapService:
         syllabus = request.syllabus or {}
 
         system_instruction = (
-            "You are the UniOS Curriculum & Roadmap Synthesis Engine. "
-            "Generate a comprehensive, structured learning roadmap with sequential missions based on ContextV2. "
+            "You are the senior UniOS Curriculum & Roadmap Synthesis Engine. "
+            "Generate an extensive, rigorous, and highly structured learning roadmap with sequential missions based on ContextV2.\n\n"
+            "CONTENT MAXIMIZATION GUIDELINES:\n"
+            "- Provide rich, detailed, granular topics for each subject (5-8 topics per subject).\n"
+            "- Provide multiple structured goals and clear week-by-week milestones.\n"
+            "- Generate 8 to 12 sequential missions across weeks.\n"
+            "- For EVERY mission, the 'description' MUST be comprehensive and structured into 4 distinct sections:\n"
+            "  🎯 Objectives: <Clear learning goals and competencies>\n"
+            "  📚 Core Concepts: <Key theoretical foundations, invariants, and algorithms to master>\n"
+            "  💻 Deliverables: <Concrete implementation, project code, or benchmark analysis required>\n"
+            "  ✅ Mastery Criteria: <Specific evaluation metrics to verify topic proficiency>\n"
+            "DO NOT write brief 1-sentence descriptions. Maximize depth and actionable guidance.\n"
             "Output strictly valid JSON matching this schema:\n"
             "{\n"
             f'  "scope": "{scope}",\n'
@@ -58,18 +68,18 @@ class RoadmapService:
             "    {\n"
             '      "name": "Semester 1",\n'
             '      "subjects": [\n'
-            '        {"name": "<Subject Name>", "topics": ["<Topic 1>", "<Topic 2>"]}\n'
+            '        {"name": "<Subject Name>", "topics": ["<Topic 1>", "<Topic 2>", "<Topic 3>", "<Topic 4>", "<Topic 5>"]}\n'
             "      ]\n"
             "    }\n"
             "  ],\n"
-            '  "career": {"goals": ["<Career Goal 1>", "<Career Goal 2>"]},\n'
-            '  "goals": ["<Goal 1>", "<Goal 2>"],\n'
-            '  "milestones": ["<Milestone 1>", "<Milestone 2>"],\n'
+            '  "career": {"goals": ["<Career Goal 1>", "<Career Goal 2>", "<Career Goal 3>"]},\n'
+            '  "goals": ["<Goal 1>", "<Goal 2>", "<Goal 3>"],\n'
+            '  "milestones": ["<Milestone 1>", "<Milestone 2>", "<Milestone 3>", "<Milestone 4>"],\n'
             '  "missions": [\n'
             "    {\n"
             '      "title": "<Mission Title>",\n'
             '      "type": "LEARNING" | "PRACTICAL" | "REVISION" | "ASSIGNMENT" | "ARTIFACT" | "CAREER",\n'
-            '      "description": "<Detailed mission steps>",\n'
+            '      "description": "🎯 Objectives: ...\\n📚 Core Concepts: ...\\n💻 Deliverables: ...\\n✅ Mastery Criteria: ...",\n'
             '      "priority": "HIGH" | "MEDIUM" | "LOW",\n'
             '      "estimated_minutes": 90,\n'
             '      "subject": "<Subject Name>",\n'
@@ -93,8 +103,8 @@ Syllabus: {json.dumps(syllabus.get('subjects', [])[:4]) if syllabus else 'Standa
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=1500,
-            temperature=0.2,
+            max_tokens=3500,
+            temperature=0.25,
         )
 
         json_text = extract_json_payload(raw)
@@ -202,7 +212,12 @@ Syllabus: {json.dumps(syllabus.get('subjects', [])[:4]) if syllabus else 'Standa
                 RoadmapMission(
                     title=f"Study {top1} Invariants & Core Theory",
                     type=MissionType.LEARNING,
-                    description=f"Deep-dive conceptual explanation of {top1} within {subj.name}. Review memory layout and time complexity.",
+                    description=(
+                        f"🎯 Objectives: Deep-dive conceptual exploration of {top1} within {subj.name}.\n"
+                        f"📚 Core Invariants: Master foundational memory layouts, time/space complexity guarantees, and structural constraints.\n"
+                        f"💻 Hands-on Focus: Analyze concrete execution traces, runtime invariants, and boundary conditions.\n"
+                        f"✅ Mastery Metric: Achieve >= 80% on comprehension checks and demonstrate accurate conceptual recall."
+                    ),
                     priority="HIGH",
                     estimated_minutes=90,
                     subject=subj.name,
@@ -217,7 +232,12 @@ Syllabus: {json.dumps(syllabus.get('subjects', [])[:4]) if syllabus else 'Standa
                 RoadmapMission(
                     title=f"Implement Hands-on {top1} Solution",
                     type=MissionType.PRACTICAL,
-                    description=f"Write clean, modular implementation for {top1} with comprehensive unit test coverage in Python.",
+                    description=(
+                        f"🎯 Objectives: Construct a modular, production-grade implementation of {top1}.\n"
+                        f"📚 Core Invariants: Implement clean data encapsulation, boundary validations, and error handling.\n"
+                        f"💻 Deliverables: Develop an end-to-end executable module with comprehensive unit test coverage.\n"
+                        f"✅ Mastery Metric: Pass all functional test cases and verify algorithmic efficiency under stress workloads."
+                    ),
                     priority="HIGH",
                     estimated_minutes=90,
                     subject=subj.name,
@@ -232,7 +252,12 @@ Syllabus: {json.dumps(syllabus.get('subjects', [])[:4]) if syllabus else 'Standa
                 RoadmapMission(
                     title=f"Mastery Check: {top2} Problem Solving",
                     type=MissionType.ASSIGNMENT if idx % 2 == 0 else MissionType.REVISION,
-                    description=f"Solve benchmark evaluation problems covering {top2} to validate retention and edge-case handling.",
+                    description=(
+                        f"🎯 Objectives: Evaluate conceptual retention and analytical problem-solving in {top2}.\n"
+                        f"📚 Core Invariants: Resolve edge cases, off-by-one errors, and multi-variable state transitions.\n"
+                        f"💻 Deliverables: Complete structured benchmark assessment tasks with analytical justifications.\n"
+                        f"✅ Mastery Metric: Satisfy formal rubric criteria across correctness, optimization, and code clarity."
+                    ),
                     priority="MEDIUM",
                     estimated_minutes=60,
                     subject=subj.name,
@@ -248,7 +273,12 @@ Syllabus: {json.dumps(syllabus.get('subjects', [])[:4]) if syllabus else 'Standa
                 RoadmapMission(
                     title="Portfolio Artifact: End-to-End System Integration",
                     type=MissionType.ARTIFACT,
-                    description="Package and document your capstone project into a clean repository with README, architecture diagram, and deployment instructions.",
+                    description=(
+                        "🎯 Objectives: Synthesize learned competencies into an end-to-end, production-grade portfolio artifact.\n"
+                        "📚 Core Invariants: Clean modular architecture, automated test suites, and comprehensive documentation.\n"
+                        "💻 Deliverables: Publish a structured repository containing system README, architecture diagram, and deployment instructions.\n"
+                        "✅ Mastery Metric: Peer review readiness and adherence to industry open-source standards."
+                    ),
                     priority="HIGH",
                     estimated_minutes=120,
                     subject=parsed_subjects[0].name if parsed_subjects else "Capstone",
@@ -261,7 +291,12 @@ Syllabus: {json.dumps(syllabus.get('subjects', [])[:4]) if syllabus else 'Standa
                 RoadmapMission(
                     title="Career Readiness: Resume Tailoring & Technical Interview Review",
                     type=MissionType.CAREER,
-                    description=f"Synthesize your recent project accomplishments into Google XYZ bullet points targeting '{primary_goal}'.",
+                    description=(
+                        f"🎯 Objectives: Bridge technical milestones into high-impact professional career credentials.\n"
+                        f"📚 Core Invariants: Google XYZ resume formulation (Accomplished [X], as measured by [Y], by doing [Z]).\n"
+                        f"💻 Deliverables: Draft targeted bullet points and complete architectural mock interview walkthroughs targeting '{primary_goal}'.\n"
+                        f"✅ Mastery Metric: Verified ATS keyword density and crisp executive technical articulation."
+                    ),
                     priority="MEDIUM",
                     estimated_minutes=60,
                     subject="Career Readiness",

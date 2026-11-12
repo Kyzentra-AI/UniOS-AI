@@ -98,7 +98,7 @@ INSTRUCTIONS:
 def build_lesson_prompt(
     context: NormalizedLearningContext, pedagogy: PedagogyDecision
 ) -> str:
-    """Constructs the prompt for generating structured lesson blocks."""
+    """Constructs the prompt for generating structured lesson blocks with maximum pedagogical depth."""
     learner = context.learner_state
     stage_guide = get_stage_guidelines(learner.stage)
     domain_info = context.academic_domain or (learner.academic_domain if learner else None) or (learner.academic_program if learner else "Standard")
@@ -116,7 +116,7 @@ def build_lesson_prompt(
     if context.curriculum_references:
         grounded_refs = f"\nGROUNDED CURRICULUM CONTEXT:\n" + "\n".join(f"- {ref}" for ref in context.curriculum_references)
 
-    return f"""You are the UniOS Lesson Generation Engine. Generate structured lesson blocks for the student.
+    return f"""You are the senior pedagogical architect for UniOS. Generate a comprehensive, university-level, masterclass lesson for the student.
 
 LEARNER CONTEXT:
 {stage_guide}
@@ -136,10 +136,22 @@ TOPIC & OBJECTIVE:
 - Objective: {context.objective}
 - Grounded References: {context.curriculum_references if context.curriculum_references else 'Standard curriculum'}
 
-STRICT GENERATION RULES:
-1. Generate an ordered sequence of structured LessonBlocks (objective, explanation, worked_example, visual_spec, practice_task, or domain-adaptive blocks).
-2. Under no circumstances should you generate raw HTML, React, JSX, or frontend UI code.
-3. For visual_spec blocks, provide structured layout/renderer metadata (e.g. renderer type, step instructions).
-4. Ensure the content strictly matches the {_val(pedagogy.difficulty)} level and domain context.
+CONTENT MAXIMIZATION & STRUCTURE REQUIREMENTS:
+1. MAXIMIZE PEDAGOGICAL DEPTH:
+   - Absolutely DO NOT produce brief 1-2 sentence summaries. Provide rigorous, extensive, deeply educational content for each section.
+2. RICH MARKDOWN FORMATTING:
+   - Use markdown subheadings ('### Heading') to clearly segment core concepts.
+   - Use bold ('**Key Concept**') to emphasize technical terminology, definitions, and invariants.
+   - Use bullet points ('- Point') and numbered lists ('1. Step') for procedural logic and takeaways.
+   - Use inline code spans ('`code`') for keywords, syntax, commands, and function calls.
+3. VISUAL / ARCHITECTURE SPEC:
+   - Provide an ASCII box-drawing diagram or tabular schema map showing tables, components, and relationships, followed by a detailed breakdown of entities, cardinality, and data flow.
+4. CODE / WORKED EXAMPLE:
+   - Provide a complete, production-grade, commented implementation (e.g. SQL DDL/DML, Python code, etc.) with step-by-step commentary and input/output examples.
+5. GUIDED PRACTICE CHALLENGE:
+   - Provide a structured challenge with Scenario, Requirements Checklist, Starter Template, and Hints.
+6. COMPREHENSION CHECK:
+   - Provide a multiple-choice question with 4 options ('A) ...', 'B) ...', 'C) ...', 'D) ...'), correct answer, and explanation.
+7. Under no circumstances output raw HTML, JSX, or React UI tags. Output clean text and markdown.
 """
 
