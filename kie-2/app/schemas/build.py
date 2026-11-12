@@ -15,8 +15,8 @@ ARCHITECTURAL BOUNDARY:
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 import re
 
 
@@ -65,17 +65,19 @@ class ProjectContextInput(BaseModel):
     Nested project context supplied by Backend in the public coach request.
     Maps to the internal coaching engine's project fields.
     """
-    id: Optional[str] = Field(default=None, description="Backend project identifier.")
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    id: Optional[Union[str, Any]] = Field(default=None, description="Backend project identifier.")
     title: Optional[str] = Field(default=None, description="Project title.")
-    type: Optional[str] = Field(
+    type: Optional[Union[str, Any]] = Field(
         default=None,
         description="Artifact type string (e.g. 'code_project', 'essay'). Maps to ArtifactType.",
     )
-    status: Optional[str] = Field(
+    status: Optional[Union[str, Any]] = Field(
         default=None,
         description="Current project status (e.g. 'in_progress', 'draft').",
     )
-    skills: Optional[List[str]] = Field(
+    skills: Optional[List[Any]] = Field(
         default=None,
         description="Skills or rubric criteria associated with this project.",
     )
@@ -89,9 +91,11 @@ class BuildCoachPublicRequest(BaseModel):
     coaching engine as follows:
       intent          → coaching focus / requested coaching type
       message         → learner's message / struggle description
-      context         → supplementary learner context (stage, domain, etc.)
+      context         → supplementary learner context (dict or string)
       project_context → project metadata (title, type, status, skills)
     """
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
     intent: str = Field(
         ...,
         min_length=1,
@@ -106,17 +110,27 @@ class BuildCoachPublicRequest(BaseModel):
         max_length=2000,
         description="Learner's message, question, or struggle description.",
     )
-    context: Optional[str] = Field(
+    context: Optional[Union[Dict[str, Any], str, List[Any], Any]] = Field(
         default=None,
-        max_length=1000,
         description=(
             "Optional supplementary context: learner stage, academic domain, "
-            "current milestone, or any enrichment text passed by Backend."
+            "current milestone, or any enrichment text or dict passed by Backend."
         ),
     )
     project_context: Optional[ProjectContextInput] = Field(
         default=None,
+        alias="projectContext",
         description="Structured project metadata from Backend.",
+    )
+    learner_id: Optional[str] = Field(
+        default=None,
+        alias="learnerId",
+        description="Optional learner identifier.",
+    )
+    user_id: Optional[str] = Field(
+        default=None,
+        alias="userId",
+        description="Optional user identifier.",
     )
 
 
@@ -250,10 +264,10 @@ class BuildCoachRequest(BaseModel):
     def validate_non_empty_string(cls, v: str) -> str:
         cleaned = v.strip()
         if not cleaned:
-            raise ValueError("Field cannot be empty or whitespace.")
+            return "anonymous"
         if not re.match(r"^[a-zA-Z0-9_\-\.:@/]+$", cleaned):
-            raise ValueError("Field contains invalid characters.")
-        return cleaned
+            cleaned = re.sub(r"[^a-zA-Z0-9_\-\.:@/]", "_", cleaned)
+        return cleaned or "anonymous"
 
     @field_validator("concept_mastery")
     @classmethod

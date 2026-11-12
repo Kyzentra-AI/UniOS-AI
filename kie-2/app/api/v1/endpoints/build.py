@@ -117,36 +117,73 @@ def build_coach(public_request: BuildCoachPublicRequest) -> BuildCoachPublicResp
     # Resolve artifact type from project_context.type
     artifact_type = ArtifactType.GENERAL
     if pc and pc.type:
-        try:
-            artifact_type = ArtifactType(pc.type.strip().lower())
-        except ValueError:
-            artifact_type = ArtifactType.GENERAL
+        type_raw = str(pc.type).strip().lower()
+        type_map = {
+            "coding": ArtifactType.CODE_PROJECT,
+            "code": ArtifactType.CODE_PROJECT,
+            "code_project": ArtifactType.CODE_PROJECT,
+            "research": ArtifactType.RESEARCH_REPORT,
+            "research_report": ArtifactType.RESEARCH_REPORT,
+            "business": ArtifactType.BUSINESS_PLAN,
+            "business_plan": ArtifactType.BUSINESS_PLAN,
+            "analysis": ArtifactType.DATA_ANALYSIS,
+            "data_analysis": ArtifactType.DATA_ANALYSIS,
+            "design": ArtifactType.DESIGN_ARTIFACT,
+            "design_artifact": ArtifactType.DESIGN_ARTIFACT,
+            "essay": ArtifactType.ESSAY,
+            "lab": ArtifactType.LAB_NOTEBOOK,
+            "lab_notebook": ArtifactType.LAB_NOTEBOOK,
+            "portfolio": ArtifactType.PORTFOLIO,
+        }
+        if type_raw in type_map:
+            artifact_type = type_map[type_raw]
+        else:
+            try:
+                artifact_type = ArtifactType(type_raw)
+            except ValueError:
+                artifact_type = ArtifactType.GENERAL
 
     # Rubric criteria from project skills
-    rubric_criteria = (pc.skills or []) if pc else []
+    rubric_criteria = [str(s) for s in pc.skills if s] if (pc and pc.skills) else []
 
-    # Parse academic domain and learner stage from context string (best-effort)
-    context_str = (public_request.context or "").lower()
+    # Parse academic domain and learner stage from context (string or dict or list)
+    context_str = ""
+    if isinstance(public_request.context, (dict, list)):
+        import json as _json
+        context_str = _json.dumps(public_request.context)
+    elif public_request.context:
+        context_str = str(public_request.context)
+
+    context_lower = context_str.lower()
     academic_domain: Optional[str] = None
     learner_stage: Optional[str] = None
     for domain_kw in ["engineering", "commerce", "humanities", "science", "management", "law", "finance"]:
-        if domain_kw in context_str:
+        if domain_kw in context_lower:
             academic_domain = domain_kw
             break
     for stage_kw in ["master", "graduate", "bachelor"]:
-        if stage_kw in context_str:
+        if stage_kw in context_lower:
             learner_stage = stage_kw
             break
 
     # Generate a stable request_id for tracing (not exposed on public API)
     request_id = f"coach_{uuid.uuid4().hex[:12]}"
 
-    # Learner ID: use project_context.id if available, else a generic placeholder
-    learner_id = (pc.id or "anonymous").strip() if pc else "anonymous"
+    # Learner ID: use public_request.learner_id, user_id, project_context.id, or generic placeholder
+    raw_learner_id = "anonymous"
+    if public_request.learner_id:
+        raw_learner_id = str(public_request.learner_id).strip()
+    elif public_request.user_id:
+        raw_learner_id = str(public_request.user_id).strip()
+    elif pc and pc.id:
+        raw_learner_id = str(pc.id).strip()
+
     # Ensure learner_id only contains safe chars for the internal validator
     import re as _re
-    if not _re.match(r"^[a-zA-Z0-9_\-\.:@/]+$", learner_id):
-        learner_id = "anonymous"
+    learner_id = _re.sub(r"[^a-zA-Z0-9_\-\.:@/]", "_", raw_learner_id) or "anonymous"
+
+    submitted_work_summary = context_str[:1900] if context_str else None
+    struggle_description = public_request.message[:950] if public_request.message else None
 
     internal_request = BuildCoachRequest(
         request_id=request_id,
@@ -154,8 +191,8 @@ def build_coach(public_request: BuildCoachPublicRequest) -> BuildCoachPublicResp
         project_title=project_title,
         artifact_type=artifact_type,
         academic_domain=academic_domain,
-        struggle_description=public_request.message,
-        submitted_work_summary=public_request.context,
+        struggle_description=struggle_description,
+        submitted_work_summary=submitted_work_summary,
         learner_stage=learner_stage,
         rubric_criteria=rubric_criteria if rubric_criteria else None,
     )
