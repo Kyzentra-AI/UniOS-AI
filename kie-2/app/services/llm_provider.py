@@ -1117,8 +1117,9 @@ class MockLLMProvider(BaseLLMProvider):
         topic_match = re.search(r"- Topic:\s*([^\n]+)", prompt)
         topic = topic_match.group(1).strip() if topic_match else "DBMS Fundamentals"
 
-        # Discover question IDs in prompt
-        q_ids = re.findall(r'"question_id":\s*"([^"]+)"', prompt)
+        # Discover question IDs in prompt from submitted answers
+        submitted_section = prompt.split("### Evaluation Guidelines")[0] if "### Evaluation Guidelines" in prompt else prompt
+        q_ids = list(dict.fromkeys(re.findall(r'"question_id":\s*"([^"]+)"', submitted_section)))
         if not q_ids:
             q_ids = ["q1", "q2"]
 
@@ -1216,18 +1217,35 @@ class GroqLLMProvider(BaseLLMProvider):
             raise LLMProviderError(f"Failed to initialize Groq client: {str(e)}", status_code=500)
         self.model = model
 
-    def _safe_chat_completion(self, messages: list, max_tokens: int, temperature: float) -> str:
+    def _safe_chat_completion(
+        self,
+        messages: list,
+        max_tokens: int,
+        temperature: float,
+        json_mode: bool = True,
+    ) -> str:
         """Executes chat completion with robust error handling for rate limits, timeouts, and API errors."""
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                response_format={"type": "json_object"},
-                temperature=temperature,
-                max_tokens=max_tokens,
-                timeout=22.0,
+        kwargs: dict = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "timeout": 22.0,
+        }
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+            has_json = any(
+                "json" in str(m.get("content", "")).lower()
+                for m in messages
+                if isinstance(m, dict)
             )
-            return response.choices[0].message.content
+            if not has_json and messages and isinstance(messages[0], dict):
+                curr_content = messages[0].get("content", "")
+                messages[0]["content"] = f"{curr_content}\n\nRespond with valid JSON."
+
+        try:
+            response = self.client.chat.completions.create(**kwargs)
+            return response.choices[0].message.content or ""
         except Exception as err:
             err_type = type(err).__name__
             err_msg = str(err)
@@ -1583,6 +1601,7 @@ class GroqLLMProvider(BaseLLMProvider):
             ],
             max_tokens=700,
             temperature=settings.LLM_TEMPERATURE,
+            json_mode=False,
         )
         return raw_content.strip()
 
