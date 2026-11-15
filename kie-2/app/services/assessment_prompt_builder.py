@@ -28,17 +28,26 @@ Synthesize a comprehensive, curriculum-aligned assessment tailored to the follow
 - Target Difficulty: {difficulty}
 
 ### AI Implementation Rules:
-1. ALWAYS PROVIDE ANSWER KEYS / RUBRICS:
+1. STRICT TOPIC & DISCIPLINE GROUNDING:
+   - Every single question, choice option, and explanation MUST be authentically and strictly grounded in '{request.topic}' and its discipline.
+   - Under NO circumstances generate generic Computer Science or Database questions (e.g. 'Storage Manager & Buffer Pool', 'Query Compiler & Parser', 'SQL', 'Buffer paging') unless the topic itself is Computer Science, Database Management, or Software Engineering!
+   - For Entrepreneurship & Business topics (e.g. 'ENTREPRENEURSHIP DEVELOPMENT', 'Business Management'): assess venture creation, business models, bootstrapping vs venture capital, market validation, MVP, customer discovery, unit economics, and risk mitigation.
+   - For Commerce & Finance topics: assess balance sheets, ledger entries, accounting standards, financial ratios, fiscal policy, and cash flow.
+   - For Law & Governance topics: assess statutes, constitutional provisions, legal doctrines, judicial precedent, and regulatory compliance.
+   - For Science & Engineering topics: assess domain-specific theories, formulas, experimental methodology, and technical problem-solving.
+2. DIVERSITY & DEDUPLICATION:
+   - Every question must test a distinctly different concept. Do not generate repetitive or paraphrased variants of the same question.
+3. ALWAYS PROVIDE ANSWER KEYS / RUBRICS:
    - For 'mcq': Each question must have 'options' with stable IDs ('opt-1', 'opt-2', 'opt-3', 'opt-4') and a 'correct_option_id' matching one of the options, plus an 'explanation'.
    - For 'coding': Provide initial starter 'code', 'language' (e.g. 'python', 'sql', 'javascript'), and 'rubric' containing 'required_clauses' and 'ideal_solution'.
    - For 'subjective' / 'viva' / 'case-study': Provide 'rubric' with 'ideal_solution' and 'criteria'.
-2. STABLE IDENTIFIERS:
+4. STABLE IDENTIFIERS:
    - Use stable IDs for questions: 'q1', 'q2', 'q3', etc.
    - Use stable IDs for options: 'opt-1', 'opt-2', 'opt-3', 'opt-4'.
-3. SCORING & RUBRIC:
+5. SCORING & RUBRIC:
    - 'rubric' object must contain 'total_points' (float/number) and 'passing_threshold' (e.g. 0.70).
-4. OUTPUT FORMAT:
-   - Output strictly valid JSON. No conversational preamble, markdown backticks, or trailing notes.
+6. OUTPUT FORMAT:
+   - Output strictly valid JSON. No conversational preamble, markdown backticks, or trailing notes. Respond with valid JSON.
 
 ### Expected JSON Schema:
 {{

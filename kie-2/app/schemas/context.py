@@ -89,6 +89,9 @@ class NormalizedLearningContext(BaseModel):
         if not isinstance(data, dict):
             return data
 
+        if not data:
+            raise ValueError("Empty learning context payload; at least topic or learner context is required.")
+
         # Ensure topic exists
         topic = data.get("topic") or data.get("current_topic") or data.get("title") or "General Concepts"
         data["topic"] = str(topic)

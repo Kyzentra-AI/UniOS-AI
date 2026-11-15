@@ -17,7 +17,7 @@ class Settings:
     # Local LLM provider settings (AI/ML-2 capability scope only)
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "").strip()
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq" if os.getenv("GROQ_API_KEY") else "mock").strip()
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b").strip()
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "openai/gpt-oss-120b").strip()
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 
