@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 const missionTypeSchema = z.enum([
@@ -69,6 +70,7 @@ const roadmapSchema = z.object({
   id: z.string(),
   version: z.number(),
   scope: z.enum(['ACADEMIC', 'CAREER', 'BOTH']),
+  subject: z.string().nullable().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE']),
   scope_data: roadmapScopeDataSchema,
   missions: z.array(roadmapMissionSchema),
@@ -76,8 +78,18 @@ const roadmapSchema = z.object({
   updated_at: z.string().nullable().optional(),
 });
 
+const roadmapSubjectSummarySchema = z.object({
+  name: z.string(),
+  total_missions: z.number(),
+  completed_missions: z.number(),
+  in_progress_missions: z.number(),
+  progress_percentage: z.number(),
+});
+
 export const roadmapResponseSchema = z.object({
   roadmap: roadmapSchema.nullable(),
+  available_subjects: z.array(roadmapSubjectSummarySchema),
+  active_subject: z.string().nullable(),
 });
 
 export const roadmapGenerationResponseSchema = z.object({

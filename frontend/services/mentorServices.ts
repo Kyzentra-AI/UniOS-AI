@@ -1,3 +1,4 @@
+
 import { apiRequest } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 
@@ -21,6 +22,8 @@ export interface MentorChatResponse {
   createdAt?: string;
 }
 
+const MENTOR_CHAT_TIMEOUT = 45_000;
+
 export async function sendMentorMessage(
   payload: SendMentorMessagePayload,
 ): Promise<MentorChatResponse> {
@@ -39,6 +42,9 @@ export async function sendMentorMessage(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+    },
+    {
+      timeoutMs: MENTOR_CHAT_TIMEOUT,
     },
   );
 }

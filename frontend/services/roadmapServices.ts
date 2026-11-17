@@ -1,3 +1,4 @@
+
 import { apiRequest } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 
@@ -11,6 +12,11 @@ import type {
   RoadmapRequest,
   RoadmapResponse,
 } from '@/types/roadmap';
+
+export interface CurrentRoadmapParams {
+  subject?: string | null;
+  scope?: string | null;
+}
 
 function getAuthHeaders(): HeadersInit {
   const accessToken = getAccessToken();
@@ -45,10 +51,28 @@ export async function generateRoadmap(
   );
 }
 
-export async function getCurrentRoadmap(): Promise<RoadmapResponse> {
+export async function getCurrentRoadmap(
+  params: CurrentRoadmapParams = {}
+): Promise<RoadmapResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params.subject) {
+    searchParams.set('subject', params.subject);
+  }
+
+  if (params.scope) {
+    searchParams.set('scope', params.scope);
+  }
+
+  const queryString = searchParams.toString();
+
+  const endpoint = queryString
+    ? `/api/v1/roadmaps/current?${queryString}`
+    : '/api/v1/roadmaps/current';
+
   const response =
     await apiRequest<RoadmapResponse>(
-      '/api/v1/roadmaps/current',
+      endpoint,
       {
         method: 'GET',
         headers: getAuthHeaders(),

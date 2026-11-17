@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -22,10 +23,13 @@ import type {
 
 const primaryBtn =
   'inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2';
+
 const ghostBtn =
   'inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--primary)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]';
+
 const fieldClass =
   'w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--primary)] focus:shadow-[0_0_0_4px_var(--primary-soft)]';
+
 const card =
   'rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_28px_rgba(24,52,58,0.04)]';
 
@@ -47,6 +51,58 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
+function ProcessingStages({
+  activeIndex,
+  steps,
+}: {
+  activeIndex: number;
+  steps: string[];
+}) {
+  return (
+    <div className="mt-7 border-t border-[var(--border)] pt-6">
+      <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        Processing stages · Indicative
+      </p>
+
+      <ol className="space-y-4">
+        {steps.map((step, index) => {
+          const active = index === activeIndex;
+
+          return (
+            <li key={step} className="flex items-center gap-3">
+              <span
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all duration-300 ${
+                  active
+                    ? 'border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]'
+                    : 'border-[var(--border)] text-[var(--text-muted)]'
+                }`}
+              >
+                {active ? (
+                  <span className="h-3 w-3 animate-pulse rounded-full bg-[var(--primary)]" />
+                ) : (
+                  <span className="text-xs font-semibold">
+                    {index + 1}
+                  </span>
+                )}
+              </span>
+
+              <span
+                className={`text-sm transition-colors ${
+                  active
+                    ? 'font-semibold text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)]'
+                }`}
+              >
+                {step}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 export default function Syllabus() {
   const router = useRouter();
 
@@ -62,9 +118,11 @@ export default function Syllabus() {
   const [editedContent, setEditedContent] =
     useState<ParsedSyllabusContent | null>(null);
 
-  // Presentation only: which subject rows are expanded.
   const [openSubjects, setOpenSubjects] =
     useState<Record<number, boolean>>({});
+
+  const [processingStage, setProcessingStage] =
+    useState(0);
 
   const {
     uploadSyllabus,
@@ -98,11 +156,6 @@ export default function Syllabus() {
     generateError,
   } = useRoadmap();
 
-  /*
-   * When the backend reaches WAITING_FOR_CONFIRMATION
-   * and syllabus data becomes available, initialize
-   * the editable local form.
-   */
   useEffect(() => {
     if (!syllabus?.parsed_content) {
       return;
@@ -124,9 +177,7 @@ export default function Syllabus() {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setActionError(
-        'Please select a syllabus file.'
-      );
+      setActionError('Please select a syllabus file.');
       return;
     }
 
@@ -312,10 +363,6 @@ export default function Syllabus() {
     try {
       setActionError(null);
 
-      /*
-       * Save the latest edits first.
-       * Then finalize the syllabus.
-       */
       if (editedContent) {
         await updateParsedContent({
           id: syllabusId,
@@ -408,9 +455,21 @@ export default function Syllabus() {
   const isFailed =
     status === 'FAILED';
 
-  /*
-   * Initial upload screen
-   */
+  useEffect(() => {
+    if (!isProcessing) {
+      setProcessingStage(0);
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setProcessingStage((current) =>
+        (current + 1) % 3
+      );
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [isProcessing]);
+
   if (!syllabusId) {
     return (
       <main className="min-h-screen bg-[var(--background)] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -428,7 +487,10 @@ export default function Syllabus() {
           </header>
 
           <div className="grid gap-8 lg:grid-cols-[1fr_1.15fr] lg:items-start lg:gap-12">
-            <section className={`rise ${card} p-5 sm:p-7 lg:order-last`} style={stagger(1)}>
+            <section
+              className={`rise ${card} p-5 sm:p-7 lg:order-last`}
+              style={stagger(1)}
+            >
               <h2 className="text-lg font-semibold text-[var(--text-primary)]">
                 Syllabus
               </h2>
@@ -449,7 +511,9 @@ export default function Syllabus() {
                 </div>
 
                 <p className="font-medium text-[var(--text-primary)]">
-                  {selectedFile ? 'Choose a different file' : 'Upload your syllabus'}
+                  {selectedFile
+                    ? 'Choose a different file'
+                    : 'Upload your syllabus'}
                 </p>
 
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -497,21 +561,40 @@ export default function Syllabus() {
                 </div>
               )}
 
-              <div className="mt-6 flex sm:justify-end">
-                <button
-                  type="button"
-                  onClick={handleUpload}
-                  disabled={
-                    !selectedFile ||
-                    isUploading
-                  }
-                  className={`${primaryBtn} w-full sm:w-auto`}
-                >
-                  {isUploading && <Spinner />}
-                  {isUploading
-                    ? 'Uploading...'
-                    : 'Upload syllabus'}
-                </button>
+              <div className="mt-6">
+                {isUploading && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Spinner />
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
+                          Uploading your PDF
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                          Sending your syllabus for processing...
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={handleUpload}
+                    disabled={!selectedFile || isUploading}
+                    className={`${primaryBtn} w-full sm:w-auto`}
+                  >
+                    {isUploading && <Spinner />}
+                    {isUploading
+                      ? 'Uploading...'
+                      : 'Upload syllabus'}
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -520,17 +603,37 @@ export default function Syllabus() {
                 aria-hidden="true"
                 className="line-grow absolute bottom-8 left-[14px] top-8 w-px bg-[var(--border)]"
               />
+
               {[
-                ['Upload your syllabus', 'A PDF of your course outline.'],
-                ['Review what we found', 'Check the subjects and topics, and fix anything that is off.'],
-                ['Generate your roadmap', 'Missions are built from the topics you confirm.'],
+                [
+                  'Upload your syllabus',
+                  'A PDF of your course outline.',
+                ],
+                [
+                  'Review what we found',
+                  'Check the subjects and topics, and fix anything that is off.',
+                ],
+                [
+                  'Generate your roadmap',
+                  'Missions are built from the topics you confirm.',
+                ],
               ].map(([title, text], i) => (
-                <li key={title} className="relative pb-6 pl-11 last:pb-0" style={stagger(i)}>
+                <li
+                  key={title}
+                  className="relative pb-6 pl-11 last:pb-0"
+                  style={stagger(i)}
+                >
                   <span className="absolute left-0 top-0">
                     <Node state="idle">{i + 1}</Node>
                   </span>
-                  <p className="pt-1 text-sm font-semibold text-[var(--text-primary)]">{title}</p>
-                  <p className="mt-0.5 text-sm leading-6 text-[var(--text-secondary)]">{text}</p>
+
+                  <p className="pt-1 text-sm font-semibold text-[var(--text-primary)]">
+                    {title}
+                  </p>
+
+                  <p className="mt-0.5 text-sm leading-6 text-[var(--text-secondary)]">
+                    {text}
+                  </p>
                 </li>
               ))}
             </ol>
@@ -540,9 +643,6 @@ export default function Syllabus() {
     );
   }
 
-  /*
-   * Processing screen
-   */
   if (isProcessing) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10 sm:px-6">
@@ -552,47 +652,54 @@ export default function Syllabus() {
           className={`rise w-full max-w-lg ${card} p-6 sm:p-8`}
         >
           <div className="flex items-center gap-4">
-            <span className="h-9 w-9 shrink-0 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--primary-soft)]">
+              <FileText
+                size={20}
+                className="animate-pulse text-[var(--primary)]"
+              />
+            </span>
+
             <div>
               <h1 className="text-xl font-semibold text-[var(--text-primary)]">
                 Processing your syllabus
               </h1>
 
               <p className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-                We are extracting your subjects and
-                topics. This may take a little while.
+                Your PDF is being analyzed. Larger syllabi may take a little longer.
               </p>
             </div>
           </div>
 
-          <div className="mt-6 space-y-3 border-t border-[var(--border)] pt-6" aria-hidden="true">
-            {[0, 1, 2].map((n) => (
-              <div key={n} className="flex items-center gap-3">
-                <div className="skeleton h-8 w-8 shrink-0 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <div className="skeleton h-4 w-2/3 rounded-md" />
-                  <div className="skeleton h-3 w-full rounded-md" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <ProcessingStages
+            activeIndex={processingStage}
+            steps={[
+              'Reading and analyzing your PDF',
+              'Extracting subjects and topics',
+              'Preparing your syllabus review',
+            ]}
+          />
+
+          <p className="mt-5 text-xs text-[var(--text-muted)]">
+            These are indicative stages. Actual progress is determined by the syllabus processing service.
+          </p>
         </div>
       </main>
     );
   }
 
-  /*
-   * Failed processing
-   */
   if (isFailed) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10 sm:px-6">
-        <div role="alert" className={`rise w-full max-w-lg ${card} p-6 sm:p-8`}>
+        <div
+          role="alert"
+          className={`rise w-full max-w-lg ${card} p-6 sm:p-8`}
+        >
           <div className="flex items-center gap-2.5">
             <span
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ backgroundColor: 'var(--danger)' }}
             />
+
             <h1 className="text-xl font-semibold text-[var(--text-primary)]">
               Syllabus processing failed
             </h1>
@@ -625,13 +732,12 @@ export default function Syllabus() {
     );
   }
 
-  /*
-   * Confirmed screen
-   */
   if (isConfirmed) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10 sm:px-6">
-        <div className={`rise w-full max-w-md ${card} p-6 text-center sm:p-8`}>
+        <div
+          className={`rise w-full max-w-md ${card} p-6 text-center sm:p-8`}
+        >
           <span className="pop mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--primary)] text-white">
             <Check size={26} strokeWidth={2.5} />
           </span>
@@ -667,22 +773,25 @@ export default function Syllabus() {
     );
   }
 
-  /*
-   * Parsed syllabus / confirmation screen
-   */
   const subjectCount = editedContent?.subjects.length ?? 0;
+
   const topicCount =
     editedContent?.subjects.reduce(
       (total, subject) =>
-        total + subject.topics.filter((topic) => topic.trim()).length,
+        total +
+        subject.topics.filter((topic) => topic.trim()).length,
       0
     ) ?? 0;
+
   const isSubjectOpen = (index: number) =>
     openSubjects[index] ?? subjectCount <= 3;
+
   const setAllOpen = (value: boolean) =>
     setOpenSubjects(
       Object.fromEntries(
-        (editedContent?.subjects ?? []).map((_, index) => [index, value])
+        (editedContent?.subjects ?? []).map(
+          (_, index) => [index, value]
+        )
       )
     );
 
@@ -710,9 +819,13 @@ export default function Syllabus() {
             <p className="text-sm text-[var(--text-secondary)]">
               Loading extracted syllabus...
             </p>
+
             <div className="mt-5 space-y-3" aria-hidden="true">
               {[0, 1, 2, 3].map((n) => (
-                <div key={n} className="skeleton h-14 w-full rounded-2xl" />
+                <div
+                  key={n}
+                  className="skeleton h-14 w-full rounded-2xl"
+                />
               ))}
             </div>
           </section>
@@ -720,9 +833,13 @@ export default function Syllabus() {
           <section>
             <div className="rise mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <p className="text-sm text-[var(--text-secondary)]">
-                <span className="font-semibold text-[var(--text-primary)]">{subjectCount}</span>{' '}
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {subjectCount}
+                </span>{' '}
                 {subjectCount === 1 ? 'subject' : 'subjects'} ·{' '}
-                <span className="font-semibold text-[var(--text-primary)]">{topicCount}</span>{' '}
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {topicCount}
+                </span>{' '}
                 {topicCount === 1 ? 'topic' : 'topics'}
               </p>
 
@@ -735,6 +852,7 @@ export default function Syllabus() {
                   >
                     Expand all
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setAllOpen(false)}
@@ -753,7 +871,10 @@ export default function Syllabus() {
                   subjectIndex
                 ) => {
                   const open = isSubjectOpen(subjectIndex);
-                  const filled = subject.topics.filter((topic) => topic.trim());
+
+                  const filled = subject.topics.filter(
+                    (topic) => topic.trim()
+                  );
 
                   return (
                     <li
@@ -783,6 +904,7 @@ export default function Syllabus() {
                               <span className="block truncate font-semibold text-[var(--text-primary)]">
                                 {subject.name || 'Untitled subject'}
                               </span>
+
                               <span className="mt-0.5 block truncate text-xs text-[var(--text-secondary)]">
                                 {filled.length
                                   ? `${filled.length} ${filled.length === 1 ? 'topic' : 'topics'} · ${filled.slice(0, 3).join(', ')}${filled.length > 3 ? '…' : ''}`
@@ -800,9 +922,7 @@ export default function Syllabus() {
                           <button
                             type="button"
                             onClick={() =>
-                              handleRemoveSubject(
-                                subjectIndex
-                              )
+                              handleRemoveSubject(subjectIndex)
                             }
                             className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                             aria-label="Remove subject"
@@ -815,7 +935,9 @@ export default function Syllabus() {
                           id={`subject-panel-${subjectIndex}`}
                           inert={!open}
                           className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                            open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                            open
+                              ? 'grid-rows-[1fr]'
+                              : 'grid-rows-[0fr]'
                           }`}
                         >
                           <div className="overflow-hidden">
@@ -823,6 +945,7 @@ export default function Syllabus() {
                               <div>
                                 <label className="text-xs font-medium text-[var(--text-muted)]">
                                   Subject
+
                                   <input
                                     value={subject.name}
                                     onChange={(event) =>
@@ -845,9 +968,7 @@ export default function Syllabus() {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      handleAddTopic(
-                                        subjectIndex
-                                      )
+                                      handleAddTopic(subjectIndex)
                                     }
                                     className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-[var(--primary)] transition hover:bg-[var(--primary-soft)]"
                                   >
@@ -858,10 +979,7 @@ export default function Syllabus() {
 
                                 <div className="space-y-2">
                                   {subject.topics.map(
-                                    (
-                                      topic,
-                                      topicIndex
-                                    ) => (
+                                    (topic, topicIndex) => (
                                       <div
                                         key={topicIndex}
                                         className="flex items-center gap-2"
@@ -924,7 +1042,10 @@ export default function Syllabus() {
 
             <div className="sticky bottom-3 z-10 mt-6 flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_10px_30px_rgba(24,52,58,0.12)] sm:flex-row sm:items-center sm:justify-between sm:pl-5">
               <p className="hidden text-sm text-[var(--text-secondary)] sm:block">
-                {subjectCount} {subjectCount === 1 ? 'subject' : 'subjects'} · {topicCount} {topicCount === 1 ? 'topic' : 'topics'}
+                {subjectCount}{' '}
+                {subjectCount === 1 ? 'subject' : 'subjects'} ·{' '}
+                {topicCount}{' '}
+                {topicCount === 1 ? 'topic' : 'topics'}
               </p>
 
               <div className="flex flex-col gap-2 sm:flex-row">

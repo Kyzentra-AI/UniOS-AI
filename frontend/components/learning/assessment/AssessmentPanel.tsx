@@ -17,6 +17,7 @@ interface AssessmentPanelProps {
   isLoading?: boolean;
   loadError?: string | null;
   onRetry?: () => void;
+  onRetake?: () => void;
 }
 
 const card =
@@ -33,6 +34,7 @@ export default function AssessmentPanel({
   isLoading = false,
   loadError = null,
   onRetry,
+  onRetake,
 }: AssessmentPanelProps) {
   if (isLoading) {
     return (
@@ -123,6 +125,7 @@ export default function AssessmentPanel({
       topic={topic}
       sessionId={sessionId}
       lessonTitle={lesson.title}
+      onRetake={onRetake}
     />
   );
 }
@@ -132,11 +135,13 @@ function AssessmentForm({
   topic,
   sessionId,
   lessonTitle,
+  onRetake,
 }: {
   assessment: Assessment;
   topic: string;
   sessionId?: string;
   lessonTitle: string;
+  onRetake?: () => void;
 }) {
   const {
     currentQuestionIndex,
@@ -246,6 +251,23 @@ function AssessmentForm({
               </pre>
             </details>
           )}
+
+        {onRetake && (
+          <div className="mt-7 border-t border-[var(--border)] pt-5">
+            <p className="text-sm leading-6 text-[var(--text-secondary)]">
+              Want to test your understanding again? Generate a fresh set
+              of questions for this lesson.
+            </p>
+
+            <button
+              type="button"
+              onClick={onRetake}
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+            >
+              Retake Assessment
+            </button>
+          </div>
+        )}
       </section>
     );
   }
@@ -374,7 +396,13 @@ function AssessmentForm({
                   ? 'Type your response...'
                   : 'Write your answer...'
             }
-            rows={currentQuestion.type === 'case-study' ? 6 : currentQuestion.type === 'viva' ? 4 : 5}
+            rows={
+              currentQuestion.type === 'case-study'
+                ? 6
+                : currentQuestion.type === 'viva'
+                  ? 4
+                  : 5
+            }
             className={answerField}
           />
         )}

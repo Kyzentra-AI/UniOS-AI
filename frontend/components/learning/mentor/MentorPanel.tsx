@@ -2,19 +2,23 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-import type { Lesson } from '@/types/learning';
 import type {
   MentorMessage,
   MentorMode,
 } from '@/types/mentor';
 
 import { sendMentorMessage } from '@/services/mentorServices';
+import type { Lesson, LessonBlock } from '@/types/learning';
 
 interface MentorPanelProps {
   lesson: Lesson;
   roadmapId?: string;
   missionId?: string;
+  currentBlockIndex: number;
+  subject: string;
 }
 
 const modes: {
@@ -44,10 +48,30 @@ const modes: {
   },
 ];
 
+function getStepContent(block?: LessonBlock): string {
+  if (!block) return '';
+
+  const parts = [
+    block.content && `Content:\n${block.content}`,
+    block.code &&
+      `Code (${block.language || 'text'}):\n${block.code}`,
+    block.caption && `Caption:\n${block.caption}`,
+    block.url && `Resource URL:\n${block.url}`,
+    block.options?.length &&
+      `Options:\n${block.options
+        .map((option, index) => `${index + 1}. ${option}`)
+        .join('\n')}`,
+  ].filter(Boolean);
+
+  return parts.join('\n\n');
+}
+
 export default function MentorPanel({
   lesson,
   roadmapId,
   missionId,
+  currentBlockIndex,
+  subject,
 }: MentorPanelProps) {
   const [mode, setMode] = useState<MentorMode>('tutor');
   const [messages, setMessages] = useState<MentorMessage[]>([]);
@@ -61,6 +85,12 @@ export default function MentorPanel({
   const listRef = useRef<HTMLDivElement>(null);
 
   const currentMode = modes.find((item) => item.id === mode);
+  const currentBlock = lesson.blocks[currentBlockIndex];
+
+  const stepTitle =
+    currentBlock?.title || `Section ${currentBlockIndex + 1}`;
+
+  const stepContent = getStepContent(currentBlock);
 
   useEffect(() => {
     const el = listRef.current;
@@ -107,6 +137,13 @@ export default function MentorPanel({
           topic: lesson.title,
           roadmapId,
           missionId,
+
+          // Current step context
+          stepIndex: currentBlockIndex + 1,
+          stepTitle,
+          stepContent,
+          totalSteps: lesson.blocks.length,
+          subject,
         },
         history,
         conversationId,
@@ -206,6 +243,12 @@ export default function MentorPanel({
             </p>
 
             <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+              Section {currentBlockIndex + 1} of {lesson.blocks.length}
+              {' · '}
+              {stepTitle}
+            </p>
+
+            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
               Mode: {currentMode?.label}
             </p>
           </div>
@@ -217,7 +260,7 @@ export default function MentorPanel({
           role="log"
           aria-live="polite"
           aria-label="Conversation with your mentor"
-          className="h-[min(60vh,440px)] min-h-[300px] space-y-4 overflow-y-auto p-4 sm:p-5"
+          className="min-h-[300px] max-h-[70vh] space-y-4 overflow-y-auto p-4 sm:p-5"
         >
           {messages.length === 0 && (
             <div className="flex min-h-[240px] items-center justify-center">
@@ -231,7 +274,7 @@ export default function MentorPanel({
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                  Ask a question about {lesson.title}, request an
+                  Ask a question about {stepTitle}, request an
                   explanation, or get help planning your next steps.
                 </p>
               </div>
@@ -241,22 +284,53 @@ export default function MentorPanel({
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`rise flex ${
+              className={`rise flex min-w-0 ${
                 message.role === 'user'
                   ? 'justify-end'
                   : 'justify-start'
               }`}
             >
               <div
-                className={`max-w-[92%] px-4 py-3 sm:max-w-[88%] ${
+                className={`min-w-0 max-w-[96%] break-words px-4 py-3 sm:max-w-[92%] ${
                   message.role === 'user'
                     ? 'rounded-2xl rounded-br-md bg-[var(--primary)] text-white'
                     : 'rounded-2xl rounded-bl-md border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-primary)]'
                 }`}
               >
-                <p className="whitespace-pre-wrap break-words text-sm leading-6">
-                  {message.content}
-                </p>
+                {message.role === 'mentor' ? (
+                  <div
+                    className={[
+                      'min-w-0 max-w-full text-sm leading-6',
+                      '[&_p]:my-2',
+                      '[&_h1]:mb-2 [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-bold',
+                      '[&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-bold',
+                      '[&_h3]:mb-2 [&_h3]:mt-3 [&_h3]:text-sm [&_h3]:font-bold',
+                      '[&_strong]:font-semibold',
+                      '[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5',
+                      '[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5',
+                      '[&_li]:my-1',
+                      '[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--primary)] [&_blockquote]:pl-3 [&_blockquote]:italic',
+                      '[&_a]:break-all [&_a]:text-[var(--feature-blue)] [&_a]:underline',
+                      '[&_hr]:my-4 [&_hr]:border-[var(--border)]',
+                      '[&_pre]:my-3 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-[var(--surface)] [&_pre]:p-3',
+                      '[&_code]:break-words [&_code]:rounded [&_code]:bg-[var(--surface)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs',
+                      '[&_pre_code]:break-normal [&_pre_code]:bg-transparent [&_pre_code]:p-0',
+                      '[&_table]:w-full [&_table]:min-w-max [&_table]:border-collapse [&_table]:text-left [&_table]:text-xs',
+                      '[&_th]:border [&_th]:border-[var(--border)] [&_th]:bg-[var(--surface)] [&_th]:p-2 [&_th]:font-semibold',
+                      '[&_td]:border [&_td]:border-[var(--border)] [&_td]:p-2',
+                    ].join(' ')}
+                  >
+                    <div className="max-w-full overflow-x-auto">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap break-words text-sm leading-6">
+                    {message.content}
+                  </p>
+                )}
               </div>
             </div>
           ))}

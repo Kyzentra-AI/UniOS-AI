@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -11,15 +12,35 @@ import {
   getCurrentRoadmap,
 } from '@/services/roadmapServices';
 
+import type {
+  CurrentRoadmapParams,
+} from '@/services/roadmapServices';
+
 import type { RoadmapRequest } from '@/types/roadmap';
 
-export function useRoadmap() {
+export function useRoadmap(
+  params: CurrentRoadmapParams = {}
+) {
   const queryClient = useQueryClient();
 
-  const roadmapQuery = useQuery({
-    queryKey: ['roadmap', 'current'],
-    queryFn: getCurrentRoadmap,
+  const subject = params.subject || null;
+  const scope = params.scope || null;
 
+  const roadmapQuery = useQuery({
+    queryKey: [
+      'roadmap',
+      'current',
+      subject ?? 'ALL',
+      scope ?? 'ALL',
+    ],
+
+    queryFn: () =>
+      getCurrentRoadmap({
+        subject,
+        scope,
+      }),
+
+    // Preserve the existing generation polling behavior.
     refetchInterval: (query) => {
       const roadmap = query.state.data?.roadmap;
 
@@ -45,6 +66,12 @@ export function useRoadmap() {
   return {
     roadmap: roadmapQuery.data?.roadmap ?? null,
 
+    availableSubjects:
+      roadmapQuery.data?.available_subjects ?? [],
+
+    activeSubject:
+      roadmapQuery.data?.active_subject ?? 'ALL',
+
     isLoading: roadmapQuery.isLoading,
     isFetching: roadmapQuery.isFetching,
     isError: roadmapQuery.isError,
@@ -54,8 +81,10 @@ export function useRoadmap() {
 
     generateRoadmap:
       generateMutation.mutateAsync,
+
     isGenerating:
       generateMutation.isPending,
+
     generateError:
       generateMutation.error,
   };

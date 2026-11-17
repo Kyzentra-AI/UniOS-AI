@@ -1,3 +1,4 @@
+
 import { apiRequest } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 
@@ -75,6 +76,9 @@ export function getKIEQuestions() {
     {
       method: 'GET',
       headers: getAuthHeaders(),
+    },
+    {
+      timeoutMs: 15000,
     }
   );
 }
@@ -88,6 +92,9 @@ export function submitKIEAnswers(
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
+    },
+    {
+      timeoutMs: 15000,
     }
   );
 }

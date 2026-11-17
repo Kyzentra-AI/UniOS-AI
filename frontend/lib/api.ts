@@ -67,6 +67,75 @@ export class ApiError extends Error {
   }
 }
 
+// Request timeout error
+export class ApiTimeoutError extends Error {
+  timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(
+      `Request timed out after ${timeoutMs / 1000} seconds.`
+    );
+
+    this.name = 'ApiTimeoutError';
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+// Fetch with optional per-request timeout
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs?: number
+): Promise<Response> {
+  if (!timeoutMs) {
+    return fetch(url, options);
+  }
+
+  const controller = new AbortController();
+  const originalSignal = options.signal;
+
+  let timedOut = false;
+
+  const abortFromOriginal = () => {
+    controller.abort(originalSignal?.reason);
+  };
+
+  if (originalSignal?.aborted) {
+    abortFromOriginal();
+  } else {
+    originalSignal?.addEventListener(
+      'abort',
+      abortFromOriginal,
+      { once: true }
+    );
+  }
+
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (timedOut) {
+      throw new ApiTimeoutError(timeoutMs);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+
+    originalSignal?.removeEventListener(
+      'abort',
+      abortFromOriginal
+    );
+  }
+}
+
 // API error message parser
 function getApiErrorMessage(data: unknown): string {
   const fallback = 'Something went wrong. Please try again.';
@@ -97,11 +166,17 @@ function getApiErrorMessage(data: unknown): string {
       .join('\n');
   }
 
-  if (typeof errorData.detail === 'string' && errorData.detail.trim()) {
+  if (
+    typeof errorData.detail === 'string' &&
+    errorData.detail.trim()
+  ) {
     return errorData.detail;
   }
 
-  if (typeof errorData.message === 'string' && errorData.message.trim()) {
+  if (
+    typeof errorData.message === 'string' &&
+    errorData.message.trim()
+  ) {
     return errorData.message;
   }
 
@@ -115,21 +190,26 @@ export async function apiRequest<T>(
   config: {
     skipRefresh?: boolean;
     responseType?: 'json' | 'blob';
+    timeoutMs?: number;
   } = {}
 ): Promise<T> {
   const makeRequest = async (accessToken?: string) => {
-    return fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        ...(options.body instanceof FormData
-          ? {}
-          : { 'Content-Type': 'application/json' }),
-        ...options.headers,
-        ...(accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : {}),
+    return fetchWithTimeout(
+      `${API_URL}${endpoint}`,
+      {
+        ...options,
+        headers: {
+          ...(options.body instanceof FormData
+            ? {}
+            : { 'Content-Type': 'application/json' }),
+          ...options.headers,
+          ...(accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {}),
+        },
       },
-    });
+      config.timeoutMs
+    );
   };
 
   const session = getSession();
@@ -143,13 +223,14 @@ export async function apiRequest<T>(
 
     if (!refreshToken) {
       clearSession();
+
       throw new Error(
         'Your session has expired. Please log in again.'
       );
     }
 
     try {
-      const refreshResponse = await fetch(
+      const refreshResponse = await fetchWithTimeout(
         `${API_URL}/api/v1/auth/refresh`,
         {
           method: 'POST',
@@ -159,7 +240,8 @@ export async function apiRequest<T>(
           body: JSON.stringify({
             refresh_token: refreshToken,
           }),
-        }
+        },
+        config.timeoutMs
       );
 
       const refreshData = await refreshResponse
@@ -171,6 +253,7 @@ export async function apiRequest<T>(
         !refreshData?.session?.access_token
       ) {
         clearSession();
+
         throw new Error(
           'Your session has expired. Please log in again.'
         );
@@ -191,6 +274,11 @@ export async function apiRequest<T>(
 
       response = await makeRequest(newSession.access_token);
     } catch (error) {
+      // A timeout does not mean the session is invalid.
+      if (error instanceof ApiTimeoutError) {
+        throw error;
+      }
+
       clearSession();
 
       if (error instanceof Error) {
@@ -463,6 +551,27 @@ export const checkResetPasswordMFAStatus = (
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+    }
+  );
+};
+
+
+export interface OAuthCallbackResponse {
+  message: string;
+  session: {
+    access_token: string;
+    refresh_token?: string;
+    expires_in?: number;
+    token_type?: string;
+  };
+  user?: unknown;
+}
+
+export const exchangeOAuthCode = (code: string) => {
+  return apiRequest<OAuthCallbackResponse>(
+    `/api/v1/auth/callback?code=${encodeURIComponent(code)}`,
+    {
+      method: 'GET',
     }
   );
 };

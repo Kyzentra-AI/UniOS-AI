@@ -1,100 +1,129 @@
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { saveSession } from '@/lib/auth';
-import { checkResetPasswordMFAStatus } from '@/lib/api';
+import {
+  checkResetPasswordMFAStatus,
+  exchangeOAuthCode,
+} from '@/lib/api';
+
+interface AuthSession {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  token_type?: string;
+}
 
 export default function AuthCallbackPage() {
   const router = useRouter();
 
   const [error, setError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(true);
+
+  // Prevent duplicate callback processing in React Strict Mode.
+  const callbackStarted = useRef(false);
 
   useEffect(() => {
+    if (callbackStarted.current) return;
+    callbackStarted.current = true;
+
     const handleCallback = async () => {
       try {
-        const hash = window.location.hash;
+        const url = new URL(window.location.href);
 
-        if (!hash) {
-          setError(
-            'Authentication session was not returned by the provider.'
-          );
-          return;
-        }
+        const queryParams = url.searchParams;
+        const hashParams = new URLSearchParams(
+          url.hash.startsWith('#') ? url.hash.substring(1) : url.hash
+        );
 
-        const params = new URLSearchParams(hash.substring(1));
+        // Read OAuth errors from both query parameters and hash.
+        const authError =
+          queryParams.get('error_description') ||
+          queryParams.get('error') ||
+          hashParams.get('error_description') ||
+          hashParams.get('error');
 
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        const expiresIn = params.get('expires_in');
-        const tokenType = params.get('token_type');
+        const authCode = queryParams.get('code');
 
-        if (!accessToken) {
-          const authError =
-            params.get('error_description') ||
-            params.get('error') ||
-            'Authentication session was not returned by the provider.';
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const expiresIn = hashParams.get('expires_in');
+        const tokenType = hashParams.get('token_type');
 
-          setError(authError);
-          return;
-        }
-
-        // Check whether this Google account already has MFA enabled.
-        const mfaStatus = await checkResetPasswordMFAStatus(accessToken);
-
-        // Remove OAuth tokens from the address bar.
+        // Remove OAuth parameters and tokens from the address bar.
         window.history.replaceState(
           {},
           document.title,
-          '/auth/callback'
+          window.location.pathname
+        );
+
+        if (authError) {
+          throw new Error(authError);
+        }
+
+        let session: AuthSession;
+
+        // Flow 1: Authorization code returned by the OAuth provider.
+        if (authCode) {
+          const response = await exchangeOAuthCode(authCode);
+
+          if (!response.session?.access_token) {
+            throw new Error(
+              'The authentication provider did not return a valid session.'
+            );
+          }
+
+          session = response.session;
+        }
+        // Flow 2: Tokens returned directly in the URL hash.
+        else if (accessToken) {
+          session = {
+            access_token: accessToken,
+            refresh_token: refreshToken || undefined,
+            expires_in: expiresIn ? Number(expiresIn) : undefined,
+            token_type: tokenType || 'bearer',
+          };
+        } else {
+          throw new Error(
+            'Authentication session was not returned by the provider. Please try again.'
+          );
+        }
+
+        // Check whether this account already has MFA enabled.
+        const mfaStatus = await checkResetPasswordMFAStatus(
+          session.access_token
         );
 
         if (mfaStatus.requires_mfa) {
-          // MFA is already configured.
-          // Do NOT create the final session yet.
-          sessionStorage.setItem(
-            'mfa_user_id',
-            mfaStatus.user_id
-          );
-
+          sessionStorage.setItem('mfa_user_id', mfaStatus.user_id);
           sessionStorage.setItem(
             'mfa_access_token',
-            accessToken
+            session.access_token
           );
-
-          // Social login currently has no "Remember me" option,
-          // so use the same default as normal login.
-          sessionStorage.setItem(
-            'mfa_remember_me',
-            'false'
-          );
+          sessionStorage.setItem('mfa_remember_me', 'false');
 
           router.replace('/mfa-verify');
           return;
         }
 
-        // MFA is not configured yet.
-        saveSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || undefined,
-          expires_in: expiresIn ? Number(expiresIn) : undefined,
-          token_type: tokenType || 'bearer',
-        });
+        // Save the session using the existing authentication helper.
+        saveSession(session, false);
 
         router.replace('/mfa-enroll');
       } catch (err) {
-        
-
         setError(
           err instanceof Error
             ? err.message
-            : 'Unable to complete authentication.'
+            : 'Unable to complete authentication. Please try again.'
         );
+        setIsProcessing(false);
       }
     };
 
-    handleCallback();
+    void handleCallback();
   }, [router]);
 
   if (error) {
@@ -105,16 +134,19 @@ export default function AuthCallbackPage() {
             Authentication failed
           </h1>
 
-          <p className="mt-3 text-sm text-[var(--text-secondary)]">
+          <div
+            role="alert"
+            className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
             {error}
-          </p>
+          </div>
 
           <button
             type="button"
             onClick={() => router.replace('/login')}
             className="mt-6 bg-[var(--primary)] text-white px-5 py-3 rounded-xl"
           >
-            Back to login
+            Try again
           </button>
         </div>
       </main>
@@ -124,7 +156,7 @@ export default function AuthCallbackPage() {
   return (
     <main className="min-h-screen flex items-center justify-center">
       <p className="text-sm text-[var(--text-secondary)]">
-        Completing authentication...
+        {isProcessing ? 'Completing authentication...' : 'Please wait...'}
       </p>
     </main>
   );
