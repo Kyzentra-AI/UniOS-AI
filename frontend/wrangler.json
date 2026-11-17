@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "unios-ai",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "pages_build_output_dir": ".next",
+  "vars": {
+    "NEXT_PUBLIC_API_URL": "https://unios-ai.onrender.com"
+  }
+}
+
