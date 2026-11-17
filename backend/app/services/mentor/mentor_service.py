@@ -59,26 +59,128 @@ class MentorService:
         return f"I'm here to assist you with {topic_label}. What specific aspect would you like to explore?"
 
     @staticmethod
+    def _resolve_step_context_fallback(
+        learner_id: str,
+        chat_request: MentorChatRequest,
+    ) -> Dict[str, Any]:
+        """
+        Server-Side Fallback Resolution (Web BUG-05).
+        If client omitted stepIndex or stepContent, look up the active
+        public.learning_sessions row using (learner_id, lesson_id) or (learner_id, mission_id).
+        """
+        ctx_dict = chat_request.context.model_dump(by_alias=True) if chat_request.context else {}
+
+        has_step = bool(ctx_dict.get("stepIndex") is not None or ctx_dict.get("step_index") is not None)
+        has_content = bool(ctx_dict.get("stepContent") or ctx_dict.get("step_content"))
+
+        lesson_id = ctx_dict.get("lessonId") or ctx_dict.get("lesson_id")
+        mission_id = ctx_dict.get("missionId") or ctx_dict.get("mission_id")
+
+        if (not has_step or not has_content) and (lesson_id or mission_id):
+            try:
+                query = supabase_admin.table("learning_sessions").select("*").eq("learner_id", learner_id)
+                if lesson_id:
+                    query = query.eq("lesson_id", lesson_id)
+                elif mission_id:
+                    query = query.eq("mission_id", mission_id)
+                session_res = query.order("updated_at", desc=True).limit(1).execute()
+
+                if session_res and isinstance(session_res.data, list) and session_res.data:
+                    session = session_res.data[0]
+                    lesson_data = session.get("lesson_data") or {}
+                    blocks = lesson_data.get("blocks", []) if isinstance(lesson_data, dict) else []
+
+                    if blocks:
+                        target_block_id = (
+                            ctx_dict.get("currentBlockId")
+                            or ctx_dict.get("current_block_id")
+                            or session.get("checkpoint_block_id")
+                        )
+                        matched_idx = 0
+                        matched_block = blocks[0]
+                        for i, blk in enumerate(blocks):
+                            bid = blk.get("id") if isinstance(blk, dict) else getattr(blk, "id", None)
+                            if bid and bid == target_block_id:
+                                matched_idx = i
+                                matched_block = blk
+                                break
+
+                        b_title = matched_block.get("title") if isinstance(matched_block, dict) else getattr(matched_block, "title", None)
+                        b_content = matched_block.get("content") if isinstance(matched_block, dict) else getattr(matched_block, "content", None)
+
+                        if not has_step:
+                            ctx_dict["step_index"] = matched_idx + 1
+                            ctx_dict["stepIndex"] = matched_idx + 1
+                        if not ctx_dict.get("step_title") and not ctx_dict.get("stepTitle"):
+                            ctx_dict["step_title"] = b_title or f"Step {matched_idx + 1}"
+                            ctx_dict["stepTitle"] = b_title or f"Step {matched_idx + 1}"
+                        if not has_content:
+                            ctx_dict["step_content"] = b_content or ""
+                            ctx_dict["stepContent"] = b_content or ""
+                        if not ctx_dict.get("total_steps") and not ctx_dict.get("totalSteps"):
+                            ctx_dict["total_steps"] = len(blocks)
+                            ctx_dict["totalSteps"] = len(blocks)
+
+                    if not ctx_dict.get("subject"):
+                        subj = session.get("subject")
+                        if not subj and session.get("mission_id"):
+                            m_res = supabase_admin.table("missions").select("subject_name").eq("id", session["mission_id"]).execute()
+                            if m_res and isinstance(m_res.data, list) and m_res.data and m_res.data[0].get("subject_name"):
+                                subj = m_res.data[0]["subject_name"]
+                        if subj:
+                            ctx_dict["subject"] = subj
+            except Exception as ex:
+                logger.warning(f"Failed to resolve step context fallback: {ex}")
+
+        # Ensure canonical snake_case and camelCase aliases are present for KIE-2 / frontend
+        if "stepIndex" in ctx_dict and "step_index" not in ctx_dict:
+            ctx_dict["step_index"] = ctx_dict["stepIndex"]
+        elif "step_index" in ctx_dict and "stepIndex" not in ctx_dict:
+            ctx_dict["stepIndex"] = ctx_dict["step_index"]
+
+        if "stepTitle" in ctx_dict and "step_title" not in ctx_dict:
+            ctx_dict["step_title"] = ctx_dict["stepTitle"]
+        elif "step_title" in ctx_dict and "stepTitle" not in ctx_dict:
+            ctx_dict["stepTitle"] = ctx_dict["step_title"]
+
+        if "stepContent" in ctx_dict and "step_content" not in ctx_dict:
+            ctx_dict["step_content"] = ctx_dict["stepContent"]
+        elif "step_content" in ctx_dict and "stepContent" not in ctx_dict:
+            ctx_dict["stepContent"] = ctx_dict["step_content"]
+
+        if "totalSteps" in ctx_dict and "total_steps" not in ctx_dict:
+            ctx_dict["total_steps"] = ctx_dict["totalSteps"]
+        elif "total_steps" in ctx_dict and "totalSteps" not in ctx_dict:
+            ctx_dict["totalSteps"] = ctx_dict["total_steps"]
+
+        return ctx_dict
+
+    @staticmethod
     async def _call_kie_mentor(
         learner_id: str,
         chat_request: MentorChatRequest,
     ) -> Optional[str]:
-        """Calls the KIE AI mentor endpoint if available."""
+        """Calls the KIE AI mentor endpoint if available (Web BUG-06: 45s timeout)."""
         url = f"{settings.KIE_BASE_URL}/api/v1/kie/mentor/chat"
+        context_payload = MentorService._resolve_step_context_fallback(learner_id, chat_request)
         payload = {
             "learner_id": learner_id,
             "mode": chat_request.mode,
             "message": chat_request.message,
-            "context": chat_request.context.model_dump(by_alias=True) if chat_request.context else {},
+            "context": context_payload,
             "history": [h.model_dump() for h in chat_request.history],
         }
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            # 45s timeout to accommodate KIE-2 bumped 1800-token responses without premature cutoff
+            async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=2.0)) as client:
                 res = await client.post(url, json=payload)
                 if res.status_code == 200:
                     data = res.json()
-                    return data.get("reply")
+                    raw_reply = data.get("reply")
+                    if raw_reply is not None:
+                        # Beta BUG-02: Do not run HTML escaping or regex stripping; pass clean markdown
+                        return str(raw_reply)
         except Exception as e:
             logger.warning(f"KIE mentor chat unavailable ({e}). Using server mentor persona.")
 

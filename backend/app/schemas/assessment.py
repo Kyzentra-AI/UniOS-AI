@@ -37,6 +37,12 @@ class Assessment(BaseModel):
 class AssessmentGenerateRequest(BaseModel):
     session_id: str
     topic: str
+    unit_id: Optional[str] = None
+    subject_id: Optional[str] = None
+    unit_item_id: Optional[str] = None
+    force_retake: bool = False
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class AssessmentAnswer(BaseModel):

@@ -1,3 +1,4 @@
+import hashlib
 import httpx
 from app.core.supabase import supabase_admin
 from app.services.pdf_service import extract_text_from_pdf
@@ -10,9 +11,37 @@ logger = logging.getLogger(__name__)
 
 class SyllabusService:
     @staticmethod
-    async def process_syllabus_background(syllabus_id: str, file_bytes: bytes):
+    async def process_syllabus_background(syllabus_id: str, file_bytes: bytes, file_hash: str | None = None):
         try:
-            # 1. Extract text from PDF
+            # PERF-03: Compute file hash if not passed
+            sha256_hash = file_hash or hashlib.sha256(file_bytes).hexdigest()
+
+            # Check if this learner already has identical parsed content cached
+            doc_res = supabase_admin.table("syllabus_documents").select("learner_id").eq("id", syllabus_id).execute()
+            learner_id = doc_res.data[0]["learner_id"] if doc_res.data else None
+
+            if learner_id:
+                cached = (
+                    supabase_admin.table("syllabus_documents")
+                    .select("parsed_content")
+                    .eq("learner_id", learner_id)
+                    .eq("file_hash", sha256_hash)
+                    .neq("id", syllabus_id)
+                    .not_.is_("parsed_content", "null")
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                if cached.data and cached.data[0].get("parsed_content"):
+                    supabase_admin.table("syllabus_documents").update({
+                        "file_hash": sha256_hash,
+                        "parsed_content": cached.data[0]["parsed_content"],
+                        "status": "WAITING_FOR_CONFIRMATION"
+                    }).eq("id", syllabus_id).execute()
+                    logger.info(f"Reused cached parsed syllabus for hash {sha256_hash}")
+                    return
+
+            # 1. Extract text from PDF in memory
             text = extract_text_from_pdf(file_bytes)
             
             # 2. Call AI/ML for extraction
@@ -24,8 +53,9 @@ class SyllabusService:
             # 3. Validate response
             validated_content = ParsedContent(**parsed_data)
             
-            # 4. Save to DB
+            # 4. Save to DB with file_hash
             supabase_admin.table("syllabus_documents").update({
+                "file_hash": sha256_hash,
                 "parsed_content": validated_content.model_dump(),
                 "status": "WAITING_FOR_CONFIRMATION"
             }).eq("id", syllabus_id).execute()

@@ -132,7 +132,7 @@ async def update_onboarding(request: OnboardingRequest, current_user: dict = Dep
     return await get_onboarding_state(current_user)
 
 @router.post("/complete")
-async def complete_onboarding(current_user: dict = Depends(get_current_user)):
+async def complete_onboarding(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
     learner = _get_learner_profile(user_id)
     
@@ -140,7 +140,11 @@ async def complete_onboarding(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Onboarding not started.")
         
     if learner.get("onboarding_status") == "COMPLETED":
-        return {"message": "Onboarding already completed."}
+        return {
+            "message": "Onboarding already completed.",
+            "onboarding_completed": True,
+            "roadmap_status": "READY"
+        }
         
     academic = _get_academic_profile(learner["id"])
     prefs = _get_learning_preferences(learner["id"])
@@ -157,15 +161,27 @@ async def complete_onboarding(current_user: dict = Depends(get_current_user)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
         
-    # Mark as completed
+    # Mark as completed atomically in fast DB write (< 300ms)
     now = datetime.now(timezone.utc).isoformat()
     supabase_admin.table("learner_profiles").update({
         "onboarding_status": "COMPLETED",
         "completed_at": now,
         "updated_at": now
     }).eq("id", learner["id"]).execute()
+
+    roadmap_status = "READY"
+    try:
+        rm_res = supabase_admin.table("roadmaps").select("id, status").eq("learner_id", learner["id"]).limit(1).execute()
+        if rm_res.data:
+            roadmap_status = rm_res.data[0].get("status", "READY")
+    except Exception:
+        pass
     
-    return {"message": "Onboarding successfully completed."}
+    return {
+        "message": "Onboarding successfully completed.",
+        "onboarding_completed": True,
+        "roadmap_status": roadmap_status
+    }
 
 # =============================================================================
 # KIE Integration Endpoints

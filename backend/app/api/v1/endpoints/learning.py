@@ -69,6 +69,15 @@ async def update_checkpoint(
     session = learning_session_service.update_checkpoint(session_id, learner_id, update_in)
     return session
 
+@router.post("/sessions/{session_id}/complete", response_model=LearningSessionResponse)
+async def complete_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    learner_id = _get_learner_id(current_user["user_id"])
+    session = learning_session_service.complete_session(session_id, learner_id)
+    return session
+
 @router.post("/sessions/{session_id}/generate-lesson", response_model=Lesson)
 async def generate_lesson(
     session_id: str,

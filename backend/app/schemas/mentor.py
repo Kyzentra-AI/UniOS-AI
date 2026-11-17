@@ -25,10 +25,19 @@ class MentorMode(str, Enum):
 
 
 class MentorContext(CamelModel):
+    learner_id: Optional[str] = None
     topic: Optional[str] = None
     lesson_id: Optional[str] = None
     roadmap_id: Optional[str] = None
     mission_id: Optional[str] = None
+    current_block_id: Optional[str] = None
+
+    # New optional fields aligned with KIE-2 (commit cea1256) & Frontend Fix 2
+    step_index: Optional[int] = None
+    step_title: Optional[str] = None
+    step_content: Optional[str] = None
+    total_steps: Optional[int] = None
+    subject: Optional[str] = None
 
 
 class MentorHistoryMessage(CamelModel):

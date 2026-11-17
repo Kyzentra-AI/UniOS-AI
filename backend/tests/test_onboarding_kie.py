@@ -10,7 +10,11 @@ client = TestClient(app)
 def override_get_current_user():
     return {"user_id": "user-123", "email": "test@test.com", "role": "user", "payload": {}}
 
-app.dependency_overrides[get_current_user] = override_get_current_user
+@pytest.fixture(autouse=True)
+def setup_auth_override():
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 @pytest.fixture
 def mock_supabase_admin():
