@@ -17,6 +17,8 @@ from app.schemas.assessment import (
     MasteryStatus,
 )
 from app.services.event_service import event_service
+from app.services.content_reference_service import content_reference_service
+from app.schemas.learning import ContentReferenceQuery
 
 import logging
 logger = logging.getLogger(__name__)
@@ -110,9 +112,12 @@ class AssessmentService:
         topic: str,
         session_data: dict,
         learner_id: str,
+        subject_name: Optional[str] = None,
+        grounding_references: Optional[list] = None,
+        excluded_questions: Optional[List[str]] = None,
     ) -> Tuple[List[dict], Dict[str, str], str]:
         """
-        Attempts to generate an assessment via KIE AI engine.
+        Attempts to generate an assessment via KIE AI engine with domain grounding and retake deduplication.
         Returns (questions, answer_keys, assessment_type).
         """
         url = f"{settings.KIE_BASE_URL}/api/v1/kie/assessments/generate"
@@ -122,10 +127,19 @@ class AssessmentService:
             "session_id": session_data.get("id"),
             "lesson_id": session_data.get("lesson_id"),
             "preferred_type": "mcq",
+            "question_count": 5,
+            "difficulty": "PROFICIENT",
         }
+        if subject_name:
+            payload["subject"] = subject_name
+        if grounding_references:
+            payload["grounding_references"] = grounding_references
+        if excluded_questions:
+            payload["excluded_questions"] = excluded_questions
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            # 45s timeout to accommodate KIE-2 bumped 2200-token assessments without premature cutoff
+            async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=2.0)) as client:
                 res = await client.post(url, json=payload)
                 if res.status_code == 200:
                     data = res.json()
@@ -148,9 +162,14 @@ class AssessmentService:
         learner_id: str,
         session_id: str,
         topic: str,
+        unit_id: Optional[str] = None,
+        subject_id: Optional[str] = None,
+        unit_item_id: Optional[str] = None,
+        force_retake: bool = False,
     ) -> dict:
         """
         Retrieves existing assessment for (session_id, topic) or generates and persists a new one.
+        Supports retake deduplication (Beta BUG-01) and domain syllabus grounding (CONTENT-09/11).
         Returns sanitized Assessment matching the frontend contract directly.
         """
         # 1. Verify learning session exists and belongs to learner
@@ -160,7 +179,7 @@ class AssessmentService:
             .eq("id", session_id)
             .execute()
         )
-        if not session_res.data:
+        if not session_res or not session_res.data or not isinstance(session_res.data, list):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Learning session '{session_id}' not found",
@@ -172,7 +191,43 @@ class AssessmentService:
                 detail="Learning session does not belong to the authenticated learner",
             )
 
-        # 2. Check if assessment already exists for this (session_id, topic)
+        # 2. Resolve subject_name and syllabus_id for KIE-2 grounding
+        subject_name = session_data.get("subject")
+        syllabus_id = session_data.get("syllabus_id")
+
+        if not subject_name and session_data.get("mission_id"):
+            try:
+                m_res = supabase_admin.table("missions").select("subject_name, roadmap_id").eq("id", session_data["mission_id"]).execute()
+                if m_res and isinstance(m_res.data, list) and m_res.data:
+                    subject_name = m_res.data[0].get("subject_name")
+                    if not syllabus_id and m_res.data[0].get("roadmap_id"):
+                        r_res = supabase_admin.table("roadmaps").select("syllabus_id").eq("id", m_res.data[0]["roadmap_id"]).execute()
+                        if r_res and isinstance(r_res.data, list) and r_res.data:
+                            syllabus_id = r_res.data[0].get("syllabus_id")
+            except Exception as e:
+                logger.warning(f"Could not resolve subject/syllabus from mission: {e}")
+
+        if not syllabus_id and session_data.get("roadmap_id"):
+            try:
+                r_res = supabase_admin.table("roadmaps").select("syllabus_id").eq("id", session_data["roadmap_id"]).execute()
+                if r_res and isinstance(r_res.data, list) and r_res.data:
+                    syllabus_id = r_res.data[0].get("syllabus_id")
+            except Exception as e:
+                logger.warning(f"Could not resolve syllabus from roadmap: {e}")
+
+        grounding_references = []
+        if syllabus_id:
+            try:
+                ref_query = ContentReferenceQuery(
+                    syllabus_id=uuid.UUID(str(syllabus_id)),
+                    topic=topic,
+                )
+                ref_resp = content_reference_service.get_references(ref_query)
+                grounding_references = ref_resp.references if ref_resp else []
+            except Exception as e:
+                logger.warning(f"Could not fetch grounding references for syllabus {syllabus_id}: {e}")
+
+        # 3. Check for existing persisted assessment and completed attempts
         existing = (
             supabase_admin.table("assessments")
             .select("*")
@@ -180,19 +235,74 @@ class AssessmentService:
             .eq("topic", topic)
             .execute()
         )
+        existing_rows = existing.data if (existing and isinstance(existing.data, list)) else []
 
-        if existing.data:
-            asmt_row = existing.data[0]
-            if asmt_row.get("learner_id") and str(asmt_row["learner_id"]) != str(learner_id):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Assessment does not belong to the authenticated learner",
+        # If an unsubmitted assessment already exists and force_retake is False:
+        if not force_retake and existing_rows:
+            completed_attempt_exists = False
+            try:
+                attempt_res = (
+                    supabase_admin.table("assessment_attempts")
+                    .select("id")
+                    .eq("session_id", session_id)
+                    .eq("topic", topic)
+                    .eq("is_completed", True)
+                    .execute()
                 )
-            return AssessmentService._sanitize_for_client(asmt_row)
+                if attempt_res and isinstance(attempt_res.data, list):
+                    completed_attempt_exists = len(attempt_res.data) > 0
+            except Exception as e:
+                logger.warning(f"Could not check prior completed attempts: {e}")
 
-        # 3. Generate new assessment
+            # Case A — Active Unsubmitted Assessment:
+            # Return existing persisted assessment so mid-quiz refreshes preserve questions/options
+            if not completed_attempt_exists:
+                asmt_row = existing_rows[0]
+                if asmt_row.get("learner_id") and str(asmt_row["learner_id"]) != str(learner_id):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Assessment does not belong to the authenticated learner",
+                    )
+                return AssessmentService._sanitize_for_client(asmt_row)
+
+        # Case B — Retake After Completion or force_retake or First Generation:
+        # Extract previous question stems for deduplication if retaking
+        excluded_questions = []
+        if force_retake or existing_rows:
+            try:
+                prior_attempts = (
+                    supabase_admin.table("assessment_attempts")
+                    .select("answers")
+                    .eq("learner_id", learner_id)
+                    .eq("topic", topic)
+                    .execute()
+                )
+                if prior_attempts and isinstance(prior_attempts.data, list):
+                    for att in prior_attempts.data:
+                        if isinstance(att, dict):
+                            for a in (att.get("answers") or []):
+                                if isinstance(a, dict) and a.get("question"):
+                                    excluded_questions.append(str(a["question"]))
+                                elif isinstance(a, dict) and a.get("question_id"):
+                                    excluded_questions.append(str(a["question_id"]))
+
+                if existing_rows:
+                    for row in existing_rows:
+                        if isinstance(row, dict):
+                            for q in (row.get("questions") or []):
+                                if isinstance(q, dict) and q.get("question"):
+                                    excluded_questions.append(str(q["question"]))
+            except Exception as e:
+                logger.warning(f"Could not extract excluded questions: {e}")
+
+        # 4. Generate new assessment with grounding & deduplication
         questions, answer_keys, asmt_type = await AssessmentService._generate_with_kie(
-            topic, session_data, learner_id
+            topic=topic,
+            session_data=session_data,
+            learner_id=learner_id,
+            subject_name=subject_name,
+            grounding_references=grounding_references,
+            excluded_questions=excluded_questions if excluded_questions else None,
         )
 
         assessment_id = f"assessment_{uuid.uuid4().hex[:12]}"
@@ -214,7 +324,7 @@ class AssessmentService:
 
         try:
             insert_res = supabase_admin.table("assessments").insert(record).execute()
-            if insert_res and insert_res.data:
+            if insert_res and isinstance(insert_res.data, list) and insert_res.data:
                 saved_asmt = insert_res.data[0]
             else:
                 saved_asmt = record
@@ -247,7 +357,7 @@ class AssessmentService:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=10.0)) as client:
                 response = await client.post(
                     f"{settings.KIE_BASE_URL}/api/v1/kie/mastery/evaluate",
                     json=payload,

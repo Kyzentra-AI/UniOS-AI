@@ -35,6 +35,10 @@ async def generate_assessment(
         learner_id=learner_id,
         session_id=payload.session_id,
         topic=payload.topic,
+        unit_id=payload.unit_id,
+        subject_id=payload.subject_id,
+        unit_item_id=payload.unit_item_id,
+        force_retake=payload.force_retake,
     )
     return Assessment(**assessment)
 

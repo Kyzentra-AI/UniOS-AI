@@ -69,14 +69,38 @@ class LearningSessionService:
         session = LearningSessionService.get_session(session_id, learner_id)
         
         update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
-        if update_in.status is not None:
-            update_data["status"] = update_in.status
+        
+        # Checkpoint validation against lesson blocks if available
+        lesson_data = update_in.lesson_data or session.get("lesson_data")
+        blocks = (lesson_data or {}).get("blocks", []) if isinstance(lesson_data, dict) else []
+        valid_block_ids = {b.get("id") if isinstance(b, dict) else getattr(b, "id", None) for b in blocks}
+
         if update_in.checkpoint_block_id is not None:
-            update_data["checkpoint_block_id"] = update_in.checkpoint_block_id
+            if valid_block_ids and update_in.checkpoint_block_id not in valid_block_ids:
+                # Do not set invalid block id; fallback to existing or first block
+                first_block_id = blocks[0].get("id") if isinstance(blocks[0], dict) else getattr(blocks[0], "id", None) if blocks else None
+                update_data["checkpoint_block_id"] = session.get("checkpoint_block_id") or first_block_id
+            else:
+                update_data["checkpoint_block_id"] = update_in.checkpoint_block_id
+
         if update_in.completed_block_ids is not None:
             update_data["completed_block_ids"] = update_in.completed_block_ids
-        if update_in.progress_percentage is not None:
-            update_data["progress_percentage"] = update_in.progress_percentage
+
+        # Status and progress percentage clamping
+        is_completed = (
+            update_in.status == SessionStatus.COMPLETED
+            or update_in.status == "COMPLETED"
+        )
+        if update_in.status is not None:
+            update_data["status"] = update_in.status
+
+        if is_completed:
+            update_data["status"] = "COMPLETED"
+            update_data["progress_percentage"] = 100
+        elif update_in.progress_percentage is not None:
+            # Clamp intermediate step transitions between 0 and 90
+            update_data["progress_percentage"] = max(0, min(update_in.progress_percentage, 90))
+
         if update_in.notes is not None:
             update_data["notes"] = update_in.notes
         if update_in.lesson_data is not None:
@@ -92,6 +116,21 @@ class LearningSessionService:
         elif updated_session["status"] == "IN_PROGRESS" and session["status"] == "PAUSED":
             event_service.record_event(learner_id, "SESSION_RESUMED", "LESSON", updated_session["lesson_id"])
             
+        return updated_session
+
+    @staticmethod
+    def complete_session(session_id: str, learner_id: str) -> dict:
+        """Explicitly marks a learning session as completed with 100% progress."""
+        session = LearningSessionService.get_session(session_id, learner_id)
+        update_data = {
+            "status": "COMPLETED",
+            "progress_percentage": 100,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        res = supabase_admin.table("learning_sessions").update(update_data).eq("id", session_id).execute()
+        updated_session = res.data[0]
+        if session["status"] != "COMPLETED":
+            event_service.record_event(learner_id, "SESSION_COMPLETED", "LESSON", updated_session["lesson_id"])
         return updated_session
 
 learning_session_service = LearningSessionService()

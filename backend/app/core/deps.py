@@ -29,6 +29,35 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user_metadata = user_data.get("user_metadata", {})
         role = app_metadata.get("role") or user_metadata.get("role") or "user"
 
+        # Web BUG-01: Auto-provision public.users and public.learner_profiles for OAuth users
+        try:
+            from app.core.supabase import supabase_admin
+            user_check = supabase_admin.table("users").select("user_id").eq("user_id", user_id).execute()
+            if not user_check.data:
+                full_name = (
+                    user_metadata.get("full_name")
+                    or user_metadata.get("name")
+                    or (email.split("@")[0] if email else "Learner")
+                )
+                supabase_admin.table("users").upsert({
+                    "user_id": user_id,
+                    "email": email or "",
+                    "full_name": full_name,
+                    "email_verified": True,
+                    "terms_accepted": True,
+                }, on_conflict="user_id").execute()
+
+            learner_check = supabase_admin.table("learner_profiles").select("id").eq("user_id", user_id).execute()
+            if not learner_check.data:
+                supabase_admin.table("learner_profiles").insert({
+                    "user_id": user_id,
+                    "onboarding_status": "NOT_STARTED",
+                    "onboarding_version": 1,
+                }).execute()
+        except Exception as prov_err:
+            import logging
+            logging.getLogger(__name__).warning(f"OAuth auto-provisioning warning: {prov_err}")
+
         return {
             "user_id": user_id,
             "email": email,

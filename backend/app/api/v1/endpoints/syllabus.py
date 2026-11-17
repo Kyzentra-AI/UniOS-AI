@@ -1,3 +1,6 @@
+import hashlib
+import uuid
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from app.core.deps import get_current_user
 from app.core.supabase import supabase_admin
@@ -5,8 +8,6 @@ from app.services.storage_service import storage_service
 from app.services.syllabus_service import syllabus_service
 from app.services.event_service import event_service
 from app.schemas.syllabus import SyllabusResponse, SyllabusStatusResponse, SyllabusUpdate, SyllabusStatus
-from datetime import datetime
-import uuid
 
 router = APIRouter(prefix="/api/v1/syllabi", tags=["Syllabus"])
 
@@ -20,13 +21,14 @@ async def upload_syllabus(background_tasks: BackgroundTasks, file: UploadFile = 
         raise HTTPException(status_code=404, detail="Learner profile not found")
     learner_id = learner_res.data[0]["id"]
     
-    # Read file
+    # Read file & compute hash
     file_bytes = await file.read()
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
     
     # Upload to storage
     storage_key = storage_service.upload_file(file_bytes, file.filename, file.content_type)
     
-    # Create syllabus record
+    # Create syllabus record with file_hash
     doc_id = str(uuid.uuid4())
     db_data = {
         "id": doc_id,
@@ -34,14 +36,15 @@ async def upload_syllabus(background_tasks: BackgroundTasks, file: UploadFile = 
         "file_name": file.filename,
         "storage_key": storage_key,
         "file_type": file.content_type,
+        "file_hash": file_hash,
         "status": "PROCESSING",
         "version": 1
     }
     
     supabase_admin.table("syllabus_documents").insert(db_data).execute()
     
-    # Background processing
-    background_tasks.add_task(syllabus_service.process_syllabus_background, doc_id, file_bytes)
+    # Background processing with file_hash
+    background_tasks.add_task(syllabus_service.process_syllabus_background, doc_id, file_bytes, file_hash)
     
     return {"id": doc_id, "status": SyllabusStatus.PROCESSING}
 

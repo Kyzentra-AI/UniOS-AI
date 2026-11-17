@@ -13,9 +13,10 @@ class KIEGatewayService:
     @staticmethod
     async def _request_with_retry(client: httpx.AsyncClient, url: str, payload: dict, max_retries: int = 3) -> dict:
         base_delay = 1.0
+        timeout_config = httpx.Timeout(45.0, connect=10.0)
         for attempt in range(max_retries):
             try:
-                response = await client.post(url, json=payload, timeout=30.0)
+                response = await client.post(url, json=payload, timeout=timeout_config)
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPError as e:
@@ -59,7 +60,7 @@ class KIEGatewayService:
             ref_resp = content_reference_service.get_references(query)
             references = ref_resp.references
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=10.0)) as client:
             # Step 1: Call AI-1 Interpret
             interpret_payload = {
                 "request_id": request_id,
@@ -98,14 +99,19 @@ class KIEGatewayService:
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Invalid lesson format returned from KIE: {str(e)}")
             
-            # Persist lesson in session
+            # Persist lesson in session - Web BUG-04: Default to Step 1 (blocks[0]), never the last block
             from app.schemas.learning import LearningSessionUpdate
-            checkpoint_id = session.get("checkpoint_block_id") or (lesson.blocks[-1].id if lesson.blocks else None)
+            first_block_id = lesson.blocks[0].id if lesson.blocks else None
+            existing_cp = session.get("checkpoint_block_id")
+            valid_block_ids = {b.id for b in lesson.blocks} if lesson.blocks else set()
+            checkpoint_id = existing_cp if (existing_cp and existing_cp in valid_block_ids) else first_block_id
+
             learning_session_service.update_checkpoint(
                 session_id, 
                 learner_id, 
                 LearningSessionUpdate(
                     checkpoint_block_id=checkpoint_id,
+                    progress_percentage=0 if not existing_cp else session.get("progress_percentage", 0),
                     lesson_data=lesson.model_dump()
                 )
             )
