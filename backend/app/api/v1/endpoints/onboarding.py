@@ -65,26 +65,56 @@ async def init_onboarding(request: OnboardingRequest, current_user: dict = Depen
     user_id = current_user["user_id"]
     learner = _get_learner_profile(user_id)
     
-    if learner:
+    if learner and learner.get("onboarding_status") not in (None, "NOT_STARTED"):
         raise HTTPException(status_code=400, detail="Onboarding already initialized. Use PATCH to update.")
         
     learner_data = request.learner_profile.model_dump(exclude_unset=True) if request.learner_profile else {}
     learner_data["user_id"] = user_id
+    learner_data["onboarding_status"] = "IN_PROGRESS"
     
-    # Insert Learner Profile
-    learner_res = supabase_admin.table("learner_profiles").insert(learner_data).execute()
-    new_learner = learner_res.data[0]
-    learner_id = new_learner["id"]
-    
-    # Insert Academic Profile
-    academic_data = request.academic_profile.model_dump(exclude_unset=True) if request.academic_profile else {}
-    academic_data["learner_profile_id"] = learner_id
-    supabase_admin.table("academic_profiles").insert(academic_data).execute()
-    
-    # Insert Learning Preferences
-    pref_data = request.learning_preferences.model_dump(exclude_unset=True) if request.learning_preferences else {}
-    pref_data["learner_profile_id"] = learner_id
-    supabase_admin.table("learning_preferences").insert(pref_data).execute()
+    if learner:
+        learner_id = learner["id"]
+        learner_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        supabase_admin.table("learner_profiles").update(learner_data).eq("id", learner_id).execute()
+        
+        # Academic Profile
+        academic_data = request.academic_profile.model_dump(exclude_unset=True) if request.academic_profile else {}
+        if academic_data:
+            academic_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        academic = _get_academic_profile(learner_id)
+        if academic:
+            if academic_data:
+                supabase_admin.table("academic_profiles").update(academic_data).eq("learner_profile_id", learner_id).execute()
+        else:
+            academic_data["learner_profile_id"] = learner_id
+            supabase_admin.table("academic_profiles").insert(academic_data).execute()
+            
+        # Learning Preferences
+        pref_data = request.learning_preferences.model_dump(exclude_unset=True) if request.learning_preferences else {}
+        if pref_data:
+            pref_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        prefs = _get_learning_preferences(learner_id)
+        if prefs:
+            if pref_data:
+                supabase_admin.table("learning_preferences").update(pref_data).eq("learner_profile_id", learner_id).execute()
+        else:
+            pref_data["learner_profile_id"] = learner_id
+            supabase_admin.table("learning_preferences").insert(pref_data).execute()
+    else:
+        # Insert Learner Profile
+        learner_res = supabase_admin.table("learner_profiles").insert(learner_data).execute()
+        new_learner = learner_res.data[0]
+        learner_id = new_learner["id"]
+        
+        # Insert Academic Profile
+        academic_data = request.academic_profile.model_dump(exclude_unset=True) if request.academic_profile else {}
+        academic_data["learner_profile_id"] = learner_id
+        supabase_admin.table("academic_profiles").insert(academic_data).execute()
+        
+        # Insert Learning Preferences
+        pref_data = request.learning_preferences.model_dump(exclude_unset=True) if request.learning_preferences else {}
+        pref_data["learner_profile_id"] = learner_id
+        supabase_admin.table("learning_preferences").insert(pref_data).execute()
     
     return await get_onboarding_state(current_user)
 

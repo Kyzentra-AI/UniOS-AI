@@ -122,6 +122,41 @@ def test_init_onboarding(mock_supabase_admin, mock_context_assembler):
     assert response.status_code == 200
     assert mock_supabase_admin.table.return_value.insert.call_count == 3
 
+
+def test_init_onboarding_with_not_started_placeholder(mock_supabase_admin, mock_context_assembler):
+    # Mock learner already auto-provisioned with NOT_STARTED status
+    mock_select = MagicMock()
+    mock_select.data = [{"id": "l-placeholder", "onboarding_status": "NOT_STARTED"}]
+    mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_select
+    
+    mock_update = MagicMock()
+    mock_update.data = [{"id": "l-placeholder", "onboarding_status": "IN_PROGRESS"}]
+    mock_supabase_admin.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_update
+
+    payload = {
+        "learner_profile": {"primary_goal": "AI Engineer"},
+        "academic_profile": {"academic_status": "BACHELOR"},
+        "learning_preferences": {"learning_depth": "DEEP"}
+    }
+    
+    response = client.post("/api/v1/onboarding", json=payload)
+    assert response.status_code == 200
+
+
+def test_init_onboarding_rejects_already_in_progress(mock_supabase_admin, mock_context_assembler):
+    # Mock learner already has active onboarding in progress
+    mock_select = MagicMock()
+    mock_select.data = [{"id": "l-active", "onboarding_status": "IN_PROGRESS"}]
+    mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_select
+
+    payload = {
+        "learner_profile": {"primary_goal": "AI Engineer"}
+    }
+    
+    response = client.post("/api/v1/onboarding", json=payload)
+    assert response.status_code == 400
+    assert "Onboarding already initialized" in response.json()["detail"]
+
 def test_patch_onboarding(mock_supabase_admin, mock_context_assembler):
     # Mock that learner exists
     mock_learner_res = MagicMock()
