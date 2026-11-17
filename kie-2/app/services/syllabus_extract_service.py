@@ -40,11 +40,16 @@ class SyllabusExtractService:
 
     def _extract_via_llm(self, syllabus_id: str, text: str) -> Optional[SyllabusExtractResponse]:
         provider = get_llm_provider()
-        sample_text = text[:4000]
+        # Sample intelligently up to 12,000 characters (head + tail) to avoid missing late units
+        if len(text) <= 12000:
+            sample_text = text
+        else:
+            sample_text = text[:7000] + "\n\n... [Syllabus Content Excerpt Continued] ...\n\n" + text[-5000:]
 
         system_instruction = (
             "You are the UniOS Curriculum & Syllabus Parser. "
             "Extract the distinct academic subjects/courses and their constituent topics from the provided syllabus text. "
+            "Preserve the authentic domain and academic discipline of the curriculum (e.g. Business, Law, Commerce, Sciences, Engineering). "
             "Output strictly valid JSON matching this schema:\n"
             "{\n"
             '  "subjects": [\n'
@@ -63,7 +68,7 @@ class SyllabusExtractService:
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=800,
+            max_tokens=1500,
             temperature=0.1,
         )
 
@@ -127,29 +132,89 @@ class SyllabusExtractService:
         return SyllabusExtractResponse(subjects=subjects[:8])
 
     def _build_fallback(self, syllabus_id: str, text: str) -> SyllabusExtractResponse:
-        """Fallback when no clear modules or units are detected."""
-        common_subjects = [
-            ("Data Structures & Algorithms", ["Arrays and Pointers", "Linked Lists", "Stacks & Queues", "Trees & Graphs", "Sorting & Searching"]),
-            ("Computer Systems & Architecture", ["Memory Hierarchy", "CPU Organization", "Instruction Sets", "I/O Systems"]),
-            ("Database Management Systems", ["Relational Algebra", "SQL Queries", "Normalization & ER Models", "Transactions & ACID"]),
-        ]
-
+        """Domain-aware fallback when line-based structural units are absent."""
         text_lower = text.lower()
         matched: List[SyllabusSubject] = []
 
-        for name, topics in common_subjects:
-            if any(w in text_lower for w in name.lower().split()):
-                matched.append(SyllabusSubject(name=name, topics=topics))
+        # Discipline keyword clusters (using multi-word or distinctive stems to avoid false positives)
+        if any(w in text_lower for w in ["e-commerce", "ecommerce", "electronic commerce", "digital business", "supply chain"]):
+            matched.append(
+                SyllabusSubject(
+                    name="E-Commerce & Digital Business",
+                    topics=[
+                        "E-Commerce Business Models & Architecture",
+                        "Payment Gateways & Transaction Security",
+                        "Digital Marketing & Customer Acquisition",
+                        "Supply Chain & Order Fulfillment",
+                        "Consumer Protection & E-Commerce Law",
+                    ],
+                )
+            )
+
+        if any(w in text_lower for w in ["entrepreneur", "startup", "venture", "incubation", "business model"]):
+            matched.append(
+                SyllabusSubject(
+                    name="Entrepreneurship Development",
+                    topics=[
+                        "Opportunity Recognition & Ideation",
+                        "Business Model Canvas & Value Proposition",
+                        "Lean Startup & Minimum Viable Product (MVP)",
+                        "Venture Capital & Bootstrapping",
+                        "Scaling Operations & Intellectual Property",
+                    ],
+                )
+            )
+
+        if any(w in text_lower for w in ["accounting", "financial management", "corporate finance", "taxation", "auditing", "balance sheet"]):
+            matched.append(
+                SyllabusSubject(
+                    name="Financial Accounting & Corporate Finance",
+                    topics=[
+                        "Double-Entry Bookkeeping Principles",
+                        "Financial Statement Analysis",
+                        "Working Capital Management",
+                        "Capital Budgeting & Valuation",
+                        "Regulatory Compliance & Taxation",
+                    ],
+                )
+            )
+
+        if any(w in text_lower for w in ["constitutional law", "contract law", "jurisprudence", "tort", "criminal law", "legal studies"]):
+            matched.append(
+                SyllabusSubject(
+                    name="Legal Studies & Jurisprudence",
+                    topics=[
+                        "Constitutional Framework & Fundamental Rights",
+                        "Principles of Contract Law & Enforceability",
+                        "Corporate Governance & Commercial Statutes",
+                        "Judicial Precedent & Dispute Resolution",
+                        "Legal Ethics & Professional Responsibility",
+                    ],
+                )
+            )
+
+        if any(w in text_lower for w in ["data structures", "algorithms", "relational database", "dbms", "sql", "operating systems", "computer networks"]):
+            matched.append(
+                SyllabusSubject(
+                    name="Core Computing & Systems",
+                    topics=[
+                        "Data Structures & Algorithmic Analysis",
+                        "Relational Database Systems & SQL",
+                        "System Architecture & Memory Management",
+                        "Networking Protocols & Distributed Systems",
+                    ],
+                )
+            )
 
         if not matched:
             matched.append(
                 SyllabusSubject(
-                    name="Core Applied Curriculum",
+                    name="Core Academic Curriculum",
                     topics=[
-                        "Fundamental Principles",
-                        "Architecture & Design",
-                        "Practical Implementations",
-                        "Performance & Testing",
+                        "Foundational Principles & Theory",
+                        "Analytical Methods & Frameworks",
+                        "Practical Applications & Case Studies",
+                        "Assessment & Review",
                     ],
                 )
             )

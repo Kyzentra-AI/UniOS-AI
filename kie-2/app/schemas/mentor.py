@@ -45,6 +45,41 @@ class MentorChatContext(BaseModel):
         validation_alias=AliasChoices("mission_id", "missionId"),
         description="Active mission ID",
     )
+    step_index: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "step_index", "stepIndex", "current_step", "currentStep", "section_index", "sectionIndex", "step"
+        ),
+        description="Active step/section index in the learning flow (e.g. 1 to 6)",
+    )
+    step_title: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "step_title", "stepTitle", "section_title", "sectionTitle", "active_step", "activeStep"
+        ),
+        description="Title of the active step or section",
+    )
+    step_content: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "step_content", "stepContent", "section_content", "sectionContent", "content"
+        ),
+        description="Text content of the active step or section",
+    )
+    total_steps: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "total_steps", "totalSteps", "total_sections", "totalSections"
+        ),
+        description="Total number of steps in the active lesson (e.g. 6)",
+    )
+    subject: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "subject", "subject_title", "subjectTitle", "course", "course_name"
+        ),
+        description="Course or academic subject name",
+    )
 
 
 class MentorChatRequest(BaseModel):

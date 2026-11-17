@@ -1048,9 +1048,9 @@ class MockLLMProvider(BaseLLMProvider):
             }
 
     def generate_assessment(self, prompt: str) -> _Dict[str, Any]:
-        """Deterministic mock assessment generation with stable IDs and answer keys / rubrics."""
+        """Deterministic, discipline-adaptive mock assessment generation with stable IDs and answer keys / rubrics."""
         topic_match = re.search(r"- Topic:\s*([^\n]+)", prompt)
-        topic = topic_match.group(1).strip() if topic_match else "DBMS Fundamentals"
+        topic = topic_match.group(1).strip() if topic_match else "Core Principles"
 
         type_match = re.search(r"- Preferred Question Type:\s*([^\n]+)", prompt)
         pref_type = type_match.group(1).strip().lower() if type_match else "mcq"
@@ -1058,31 +1058,344 @@ class MockLLMProvider(BaseLLMProvider):
         count_match = re.search(r"- Question Count:\s*(\d+)", prompt)
         question_count = int(count_match.group(1)) if count_match else 5
 
+        t_low = (topic + " " + prompt).lower()
+        is_entrepreneur = any(k in t_low for k in ["entrepreneur", "business", "startup", "venture", "market", "incubation"])
+        is_commerce = any(k in t_low for k in ["commerce", "account", "finance", "banking", "tax", "fiscal", "ledger", "audit"])
+        is_law = any(k in t_low for k in ["law", "legal", "constitution", "statute", "jurisprudence", "court", "justice"])
+        is_science = any(k in t_low for k in ["physics", "chem", "biology", "medical", "health", "anatomy", "clinical", "pharma"])
+        is_humanities = any(k in t_low for k in ["history", "sociol", "philosophy", "politic", "literat", "humanit"])
+
+        # Discipline-tailored question banks (5 questions each)
+        if is_entrepreneur:
+            q_bank = [
+                {
+                    "q": f"In {topic}, which methodology emphasizes building a Minimum Viable Product (MVP) to achieve validated learning before scaling?",
+                    "options": [
+                        ("opt-1", "The Lean Startup Framework (Build-Measure-Learn)"),
+                        ("opt-2", "Traditional Waterfall Product Lifecycle"),
+                        ("opt-3", "Speculative Inventory Front-Loading"),
+                        ("opt-4", "Fixed Five-Year Static Business Planning"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "The Lean Startup framework prioritizes rapid experimentation, MVP release, and empirical customer feedback to minimize market risk.",
+                },
+                {
+                    "q": f"When evaluating early-stage venture funding in {topic}, what is the primary advantage of bootstrapping over venture capital?",
+                    "options": [
+                        ("opt-1", "Retaining 100% equity ownership and operational decision autonomy"),
+                        ("opt-2", "Instantaneous access to institutional venture networks"),
+                        ("opt-3", "Eliminating all personal financial exposure unconditionally"),
+                        ("opt-4", "Guaranteed multi-million dollar early valuation multiples"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Bootstrapping relies on internal cash flow and personal resources, allowing founders to maintain complete equity and strategic independence.",
+                },
+                {
+                    "q": f"Which instrument in {topic} provides entrepreneurs with legal exclusivity over a novel, non-obvious technological innovation?",
+                    "options": [
+                        ("opt-1", "Utility Patent Protection"),
+                        ("opt-2", "Non-Exclusive Trade Secret Agreement"),
+                        ("opt-3", "Creative Commons Open Attribution"),
+                        ("opt-4", "Standard Commercial General Liability Policy"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "A utility patent grants the inventor exclusive commercial rights to prevent others from making, using, or selling the claimed invention.",
+                },
+                {
+                    "q": f"In {topic}, what does achieving 'Product-Market Fit' indicate for a scaling enterprise?",
+                    "options": [
+                        ("opt-1", "The product satisfies strong market demand with repeatable retention and unit economics"),
+                        ("opt-2", "The company has finalized its registration filings with governmental authorities"),
+                        ("opt-3", "The enterprise has deployed its first print advertising campaign"),
+                        ("opt-4", "The venture has hired its full executive management tier"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Product-Market Fit confirms that the venture's offering solves a high-priority problem for a viable, expanding customer segment.",
+                },
+                {
+                    "q": f"Which metric in {topic} compares the gross profit generated from a customer over time against the expenditure required to acquire them?",
+                    "options": [
+                        ("opt-1", "LTV / CAC Ratio (Customer Lifetime Value to Customer Acquisition Cost)"),
+                        ("opt-2", "Current Liquidity Asset Ratio"),
+                        ("opt-3", "Inventory Turnover Velocity Index"),
+                        ("opt-4", "Depreciation Amortization Schedule"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "The LTV/CAC ratio evaluates venture unit economics sustainability; healthy business models typically maintain a ratio of 3:1 or higher.",
+                },
+            ]
+        elif is_commerce:
+            q_bank = [
+                {
+                    "q": f"Under standard accrual accounting in {topic}, when must revenue be recognized?",
+                    "options": [
+                        ("opt-1", "When performance obligations are satisfied, regardless of cash receipt timing"),
+                        ("opt-2", "Only when physical currency has cleared the commercial bank account"),
+                        ("opt-3", "At the conclusion of the fiscal year audit cycle unconditionally"),
+                        ("opt-4", "When preliminary customer inquiries are formally logged"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "The accrual principle mandates recognizing revenue when earned and realizable upon delivering contracted goods or services.",
+                },
+                {
+                    "q": f"Which financial ratio in {topic} measures a firm's ability to cover short-term liabilities using its most liquid quick assets?",
+                    "options": [
+                        ("opt-1", "Acid-Test (Quick) Ratio"),
+                        ("opt-2", "Debt-to-Equity Solvency Ratio"),
+                        ("opt-3", "Price-to-Earnings Valuation Multiple"),
+                        ("opt-4", "Gross Profit Contribution Margin"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "The Quick Ratio excludes illiquid inventory from current assets to test immediate solvency against current liabilities.",
+                },
+                {
+                    "q": f"In {topic}, what is the fundamental balance sheet equation enforced across double-entry bookkeeping?",
+                    "options": [
+                        ("opt-1", "Assets = Liabilities + Equity"),
+                        ("opt-2", "Assets + Liabilities = Net Revenue"),
+                        ("opt-3", "Equity = Gross Revenue - Operational Overhead"),
+                        ("opt-4", "Cash Flow = Retained Earnings / Debt Capital"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "The foundational accounting equation mandates that total economic assets equal the combined claims of creditors and owners.",
+                },
+                {
+                    "q": f"Which budgeting mechanism in {topic} requires every single operational expenditure to be justified from a zero base each cycle?",
+                    "options": [
+                        ("opt-1", "Zero-Based Budgeting (ZBB)"),
+                        ("opt-2", "Incremental Baseline Extrapolation"),
+                        ("opt-3", "Historical Cost Rolling Forecast"),
+                        ("opt-4", "Static Master Capital Appropriation"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Zero-Based Budgeting builds expenditure allocations from scratch rather than adjusting prior period baselines.",
+                },
+                {
+                    "q": f"In financial valuation under {topic}, how does Discounted Cash Flow (DCF) determine enterprise intrinsic value?",
+                    "options": [
+                        ("opt-1", "By discounting projected future free cash flows to present value using WACC"),
+                        ("opt-2", "By summing historical book asset costs without depreciation"),
+                        ("opt-3", "By multiplying current revenue by trailing inflation indexes"),
+                        ("opt-4", "By computing the liquidation price of physical fixtures"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "DCF models calculate intrinsic enterprise value by discounting expected future cash flows using the weighted average cost of capital.",
+                },
+            ]
+        elif is_law:
+            q_bank = [
+                {
+                    "q": f"In the judicial framework of {topic}, what does the common law doctrine of 'Stare Decisis' require?",
+                    "options": [
+                        ("opt-1", "Lower courts must follow binding precedent established by superior courts"),
+                        ("opt-2", "Judges must draft legislation directly in the absence of codified statutes"),
+                        ("opt-3", "Juries must reach unanimous verdicts across all preliminary motions"),
+                        ("opt-4", "Appellate benches must rehear witness testimony de novo in all disputes"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Stare Decisis fosters legal certainty and stability by requiring courts to adhere to authoritative rulings in similar prior cases.",
+                },
+                {
+                    "q": f"Under contract law principles in {topic}, what essential element represents the bargained-for exchange between parties?",
+                    "options": [
+                        ("opt-1", "Valuable Consideration"),
+                        ("opt-2", "Unilateral Estoppel Declaration"),
+                        ("opt-3", "Formal Notarized Attestation"),
+                        ("opt-4", "Exemplary Punitive Damages Agreement"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Valid contractual formation requires offer, acceptance, lawful intention, and valuable consideration exchanged between parties.",
+                },
+                {
+                    "q": f"In {topic}, which constitutional doctrine prevents a single governmental branch from exercising unchecked state power?",
+                    "options": [
+                        ("opt-1", "Separation of Powers with Checks and Balances"),
+                        ("opt-2", "Parliamentary Supremacy over Common Law"),
+                        ("opt-3", "Administrative Agency Discretionary Immunity"),
+                        ("opt-4", "Sovereign Prerogative of the Executive"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "The Separation of Powers allocates legislative, executive, and judicial authorities across distinct institutional branches.",
+                },
+                {
+                    "q": f"Which standard of proof is required in criminal prosecutions under {topic}?",
+                    "options": [
+                        ("opt-1", "Proof Beyond a Reasonable Doubt"),
+                        ("opt-2", "Preponderance of the Evidence (Balance of Probabilities)"),
+                        ("opt-3", "Substantial Supporting Testimony Standard"),
+                        ("opt-4", "Prima Facie Plausibility Presumption"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Criminal liability requires establishing culpability beyond a reasonable doubt, the highest evidentiary threshold in legal systems.",
+                },
+                {
+                    "q": f"What is the legal effect of a contract deemed 'void ab initio' in {topic}?",
+                    "options": [
+                        ("opt-1", "It has no legal validity from the moment of inception and cannot be enforced"),
+                        ("opt-2", "It remains enforceable until one party issues formal repudiation notice"),
+                        ("opt-3", "It allows damages compensation but prevents equitable injunctions"),
+                        ("opt-4", "It automatically converts into a binding informal arbitration pact"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "An agreement that is void ab initio is treated as if it never existed in law, creating no enforceable rights or obligations.",
+                },
+            ]
+        elif is_science or is_humanities:
+            q_bank = [
+                {
+                    "q": f"In the empirical study of {topic}, why is establishing a control group essential in experimental design?",
+                    "options": [
+                        ("opt-1", "To isolate the effect of the independent variable from confounding factors"),
+                        ("opt-2", "To maximize statistical sample volume regardless of variable isolation"),
+                        ("opt-3", "To eliminate the necessity for peer-reviewed replication"),
+                        ("opt-4", "To ensure experimental hypotheses are accepted without validation"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Control groups provide an unmanipulated baseline, confirming whether observed outcome differences result from experimental treatment.",
+                },
+                {
+                    "q": f"Which principle in {topic} governs how systemic equilibrium is maintained when external stressors are introduced?",
+                    "options": [
+                        ("opt-1", "Dynamic Homeostatic Feedback Mechanics"),
+                        ("opt-2", "Static Unidirectional Divergence"),
+                        ("opt-3", "Unconstrained Entropy Acceleration"),
+                        ("opt-4", "Arbitrary Perturbation Absorption"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Negative feedback loops adjust operational parameters to counteract deviations, preserving systemic stability and homeostatic balance.",
+                },
+                {
+                    "q": f"In academic research within {topic}, what does a statistically significant p-value (< 0.05) typically signify?",
+                    "options": [
+                        ("opt-1", "The observed effect has less than a 5% probability of occurring under the null hypothesis"),
+                        ("opt-2", "The research hypothesis has been proven to be universally true with zero variance"),
+                        ("opt-3", "The sample distribution matches the theoretical population parameter perfectly"),
+                        ("opt-4", "The measurement apparatus exhibited negligible instrumental margin of error"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "A p-value below 0.05 indicates sufficient evidence to reject the null hypothesis in favor of the experimental hypothesis.",
+                },
+                {
+                    "q": f"What methodological principle in {topic} ensures that qualitative or empirical findings can be corroborated across independent sources?",
+                    "options": [
+                        ("opt-1", "Triangulation of Evidence"),
+                        ("opt-2", "Anecdotal Confirmation Selection"),
+                        ("opt-3", "Retrospective Post-Hoc Rationalization"),
+                        ("opt-4", "Single-Source Narrative Synthesis"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Triangulation cross-verifies findings across multiple methodologies, observers, or data sources to establish structural validity.",
+                },
+                {
+                    "q": f"In the systematic evaluation of {topic}, what distinguishes an empirical theory from an unfalsifiable assertion?",
+                    "options": [
+                        ("opt-1", "The ability to generate clear, testable predictions that can be empirically refuted"),
+                        ("opt-2", "Widespread consensus among practitioners without requiring experimental testing"),
+                        ("opt-3", "The mathematical complexity of the descriptive terminology used"),
+                        ("opt-4", "Direct historical alignment with classical philosophical literature"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Under Popper's falsifiability criterion, a scientific theory must generate empirical predictions capable of being proven false.",
+                },
+            ]
+        else:
+            # Computing, Database, and Systems Engineering
+            q_bank = [
+                {
+                    "q": f"Which fundamental mechanism in {topic} ensures high-performance retrieval, concurrency control, and structural integrity?",
+                    "options": [
+                        ("opt-1", "B-Tree Indexing and ACID Transaction Execution"),
+                        ("opt-2", "Unchecked Linear File Scanning without Indices"),
+                        ("opt-3", "Direct Unvalidated In-Memory State Overwrites"),
+                        ("opt-4", "Asynchronous Cache Eviction without Persistence"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Relational architectures utilize balanced tree indices for logarithmic retrieval and transactional invariants for consistent persistence.",
+                },
+                {
+                    "q": f"In {topic}, what primary advantage does database normalization (up to 3NF) provide?",
+                    "options": [
+                        ("opt-1", "Eliminates data redundancy and prevents update/deletion anomalies"),
+                        ("opt-2", "Maximizes query execution speed by duplicating columns across tables"),
+                        ("opt-3", "Bypasses primary key constraints for rapid bulk ingestion"),
+                        ("opt-4", "Compresses structured data into flat binary objects unconditionally"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "3NF removes transitive dependencies and redundant data, ensuring updates to an entity occur in a single authoritative location.",
+                },
+                {
+                    "q": f"Under ACID properties in {topic}, what does the 'Atomicity' guarantee ensure?",
+                    "options": [
+                        ("opt-1", "All operations in a transaction succeed completely, or all modifications are rolled back"),
+                        ("opt-2", "Transactions execute concurrently without any shared locks"),
+                        ("opt-3", "Committed state transitions survive sudden hardware or power failure"),
+                        ("opt-4", "Data structures are kept resident strictly in volatile memory"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Atomicity treats all statements in a transaction as an indivisible unit; partial executions are rolled back on failure.",
+                },
+                {
+                    "q": f"In {topic}, which key constraint enforces referential integrity between two related tables?",
+                    "options": [
+                        ("opt-1", "Foreign Key Constraint referencing a Primary Key"),
+                        ("opt-2", "Composite Surrogate Unique Index"),
+                        ("opt-3", "Client-Side Regular Expression Filter"),
+                        ("opt-4", "Volatile Memory Buffer Invariant"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "Foreign keys enforce referential integrity by guaranteeing that dependent child records always point to valid parent records.",
+                },
+                {
+                    "q": f"When scaling systems in {topic}, what trade-off is described by the CAP Theorem?",
+                    "options": [
+                        ("opt-1", "A distributed data store can guarantee at most two of Consistency, Availability, and Partition Tolerance"),
+                        ("opt-2", "Increasing cache size linearly reduces secondary storage capacity requirements"),
+                        ("opt-3", "Write throughput and read throughput can both be maximized simultaneously without locks"),
+                        ("opt-4", "CPU clock speed dictates maximum transactional serialization boundaries"),
+                    ],
+                    "correct": "opt-1",
+                    "expl": "The CAP theorem demonstrates that in the presence of network partitions, distributed systems must trade off consistency or availability.",
+                },
+            ]
+
         questions = []
-        # Build deterministic questions based on topic and requested type
         for i in range(1, question_count + 1):
             qid = f"q{i}"
-            # Alternate or honor requested type
+            item = q_bank[(i - 1) % len(q_bank)]
+
             if pref_type == "coding" or (pref_type == "mixed" and i % 3 == 0):
-                questions.append({
-                    "id": qid,
-                    "type": "coding",
-                    "question": f"Write a query or code function to solve a core data operation in {topic}.",
-                    "code": f"-- Implementation for {topic}\nSELECT * FROM records WHERE status = 'active';",
-                    "language": "sql" if "dbms" in topic.lower() or "database" in topic.lower() or "sql" in topic.lower() else "python",
-                    "rubric": {
-                        "required_clauses": ["SELECT", "FROM", "WHERE"],
-                        "ideal_solution": f"SELECT id, name, status FROM records WHERE status = 'active' ORDER BY created_at DESC;",
-                    },
-                })
+                if is_entrepreneur or is_commerce:
+                    questions.append({
+                        "id": qid,
+                        "type": "coding",
+                        "question": f"Design an applied quantitative model or ledger schema for {topic}.",
+                        "code": f"# Quantitative Model: {topic}\ndef calculate_unit_metrics(revenue: float, cost: float) -> dict:\n    margin = (revenue - cost) / revenue if revenue else 0.0\n    return {{'margin': round(margin, 2), 'viable': margin >= 0.30}}",
+                        "language": "python",
+                        "rubric": {
+                            "required_clauses": ["calculate_unit_metrics", "return", "margin"],
+                            "ideal_solution": f"def calculate_unit_metrics(revenue, cost):\n    return {{'margin': round((revenue - cost)/revenue, 2), 'viable': True}}",
+                        },
+                    })
+                else:
+                    questions.append({
+                        "id": qid,
+                        "type": "coding",
+                        "question": f"Write a query or code function to solve a core data operation in {topic}.",
+                        "code": f"-- Implementation for {topic}\nSELECT * FROM records WHERE status = 'active';",
+                        "language": "sql" if "dbms" in topic.lower() or "database" in topic.lower() or "sql" in topic.lower() else "python",
+                        "rubric": {
+                            "required_clauses": ["SELECT", "FROM", "WHERE"],
+                            "ideal_solution": f"SELECT id, name, status FROM records WHERE status = 'active' ORDER BY created_at DESC;",
+                        },
+                    })
             elif pref_type in ["subjective", "viva", "case-study"]:
                 questions.append({
                     "id": qid,
                     "type": pref_type,
-                    "question": f"Explain the core architectural trade-offs and consistency invariants of {topic}.",
+                    "question": f"Explain the core principles, strategic trade-offs, and practical application of {topic}.",
                     "rubric": {
                         "criteria": ["Clarity of explanation", "Accurate trade-off identification", "Concrete application"],
-                        "ideal_solution": f"In {topic}, the core trade-off involves balancing read latency, write amplification, and data integrity guarantees.",
+                        "ideal_solution": f"In {topic}, the core trade-off involves balancing operational feasibility, risk management, and outcome validation.",
                     },
                 })
             else:
@@ -1090,15 +1403,10 @@ class MockLLMProvider(BaseLLMProvider):
                 questions.append({
                     "id": qid,
                     "type": "mcq",
-                    "question": f"Which fundamental mechanism in {topic} ensures high-performance retrieval and structural integrity?",
-                    "options": [
-                        {"id": "opt-1", "text": "Storage Manager & Buffer Pool"},
-                        {"id": "opt-2", "text": "Query Compiler & Parser"},
-                        {"id": "opt-3", "text": "Transaction Concurrency Monitor"},
-                        {"id": "opt-4", "text": "Execution Engine Dispatcher"},
-                    ],
-                    "correct_option_id": "opt-1",
-                    "explanation": f"The Storage Manager in {topic} coordinates low-level buffer management, cache paging, and physical persistence.",
+                    "question": item["q"],
+                    "options": [{"id": oid, "text": otxt} for oid, otxt in item["options"]],
+                    "correct_option_id": item["correct"],
+                    "explanation": item["expl"],
                 })
 
         return {
@@ -1323,8 +1631,9 @@ class GroqLLMProvider(BaseLLMProvider):
             "   - code: Production-quality, fully commented code or schema snippet (e.g. SQL, Python, TypeScript) illustrating the concept end-to-end.\n"
             "   - language: Programming/query language (e.g. 'sql', 'python', 'typescript').\n\n"
             "4. type: 'visual_spec'\n"
-            "   - title: Architectural & Data Flow Visualization.\n"
-            "   - content: A clear, beautiful ASCII box diagram or entity-relationship table diagram mapping the system layout, memory state, or relational tables, accompanied by a detailed textual explanation of the flow and data relationships.\n\n"
+            "   - title: Architectural & Visual Flow Diagram.\n"
+            "   - content: A clear visual representation using an ASCII box-drawing diagram, markdown table, or Mermaid chart (```mermaid ... ```), followed by a detailed structured analysis of components, relationships, and data flow.\n"
+            "     NEGATIVE CONSTRAINT: NEVER output meta-instructions describing how to draw (e.g. NEVER write 'Renderer Type: Diagram. Step 1: Draw a rectangle...'). You must directly render the ASCII/Mermaid/table diagram itself in the content block!\n\n"
             "5. type: 'practice_task'\n"
             "   - title: Applied Hands-On Challenge & Verification.\n"
             "   - content: An active engineering challenge with:\n"
@@ -1539,14 +1848,14 @@ class GroqLLMProvider(BaseLLMProvider):
         system_instruction = (
             "You are the UniOS Assessment Generation Engine (AI/ML-2 KIE). "
             "Synthesize high-quality assessment questions with private answer keys and rubrics. "
-            "Output strictly valid JSON matching the requested schema. No conversational preamble."
+            "Output strictly valid JSON matching the requested schema. No conversational preamble. Respond with valid JSON."
         )
         raw_content = self._safe_chat_completion(
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=950,
+            max_tokens=2200,
             temperature=settings.LLM_TEMPERATURE,
         )
         json_text = extract_json_payload(raw_content)
@@ -1566,14 +1875,14 @@ class GroqLLMProvider(BaseLLMProvider):
         system_instruction = (
             "You are the UniOS Mastery Evaluation Engine (AI/ML-2 KIE). "
             "Evaluate student answers, compute normalized score (0.0 to 1.0), and return hierarchical mastery updates. "
-            "Output strictly valid JSON matching the requested schema. No conversational preamble."
+            "Output strictly valid JSON matching the requested schema. No conversational preamble. Respond with valid JSON."
         )
         raw_content = self._safe_chat_completion(
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=950,
+            max_tokens=1500,
             temperature=settings.LLM_TEMPERATURE,
         )
         json_text = extract_json_payload(raw_content)
@@ -1599,7 +1908,7 @@ class GroqLLMProvider(BaseLLMProvider):
                 {"role": "system", "content": sys_msg},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=700,
+            max_tokens=1800,
             temperature=settings.LLM_TEMPERATURE,
             json_mode=False,
         )

@@ -151,6 +151,8 @@ def interpret_learner_intent(request: InterpretRequest) -> InterpretResponse:
         response = engine.interpret(request)
         print(f">>> [API POST /api/v1/kie/learn/interpret] Returning Strategy={response.pedagogical_strategy}, Gaps={len(response.knowledge_gaps_identified)}")
         return response
+    except HTTPException:
+        raise
     except Exception as err:
         print(f">>> [API POST /api/v1/kie/learn/interpret] Error ({err}), generating resilient fallback.")
         topic_name = request.topic or "Foundational Concepts"
@@ -266,7 +268,24 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                 topic=context.topic,
                 pedagogy_decision=pedagogy_decision,
             )
+        except (LLMProviderError, LLMParseError) as err:
+            if provider.__class__.__name__ == "MockLLMProvider":
+                raise HTTPException(status_code=getattr(err, "status_code", 502), detail=str(err))
+            print(f"    - Notice: Live LLM lesson generation encountered error ({err}); applying resilient fallback.")
+            from app.services.llm_provider import MockLLMProvider
+            fallback_provider = MockLLMProvider()
+            try:
+                lesson = fallback_provider.generate_lesson(
+                    prompt=lesson_prompt,
+                    context_id=context.context_id,
+                    topic=context.topic,
+                    pedagogy_decision=pedagogy_decision,
+                )
+            except (LLMProviderError, LLMParseError) as fb_err:
+                raise HTTPException(status_code=getattr(fb_err, "status_code", 502), detail=str(fb_err))
         except Exception as gen_err:
+            if provider.__class__.__name__ == "MockLLMProvider":
+                raise
             print(f"    - Notice: Live LLM lesson generation encountered error ({gen_err}); applying resilient fallback.")
             from app.services.llm_provider import MockLLMProvider
             fallback_provider = MockLLMProvider()
@@ -302,6 +321,11 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                 "video": "VIDEO",
             }
             aligned_blocks = []
+            t_low = (context.topic + " " + (context.academic_domain or "")).lower()
+            is_biz = any(k in t_low for k in ["entrepreneur", "business", "commerce", "finance", "marketing", "management", "e-commerce", "ecommerce"])
+            is_law = any(k in t_low for k in ["law", "legal", "constitution", "statute", "court", "jurisprudence"])
+            is_sci = any(k in t_low for k in ["science", "physics", "chem", "biology", "medical", "health", "anatomy"])
+
             for idx, blk in enumerate(lesson.blocks, start=1):
                 raw_type = str(blk.type).lower().replace("lessonblocktype.", "").replace("_", "-")
                 canonical_type = type_mapping.get(raw_type, "TEXT")
@@ -310,33 +334,100 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                 code_val = blk.code
                 lang_val = blk.language
                 if canonical_type == "CODE" and not code_val:
-                    code_val = (
-                        f"# Implementation for {context.topic}\n"
-                        f"def solution_{context.topic.lower().replace(' ', '_')}():\n"
-                        f"    return 'Execution logic'\n"
-                    )
-                    lang_val = lang_val or "python"
+                    if is_biz:
+                        code_val = (
+                            f"# Quantitative Model for {context.topic}\n"
+                            f"def evaluate_performance(metric_data: dict) -> dict:\n"
+                            f"    \"\"\"Calculates core efficiency and operational margins.\"\"\"\n"
+                            f"    margin = metric_data.get('revenue', 0) - metric_data.get('cost', 0)\n"
+                            f"    return {{'net_margin': margin, 'viable': margin > 0}}\n"
+                        )
+                        lang_val = lang_val or "python"
+                    else:
+                        code_val = (
+                            f"# Implementation for {context.topic}\n"
+                            f"def solution_{context.topic.lower().replace(' ', '_')}():\n"
+                            f"    return 'Execution logic'\n"
+                        )
+                        lang_val = lang_val or "python"
 
                 opts_val = blk.options
                 ans_val = blk.answer
                 expl_val = blk.explanation
                 if canonical_type == "QUIZ":
                     if not opts_val:
-                        opts_val = [
-                            f"A) Maintains structural invariants and predictable asymptotic performance.",
-                            f"B) Bypasses runtime validation to maximize unconstrained execution speed.",
-                            f"C) Converts all hierarchical nodes into flat unstructured strings unconditionally.",
-                            f"D) Discards persistent state upon completing each individual transaction.",
-                        ]
-                        ans_val = ans_val or opts_val[0]
-                        expl_val = expl_val or f"Option A is correct: {context.topic} enforces deterministic structural invariants, ensuring data integrity and predictable system behavior."
+                        if is_biz:
+                            opts_val = [
+                                f"A) Validating core assumptions empirically and maintaining positive unit economics.",
+                                f"B) Maximizing unvalidated overhead expenditures prior to testing market demand.",
+                                f"C) Relying exclusively on speculative projections without cash flow discipline.",
+                                f"D) Eliminating risk mitigation procedures to accelerate unverified product launch.",
+                            ]
+                            ans_val = ans_val or opts_val[0]
+                            expl_val = expl_val or f"Option A is correct: Sustainable operational success in {context.topic} requires evidence-based validation of value propositions and disciplined unit economics."
+                        elif is_law:
+                            opts_val = [
+                                f"A) Adherence to authoritative judicial precedent and established statutory doctrine.",
+                                f"B) Arbitrary administrative modification of codified statutes without legislative authority.",
+                                f"C) Retroactive imposition of punitive liabilities without procedural due process.",
+                                f"D) Selective enforcement based on discretionary executive decrees unconditionally.",
+                            ]
+                            ans_val = ans_val or opts_val[0]
+                            expl_val = expl_val or f"Option A is correct: Legal certainty in {context.topic} requires adherence to established statutory interpretation, due process, and authoritative precedent."
+                        elif is_sci:
+                            opts_val = [
+                                f"A) Rigorous isolation of variables with reproducible control baselines.",
+                                f"B) Accepting speculative theoretical assertions without empirical testing.",
+                                f"C) Discarding conflicting observational data to fit predetermined hypotheses.",
+                                f"D) Modifying measurement calibration criteria arbitrarily during data collection.",
+                            ]
+                            ans_val = ans_val or opts_val[0]
+                            expl_val = expl_val or f"Option A is correct: Scientific validity in {context.topic} relies on controlled, reproducible experimental methodology and unbiased hypothesis testing."
+                        else:
+                            opts_val = [
+                                f"A) Maintains structural invariants, deterministic state transitions, and verifiable data integrity.",
+                                f"B) Bypasses runtime validation to maximize unconstrained execution speed.",
+                                f"C) Converts all hierarchical nodes into flat unstructured strings unconditionally.",
+                                f"D) Discards persistent state upon completing each individual transaction.",
+                            ]
+                            ans_val = ans_val or opts_val[0]
+                            expl_val = expl_val or f"Option A is correct: {context.topic} enforces deterministic structural invariants, ensuring data integrity and predictable system behavior."
+
+                # Content sanitization and code inclusion for rich frontend rendering
+                content_val = str(blk.content) if blk.content else ""
+                if "Renderer Type: Diagram" in content_val and "Draw a rectangle" in content_val:
+                    # Replace drawing meta-instructions with actual ASCII diagram
+                    content_val = (
+                        f"### 📐 Conceptual Architecture & Flow Diagram\n\n"
+                        f"```\n"
+                        f"+-------------------------------------------------------------+\n"
+                        f"|               SYSTEM ARCHITECTURE: {context.topic.upper():<24} |\n"
+                        f"+-------------------------------------------------------------+\n"
+                        f"|  [Input / Client Request Interface]                         |\n"
+                        f"|              │                                              |\n"
+                        f"|              ▼                                              |\n"
+                        f"|  [Core Engine / Operational Pipeline]                       |\n"
+                        f"|              │                                              |\n"
+                        f"|              ▼                                              |\n"
+                        f"|  [Persistent Data Layer & State Verification]               |\n"
+                        f"+-------------------------------------------------------------+\n"
+                        f"```\n\n"
+                        f"### 🔄 Entity Breakdown & Relationship Flow\n"
+                        f"- **Ingestion Interface**: Normalizes incoming caller requests and validates input parameters.\n"
+                        f"- **Operational Pipeline**: Executes core business logic according to established rules.\n"
+                        f"- **Persistence Layer**: Enforces referential integrity, durability, and indexed retrieval."
+                    )
+                elif code_val and code_val.strip() not in content_val:
+                    # Embed code snippet into markdown content so card renderers show full code
+                    code_block_md = f"```{lang_val or ''}\n{code_val.strip()}\n```"
+                    content_val = f"{content_val}\n\n{code_block_md}" if content_val else code_block_md
 
                 aligned_blocks.append(
                     LessonBlock(
                         id=blk_id,
                         type=canonical_type,
                         title=blk.title or f"{context.topic} Block {idx}",
-                        content=str(blk.content) if blk.content else None,
+                        content=content_val if content_val else None,
                         code=code_val,
                         language=lang_val,
                         options=opts_val,
@@ -349,24 +440,58 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                 )
 
             if not any(b.type == "QUIZ" for b in aligned_blocks):
+                if is_biz:
+                    q_opts = [
+                        f"A) Validating core assumptions empirically and maintaining positive unit economics.",
+                        f"B) Maximizing unvalidated overhead expenditures prior to testing market demand.",
+                        f"C) Relying exclusively on speculative projections without cash flow discipline.",
+                        f"D) Eliminating risk mitigation procedures to accelerate unverified product launch.",
+                    ]
+                    q_ans = q_opts[0]
+                    q_expl = f"Option A is correct: Sustainable operational success in {context.topic} requires evidence-based validation of value propositions and disciplined unit economics."
+                elif is_law:
+                    q_opts = [
+                        f"A) Adherence to authoritative judicial precedent and established statutory doctrine.",
+                        f"B) Arbitrary administrative modification of codified statutes without legislative authority.",
+                        f"C) Retroactive imposition of punitive liabilities without procedural due process.",
+                        f"D) Selective enforcement based on discretionary executive decrees unconditionally.",
+                    ]
+                    q_ans = q_opts[0]
+                    q_expl = f"Option A is correct: Legal certainty in {context.topic} requires adherence to established statutory interpretation, due process, and authoritative precedent."
+                elif is_sci:
+                    q_opts = [
+                        f"A) Rigorous isolation of variables with reproducible control baselines.",
+                        f"B) Accepting speculative theoretical assertions without empirical testing.",
+                        f"C) Discarding conflicting observational data to fit predetermined hypotheses.",
+                        f"D) Modifying measurement calibration criteria arbitrarily during data collection.",
+                    ]
+                    q_ans = q_opts[0]
+                    q_expl = f"Option A is correct: Scientific validity in {context.topic} relies on controlled, reproducible experimental methodology and unbiased hypothesis testing."
+                else:
+                    q_opts = [
+                        f"A) Enforces structural invariants, predictable asymptotic complexity, and verifiable data integrity.",
+                        f"B) Bypasses all runtime validation checks to maximize raw execution speed without constraints.",
+                        f"C) Converts all non-linear data structures into flat unstructured strings unconditionally.",
+                        f"D) Operates strictly in volatile cache memory without supporting secondary persistent storage.",
+                    ]
+                    q_ans = q_opts[0]
+                    q_expl = f"Option A is correct: {context.topic} is engineered specifically to maintain structural consistency, validate state transitions, and deliver predictable asymptotic performance."
+
                 aligned_blocks.append(
                     LessonBlock(
                         id=f"blk-{len(aligned_blocks)+1:02d}-quiz",
                         type="QUIZ",
                         title=f"Comprehension Check: {context.topic}",
-                        content=f"Which of the following statements most accurately reflects the primary operational invariant or core advantage of {context.topic}?",
-                        options=[
-                            f"A) Enforces structural invariants, predictable asymptotic complexity, and verifiable data integrity.",
-                            f"B) Bypasses all runtime validation checks to maximize raw execution speed without constraints.",
-                            f"C) Converts all non-linear data structures into flat unstructured strings unconditionally.",
-                            f"D) Operates strictly in volatile cache memory without supporting secondary persistent storage.",
-                        ],
-                        answer=f"A) Enforces structural invariants, predictable asymptotic complexity, and verifiable data integrity.",
-                        explanation=f"Option A is correct: {context.topic} is engineered specifically to maintain structural consistency, validate state transitions, and deliver predictable asymptotic performance.",
+                        content=f"Which of the following statements most accurately reflects the primary operational principle or core advantage of {context.topic}?",
+                        options=q_opts,
+                        answer=q_ans,
+                        explanation=q_expl,
                     )
                 )
             lesson.blocks = aligned_blocks
 
+    except HTTPException:
+        raise
     except Exception as err:
         print(f">>> [API POST /api/v1/kie/lesson/generate] Unexpected error ({err}); generating resilient fallback.")
         from app.services.llm_provider import MockLLMProvider
