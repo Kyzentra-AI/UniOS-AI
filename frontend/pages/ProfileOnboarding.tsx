@@ -4,6 +4,7 @@
 import { useRouter } from 'next/navigation';
 
 import { useOnboardingStore } from '@/stores/onboardingstore';
+import { saveOnboardingDraft } from '@/stores/onboardingstore';
 import { useOnboarding } from '@/hooks/useOnboarding';
 
 const academicStatusLabels: Record<string, string> = {
@@ -51,8 +52,7 @@ export default function ProfileOnboarding() {
   } = useOnboarding();
 
   const handleContinue = async () => {
-    // Wait until the existing onboarding state has been loaded.
-    if (isOnboardingLoading) {
+    if (isOnboardingLoading || isSaving) {
       return;
     }
 
@@ -120,19 +120,24 @@ export default function ProfileOnboarding() {
       },
     };
 
+    // Preserve the complete profile before making the API request.
+    saveOnboardingDraft();
+
     try {
-      const onboardingStatus = onboarding?.status as string | undefined;
+      const onboardingStatus = onboarding?.status as
+        | string
+        | undefined;
 
       if (onboardingStatus === 'NOT_STARTED') {
         await initializeOnboarding(payload);
-      }  else if (
-  onboardingStatus === 'IN_PROGRESS' ||
-  onboardingStatus === 'KIE_ANALYZING' ||
-  onboardingStatus === 'KIE_QUESTIONS_READY' ||
-  onboardingStatus === 'KIE_RESOLVING' ||
-  onboardingStatus === 'KIE_COMPLETED'
-) {
-  await updateOnboarding(payload);
+      } else if (
+        onboardingStatus === 'IN_PROGRESS' ||
+        onboardingStatus === 'KIE_ANALYZING' ||
+        onboardingStatus === 'KIE_QUESTIONS_READY' ||
+        onboardingStatus === 'KIE_RESOLVING' ||
+        onboardingStatus === 'KIE_COMPLETED'
+      ) {
+        await updateOnboarding(payload);
       } else if (onboardingStatus === 'COMPLETED') {
         console.error('Onboarding is already completed.');
         return;
@@ -145,6 +150,8 @@ export default function ProfileOnboarding() {
       }
 
       setCurrentStep(6);
+      saveOnboardingDraft();
+
       router.push('/onboarding/assessment');
     } catch (error) {
       console.error(
@@ -158,12 +165,9 @@ export default function ProfileOnboarding() {
     education.academicStatus === 'BACHELOR' ||
     education.academicStatus === 'MASTER';
 
-
   return (
     <div className="min-h-[calc(100vh-4rem)] px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-3xl">
-
-        {/* Header */}
         <div className="mb-10">
           <p className="mb-2 text-sm font-semibold text-[var(--primary)]">
             Step 5 of 6
@@ -180,15 +184,12 @@ export default function ProfileOnboarding() {
         </div>
 
         <div className="space-y-4">
-
-          {/* Education */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <h2 className="mb-5 text-lg font-semibold text-[var(--text-primary)]">
               Education
             </h2>
 
             <div className="space-y-3 text-sm">
-
               <p className="text-[var(--text-secondary)]">
                 <span className="font-medium text-[var(--text-label)]">
                   Academic Status:
@@ -278,14 +279,12 @@ export default function ProfileOnboarding() {
             </div>
           </section>
 
-          {/* Career Goals */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <h2 className="mb-5 text-lg font-semibold text-[var(--text-primary)]">
               Career Goals
             </h2>
 
             <div className="space-y-4 text-sm">
-
               <div>
                 <p className="font-medium text-[var(--text-label)]">
                   Primary Goal
@@ -321,14 +320,12 @@ export default function ProfileOnboarding() {
             </div>
           </section>
 
-          {/* Existing Skills */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <h2 className="mb-5 text-lg font-semibold text-[var(--text-primary)]">
               Skills & Experience
             </h2>
 
             <div className="space-y-5 text-sm">
-
               <div>
                 <p className="font-medium text-[var(--text-label)]">
                   Skills
@@ -397,14 +394,12 @@ export default function ProfileOnboarding() {
             </div>
           </section>
 
-          {/* Preferences */}
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <h2 className="mb-5 text-lg font-semibold text-[var(--text-primary)]">
               Learning Preferences
             </h2>
 
             <div className="space-y-3 text-sm">
-
               <p className="text-[var(--text-secondary)]">
                 <span className="font-medium text-[var(--text-label)]">
                   Daily Study Time:
@@ -421,12 +416,10 @@ export default function ProfileOnboarding() {
                   preferences.learningDepth ||
                   'Not provided'}
               </p>
-
             </div>
           </section>
         </div>
 
-        {/* Backend error */}
         {saveError && (
           <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {saveError instanceof Error
@@ -435,9 +428,7 @@ export default function ProfileOnboarding() {
           </div>
         )}
 
-        {/* Actions */}
         <div className="mt-8 flex items-center justify-between border-t border-[var(--border)] pt-6">
-
           <button
             type="button"
             onClick={() =>
@@ -452,16 +443,14 @@ export default function ProfileOnboarding() {
           <button
             type="button"
             onClick={handleContinue}
-            disabled={isSaving}
+            disabled={isSaving || isOnboardingLoading}
             className="rounded-xl bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving
               ? 'Preparing assessment...'
               : 'Confirm & Continue →'}
           </button>
-
         </div>
-
       </div>
     </div>
   );

@@ -1,4 +1,7 @@
+
 "use client";
+
+import Link from "next/link";
 
 import type {
   Roadmap,
@@ -39,8 +42,13 @@ export default function Roadmap({
   const weeks = missions.reduce<{ week: number; items: RoadmapMission[] }[]>(
     (acc, mission) => {
       const last = acc[acc.length - 1];
-      if (last && last.week === mission.week) last.items.push(mission);
-      else acc.push({ week: mission.week, items: [mission] });
+
+      if (last && last.week === mission.week) {
+        last.items.push(mission);
+      } else {
+        acc.push({ week: mission.week, items: [mission] });
+      }
+
       return acc;
     },
     []
@@ -84,16 +92,27 @@ export default function Roadmap({
                 {[
                   { label: "Completed", value: completedMissions },
                   { label: "In progress", value: inProgressMissions },
-                  { label: "Remaining", value: missions.length - completedMissions },
+                  {
+                    label: "Remaining",
+                    value: missions.length - completedMissions,
+                  },
                 ].map((stat, i) => (
-                  <div key={stat.label} className={i > 0 ? "px-2 sm:px-5" : "pr-2 sm:pr-5"}>
-                    <p className="text-2xl font-bold tracking-tight sm:text-3xl">{stat.value}</p>
-                    <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{stat.label}</p>
+                  <div
+                    key={stat.label}
+                    className={
+                      i > 0 ? "px-2 sm:px-5" : "pr-2 sm:pr-5"
+                    }
+                  >
+                    <p className="text-2xl font-bold tracking-tight sm:text-3xl">
+                      {stat.value}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                      {stat.label}
+                    </p>
                   </div>
                 ))}
               </div>
 
-              {/* One segment per mission */}
               <div
                 className="mt-5 flex gap-[3px]"
                 role="img"
@@ -149,16 +168,20 @@ export default function Roadmap({
         ) : (
           <div className="space-y-8 md:space-y-10">
             {weeks.map(({ week, items }) => {
-              const done = items.filter((m) => m.status === "COMPLETED").length;
+              const done = items.filter(
+                (m) => m.status === "COMPLETED"
+              ).length;
 
               return (
                 <div
                   key={week}
                   className="reveal md:grid md:grid-cols-[7.5rem_minmax(0,1fr)] md:gap-6"
                 >
-                  {/* Week label */}
                   <div className="mb-3 flex items-baseline justify-between md:sticky md:top-6 md:mb-0 md:block md:self-start md:pt-3">
-                    <h3 className="text-base font-bold">Week {week}</h3>
+                    <h3 className="text-base font-bold">
+                      Week {week}
+                    </h3>
+
                     <p className="text-xs text-[var(--text-secondary)] md:mt-0.5">
                       {done} of {items.length} done
                     </p>
@@ -172,6 +195,7 @@ export default function Roadmap({
 
                     {items.map((mission) => {
                       const idx = Math.min(nodeIndex++, 8);
+
                       return (
                         <li
                           key={mission.id}
@@ -193,7 +217,10 @@ export default function Roadmap({
                             </Node>
                           </span>
 
-                          <MissionRow mission={mission} onClick={onMissionClick} />
+                          <MissionRow
+                            mission={mission}
+                            onClick={onMissionClick}
+                          />
                         </li>
                       );
                     })}
@@ -235,41 +262,69 @@ function MissionRow({
       : "var(--surface-alt)";
 
   return (
-    <button
-      type="button"
-      onClick={() => onClick?.(mission)}
-      className="group flex w-full items-start gap-3 rounded-2xl border bg-[var(--surface)] p-4 text-left shadow-[0_3px_12px_rgba(24,52,58,0.025)] transition duration-200 hover:-translate-y-px hover:shadow-[0_10px_26px_rgba(24,52,58,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] sm:items-center sm:p-5"
-      style={{ borderColor: inProgress ? "var(--feature-orange)" : "var(--border)" }}
+    <div
+      className="group flex w-full items-start gap-3 rounded-2xl border bg-[var(--surface)] p-4 text-left shadow-[0_3px_12px_rgba(24,52,58,0.025)] transition duration-200 hover:-translate-y-px hover:shadow-[0_10px_26px_rgba(24,52,58,0.08)] sm:items-center sm:p-5"
+      style={{
+        borderColor: inProgress
+          ? "var(--feature-orange)"
+          : "var(--border)",
+      }}
     >
-      <span className="min-w-0 flex-1">
-        <span
-          className={`line-clamp-2 block font-semibold leading-5 ${
-            completed ? "text-[var(--text-secondary)]" : ""
-          }`}
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => onClick?.(mission)}
+          className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
         >
-          {mission.title}
-        </span>
+          <span
+            className={`line-clamp-2 block font-semibold leading-5 ${
+              completed ? "text-[var(--text-secondary)]" : ""
+            }`}
+          >
+            {mission.title}
+          </span>
+        </button>
 
-        <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs leading-5 text-[var(--text-secondary)]">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs leading-5 text-[var(--text-secondary)]">
           <span>
             {mission.mission_type}
-            {mission.subject ? ` · ${mission.subject}` : ""}
             {mission.estimated_minutes != null
               ? ` · ${mission.estimated_minutes} min`
               : ""}
           </span>
 
+          {mission.subject && (
+            <Link
+              href={`/roadmap?subject=${encodeURIComponent(mission.subject)}`}
+              onClick={(event) => event.stopPropagation()}
+              className="rounded-full bg-[var(--surface-alt)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--primary)] transition hover:bg-[var(--primary-soft)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+              aria-label={`View ${mission.subject} roadmap`}
+            >
+              {mission.subject}
+            </Link>
+          )}
+
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-            style={{ backgroundColor: statusBackground, color: statusColor }}
+            style={{
+              backgroundColor: statusBackground,
+              color: statusColor,
+            }}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-current" />
             {statusLabel}
           </span>
-        </span>
-      </span>
+        </div>
+      </div>
 
-      <Chevron className="mt-0.5 shrink-0 text-[var(--text-muted)] transition-transform duration-200 group-hover:translate-x-0.5 sm:mt-0" />
-    </button>
+      <button
+        type="button"
+        onClick={() => onClick?.(mission)}
+        aria-label={`Open mission: ${mission.title}`}
+        className="mt-0.5 shrink-0 rounded-md text-[var(--text-muted)] transition-transform duration-200 group-hover:translate-x-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] sm:mt-0"
+      >
+        <Chevron />
+      </button>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+
 import { apiRequest } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 
@@ -23,6 +24,7 @@ function getAuthHeaders(): HeadersInit {
 export interface GenerateAssessmentPayload {
   session_id: string;
   topic: string;
+  force_retake?: boolean;
 }
 
 export async function generateAssessment(

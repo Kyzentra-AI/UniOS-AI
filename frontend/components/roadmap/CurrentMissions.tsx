@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -62,52 +63,66 @@ export default function CurrentMissions({
       ) : (
         <>
           {/* Featured mission */}
-          <Link
-            href={`/missions/${featured.id}`}
-            className="group relative block overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--primary-soft)] p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(24,52,58,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] sm:p-7"
-          >
+          <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--primary-soft)] p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(24,52,58,0.09)] sm:p-7">
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute -right-1 -top-5 hidden select-none text-[130px] font-bold leading-none text-[var(--primary)] opacity-[0.08] transition-transform duration-500 group-hover:-translate-x-1 sm:block"
+              className="pointer-events-none absolute -right-1 -top-5 hidden select-none text-[130px] font-bold leading-none text-[var(--primary)] opacity-[0.08] sm:block"
             >
               {featured.sequence}
             </span>
 
-            <p className="text-xs font-semibold text-[var(--primary)]">
-              {featured.status === "IN_PROGRESS"
-                ? "Continue where you left off"
-                : "Up next"}
-              <span className="font-normal text-[var(--text-secondary)]">
-                {" · "}Week {featured.week} · Mission {featured.sequence}
-              </span>
-            </p>
+            <Link
+              href={`/missions/${featured.id}`}
+              className="group relative block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+            >
+              <p className="text-xs font-semibold text-[var(--primary)]">
+                {featured.status === "IN_PROGRESS"
+                  ? "Continue where you left off"
+                  : "Up next"}
 
-            <h3 className="relative mt-2.5 max-w-xl text-xl font-semibold leading-snug text-[var(--text-primary)] sm:text-2xl">
-              {featured.title}
-            </h3>
+                <span className="font-normal text-[var(--text-secondary)]">
+                  {" · "}Week {featured.week} · Mission {featured.sequence}
+                </span>
+              </p>
 
-            <div className="relative mt-4 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-              <span className="rounded-full bg-[var(--surface)] px-2.5 py-1">
-                {featured.mission_type}
-              </span>
-              {featured.subject && (
+              <h3 className="relative mt-2.5 max-w-xl text-xl font-semibold leading-snug text-[var(--text-primary)] sm:text-2xl">
+                {featured.title}
+              </h3>
+
+              <div className="relative mt-4 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
                 <span className="rounded-full bg-[var(--surface)] px-2.5 py-1">
-                  {featured.subject}
+                  {featured.mission_type}
                 </span>
-              )}
-              {featured.estimated_minutes != null && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-2.5 py-1">
-                  <Clock />
-                  {featured.estimated_minutes} min
-                </span>
-              )}
-            </div>
 
-            <span className="relative mt-6 inline-flex w-full items-center justify-center gap-1 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--surface)] transition-[padding] duration-200 group-hover:pr-4 sm:w-auto">
-              {featured.status === "IN_PROGRESS" ? "Continue" : "Start mission"}
-              <Chevron className="transition-transform duration-200 group-hover:translate-x-1" />
-            </span>
-          </Link>
+                {featured.estimated_minutes != null && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-2.5 py-1">
+                    <Clock />
+                    {featured.estimated_minutes} min
+                  </span>
+                )}
+              </div>
+
+              <span className="relative mt-6 inline-flex w-full items-center justify-center gap-1 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--surface)] transition-[padding] duration-200 group-hover:pr-4 sm:w-auto">
+                {featured.status === "IN_PROGRESS"
+                  ? "Continue"
+                  : "Start mission"}
+
+                <Chevron className="transition-transform duration-200 group-hover:translate-x-1" />
+              </span>
+            </Link>
+
+            {featured.subject && (
+              <div className="relative mt-3">
+                <Link
+                  href={`/roadmap?subject=${encodeURIComponent(featured.subject)}`}
+                  className="inline-flex rounded-full bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--surface-alt)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                  aria-label={`View ${featured.subject} roadmap`}
+                >
+                  {featured.subject}
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Queue */}
           {rest.length > 0 && (
@@ -137,47 +152,60 @@ export default function CurrentMissions({
                         </Node>
                       </span>
 
-                      <Link
-                        href={`/missions/${mission.id}`}
-                        className="group block rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition duration-200 hover:-translate-y-px hover:shadow-[0_8px_22px_rgba(24,52,58,0.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs text-[var(--text-muted)]">
-                              Week {mission.week} · Mission {mission.sequence}
-                            </p>
-
-                            <h4 className="mt-0.5 line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">
-                              {mission.title}
-                            </h4>
-
-                            <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                              {mission.mission_type}
-                              {mission.subject ? ` · ${mission.subject}` : ""}
-                              {mission.estimated_minutes != null
-                                ? ` · ${mission.estimated_minutes} min`
-                                : ""}
-                            </p>
-                          </div>
-
-                          <Chevron className="mt-1 shrink-0 text-[var(--text-muted)] transition-transform duration-200 group-hover:translate-x-0.5" />
-                        </div>
-
-                        <span
-                          className="mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                          style={{
-                            backgroundColor: inProgress
-                              ? "var(--feature-blue-soft)"
-                              : "var(--surface-alt)",
-                            color: inProgress
-                              ? "var(--feature-blue)"
-                              : "var(--text-secondary)",
-                          }}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 transition duration-200 hover:-translate-y-px hover:shadow-[0_8px_22px_rgba(24,52,58,0.07)]">
+                        <Link
+                          href={`/missions/${mission.id}`}
+                          className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                         >
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                          {mission.status.replaceAll("_", " ")}
-                        </span>
-                      </Link>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-xs text-[var(--text-muted)]">
+                                Week {mission.week} · Mission {mission.sequence}
+                              </p>
+
+                              <h4 className="mt-0.5 line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">
+                                {mission.title}
+                              </h4>
+
+                              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                {mission.mission_type}
+                                {mission.estimated_minutes != null
+                                  ? ` · ${mission.estimated_minutes} min`
+                                  : ""}
+                              </p>
+                            </div>
+
+                            <Chevron className="mt-1 shrink-0 text-[var(--text-muted)] transition-transform duration-200 group-hover:translate-x-0.5" />
+                          </div>
+                        </Link>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {mission.subject && (
+                            <Link
+                              href={`/roadmap?subject=${encodeURIComponent(mission.subject)}`}
+                              className="inline-flex rounded-full bg-[var(--surface-alt)] px-2.5 py-1 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary-soft)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                              aria-label={`View ${mission.subject} roadmap`}
+                            >
+                              {mission.subject}
+                            </Link>
+                          )}
+
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                            style={{
+                              backgroundColor: inProgress
+                                ? "var(--feature-blue-soft)"
+                                : "var(--surface-alt)",
+                              color: inProgress
+                                ? "var(--feature-blue)"
+                                : "var(--text-secondary)",
+                            }}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            {mission.status.replaceAll("_", " ")}
+                          </span>
+                        </div>
+                      </div>
                     </li>
                   );
                 })}

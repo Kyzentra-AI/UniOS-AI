@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -47,6 +48,7 @@ export default function LearningWorkspace({
     null,
   );
   const [assessmentRetryKey, setAssessmentRetryKey] = useState(0);
+  const [forceRetake, setForceRetake] = useState(false);
 
   // Prevent duplicate pause requests from pagehide + popstate.
   const pauseStartedRef = useRef(false);
@@ -101,6 +103,7 @@ export default function LearningWorkspace({
   }, [pauseSessionOnExit]);
 
   // Generate/load assessment when its tab is opened.
+  // forceRetake is true only when the user explicitly requests a retake.
   useEffect(() => {
     if (
       activePanel !== 'assessment' ||
@@ -123,10 +126,12 @@ export default function LearningWorkspace({
         const data = await generateAssessment({
           session_id: sessionId,
           topic: sessionTopic,
+          ...(forceRetake ? { force_retake: true } : {}),
         });
 
         if (!cancelled) {
           setAssessment(data);
+          setForceRetake(false);
         }
       } catch (err) {
         if (!cancelled) {
@@ -154,6 +159,7 @@ export default function LearningWorkspace({
     topic,
     assessment,
     assessmentRetryKey,
+    forceRetake,
   ]);
 
   async function handleSaveProgress() {
@@ -190,9 +196,22 @@ export default function LearningWorkspace({
     }
   }
 
+  // Retry normal assessment generation after a loading error or empty response.
   function retryAssessment() {
+    if (isAssessmentLoading) return;
+
     setAssessment(null);
     setAssessmentError(null);
+    setAssessmentRetryKey((key) => key + 1);
+  }
+
+  // Explicitly request a fresh assessment from the backend.
+  function handleRetakeAssessment() {
+    if (isAssessmentLoading) return;
+
+    setAssessment(null);
+    setAssessmentError(null);
+    setForceRetake(true);
     setAssessmentRetryKey((key) => key + 1);
   }
 
@@ -445,6 +464,8 @@ export default function LearningWorkspace({
                 lesson={lesson}
                 roadmapId={roadmapId}
                 missionId={missionId}
+                currentBlockIndex={currentBlockIndex}
+                subject={sessionData.topic || topic}
               />
             </aside>
           </div>
@@ -466,6 +487,7 @@ export default function LearningWorkspace({
             isLoading={isAssessmentLoading}
             loadError={assessmentError}
             onRetry={retryAssessment}
+            onRetake={handleRetakeAssessment}
           />
         </div>
       </main>

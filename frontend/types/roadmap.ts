@@ -1,3 +1,4 @@
+
 export type RoadmapScope =
   | 'ACADEMIC'
   | 'CAREER'
@@ -29,6 +30,7 @@ export type MissionStatus =
 export interface RoadmapRequest {
   syllabus_id: string;
   scope: RoadmapScope;
+  subject?: string;
 }
 
 export interface RoadmapGenerationResponse {
@@ -88,6 +90,7 @@ export interface Roadmap {
   id: string;
   version: number;
   scope: RoadmapScope;
+  subject?: string | null;
   status: RoadmapStatus;
   scope_data: RoadmapScopeData;
   missions: RoadmapMission[];
@@ -95,6 +98,16 @@ export interface Roadmap {
   updated_at?: string | null;
 }
 
+export interface RoadmapSubjectSummary {
+  name: string;
+  total_missions: number;
+  completed_missions: number;
+  in_progress_missions: number;
+  progress_percentage: number;
+}
+
 export interface RoadmapResponse {
   roadmap: Roadmap | null;
+  available_subjects: RoadmapSubjectSummary[];
+  active_subject: string | null;
 }

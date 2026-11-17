@@ -1,3 +1,4 @@
+
 export type MentorMode =
   | 'tutor'
   | 'study-coach'
@@ -10,6 +11,13 @@ export interface MentorContext {
   missionId?: string;
   lessonId?: string;
   topic?: string;
+
+  // Current learning step context
+  stepIndex?: number;
+  stepTitle?: string;
+  stepContent?: string;
+  totalSteps?: number;
+  subject?: string;
 }
 
 export interface MentorMessage {
