@@ -25,7 +25,11 @@ def _get_learner_id(user_id: str) -> str:
 
 @router.get("/recommendations", response_model=ProjectRecommendationResponse)
 async def get_recommendations(current_user: dict = Depends(get_current_user)):
-    learner_id = _get_learner_id(current_user["user_id"])
+    try:
+        learner_id = _get_learner_id(current_user["user_id"])
+    except HTTPException:
+        # Learner profile may not be created yet during initial onboarding; use user_id safely
+        learner_id = str(current_user.get("user_id", "guest"))
     return await build_kie_client.get_recommendations(learner_id)
 
 @router.get("/projects", response_model=List[Project])
