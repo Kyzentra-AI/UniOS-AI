@@ -399,12 +399,15 @@ Every single mission MUST have subject: "{target_subject}".
         system_instruction = (
             "You are the senior UniOS Curriculum & Roadmap Synthesis Engine. "
             "Generate an extensive, rigorous, and highly structured learning roadmap with sequential missions based on ContextV2.\n\n"
-            "CONTENT MAXIMIZATION & MULTI-SUBJECT GUIDELINES:\n"
-            "- Interleave missions across all syllabus subjects evenly across weeks.\n"
-            "- Every mission MUST explicitly designate its exact 'subject' name from the syllabus.\n"
+            "CONTENT MAXIMIZATION & MULTI-SUBJECT FULL SYLLABUS GUIDELINES:\n"
+            "- FULL SYLLABUS COVERAGE REQUIREMENT: Every single subject listed in the syllabus MUST have comprehensive coverage across its units/modules.\n"
+            "- For EVERY subject in the syllabus, generate at least 3 to 5 progressive, dedicated missions covering: Foundations & Invariants, Core Mechanics/Architecture, Advanced Optimization/Problem-Solving, and Practical/Benchmark Integration.\n"
+            "- NEVER omit or leave any subject with only 1 mission. Every enrolled subject must have substantial multi-week coverage.\n"
+            "- Every mission MUST explicitly designate its exact 'subject' name matching the syllabus subject name.\n"
             "- Provide rich, detailed, granular topics for each subject (5-8 topics per subject).\n"
             "- Provide multiple structured goals and clear week-by-week milestones.\n"
-            "- Generate 8 to 14 sequential missions across 3 to 4 weeks.\n"
+            "- Interleave missions across subjects evenly across weeks (Weeks 1 to 6-8) to provide a balanced, manageable study schedule.\n"
+            "- Total missions must scale with the number of subjects (typically 3 to 4 missions per subject; for 6-8 subjects, generate 20 to 32 total missions).\n"
             "- For EVERY mission, the 'description' MUST be comprehensive and structured into 4 distinct sections:\n"
             "  🎯 Objectives: <Clear learning goals and competencies>\n"
             "  📚 Core Concepts: <Key theoretical foundations, invariants, and algorithms to master>\n"
@@ -498,24 +501,26 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
         missions: List[RoadmapMission] = []
         global_seq = 1
 
-        # Interleave 4 weeks across subjects
-        for week_num in range(1, 4):
+        # Comprehensive syllabus coverage across stages and topics
+        num_stages = max(3, min(max([len(s.topics) for s in parsed_subjects] + [3]), 5))
+        for stage_idx in range(num_stages):
+            week_num = stage_idx + 1
             for s_idx, subj in enumerate(parsed_subjects):
-                top_idx = (week_num - 1) % max(1, len(subj.topics))
-                topic = subj.topics[top_idx] if subj.topics else f"{subj.name} Module {week_num}"
+                top_idx = stage_idx % max(1, len(subj.topics))
+                topic = subj.topics[top_idx] if subj.topics else f"{subj.name} Unit {stage_idx + 1}"
 
-                if week_num == 1:
+                if stage_idx == 0:
                     m_type = MissionType.LEARNING
                     title = f"Study {topic} Invariants & Core Theory"
                     desc = (
                         f"🎯 Objectives: Deep-dive conceptual exploration of {topic} within {subj.name}.\n"
-                        f"📚 Core Concepts: Foundational memory layouts, computational invariants, and structural constraints.\n"
+                        f"📚 Core Concepts: Foundational computational abstractions, core invariants, and structural constraints.\n"
                         f"💻 Deliverables: Trace execution graphs, invariant proofs, and state transitions.\n"
                         f"✅ Mastery Criteria: Achieve >= 85% on comprehension checks with zero conceptual misconceptions."
                     )
                     prio = "HIGH"
                     est = 90
-                elif week_num == 2:
+                elif stage_idx == 1:
                     m_type = MissionType.PRACTICAL
                     title = f"Implement Hands-on {topic} Solution"
                     desc = (
@@ -526,17 +531,28 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
                     )
                     prio = "HIGH"
                     est = 90
-                else:
+                elif stage_idx == 2:
                     m_type = MissionType.ASSIGNMENT if s_idx % 2 == 0 else MissionType.REVISION
                     title = f"Mastery Check: {topic} Problem Solving"
                     desc = (
                         f"🎯 Objectives: Evaluate conceptual retention and analytical problem-solving in {topic}.\n"
-                        f"📚 Core Concepts: Resolve edge cases, off-by-one errors, and multi-variable state transitions.\n"
+                        f"📚 Core Concepts: Resolve edge cases, boundary invariants, and multi-variable state transitions.\n"
                         f"💻 Deliverables: Complete structured benchmark assessment tasks with analytical justifications.\n"
                         f"✅ Mastery Criteria: Satisfy formal rubric criteria across correctness, optimization, and code clarity."
                     )
                     prio = "MEDIUM"
                     est = 60
+                else:
+                    m_type = MissionType.PRACTICAL
+                    title = f"Advanced Optimization & Benchmarking: {topic}"
+                    desc = (
+                        f"🎯 Objectives: Profile, optimize, and stress-test {topic} under high throughput workloads.\n"
+                        f"📚 Core Concepts: Bottleneck profiling, memory allocation pruning, and latency reduction.\n"
+                        f"💻 Deliverables: Benchmarking test harness and performance telemetry report.\n"
+                        f"✅ Mastery Criteria: Demonstrated throughput improvement without functional regressions."
+                    )
+                    prio = "MEDIUM"
+                    est = 75
 
                 missions.append(
                     RoadmapMission(
@@ -732,6 +748,37 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
         if not sanitized_missions:
             return None
 
+        # Ensure full syllabus coverage: every parsed subject must have at least 2 progressive missions
+        if not target_subject and parsed_subjects:
+            current_max_seq = max((m.sequence for m in sanitized_missions), default=len(sanitized_missions))
+            for subj in parsed_subjects:
+                subj_missions = [m for m in sanitized_missions if m.subject.strip().lower() == subj.name.strip().lower()]
+                if len(subj_missions) < 2:
+                    topics_pool = subj.topics if subj.topics else [f"{subj.name} Core Principles"]
+                    for extra_idx in range(len(subj_missions), min(3, max(2, len(topics_pool)))):
+                        current_max_seq += 1
+                        t_name = topics_pool[extra_idx % len(topics_pool)]
+                        m_type = MissionType.PRACTICAL if extra_idx == 1 else MissionType.ASSIGNMENT
+                        title = f"Practical Implementation: {t_name}" if extra_idx == 1 else f"Problem Solving: {t_name}"
+                        desc = (
+                            f"🎯 Objectives: Master applied implementation and edge-case resolution for {t_name} in {subj.name}.\n"
+                            f"📚 Core Concepts: Architectural invariants, memory constraints, and defensive validation.\n"
+                            f"💻 Deliverables: Implement verified solution module with unit test coverage.\n"
+                            f"✅ Mastery Criteria: Pass all validation benchmarks without performance degradation."
+                        )
+                        sanitized_missions.append(
+                            RoadmapMission(
+                                title=title,
+                                type=m_type,
+                                description=desc,
+                                priority="HIGH" if extra_idx == 1 else "MEDIUM",
+                                estimated_minutes=75,
+                                subject=subj.name,
+                                week=extra_idx + 1,
+                                sequence=current_max_seq,
+                            )
+                        )
+
         # Build subject tracks
         subject_tracks: List[SubjectTrack] = []
         if target_subject:
@@ -746,6 +793,8 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
         else:
             subjects_map = {s.name.lower(): s for s in (parsed_subjects or [])}
             unique_subjects = {m.subject for m in sanitized_missions}
+            for s in (parsed_subjects or []):
+                unique_subjects.add(s.name)
             for s_name in sorted(unique_subjects):
                 s_missions = [m for m in sanitized_missions if m.subject.lower() == s_name.lower()]
                 orig_subj = subjects_map.get(s_name.lower())

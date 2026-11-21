@@ -443,10 +443,33 @@ class MockLLMProvider(BaseLLMProvider):
         if pedagogy_decision is None:
             pedagogy_decision = self.generate_pedagogy_decision(prompt)
 
-        prompt_lower = prompt.lower()
-        is_db = any(w in prompt_lower for w in ["database", "sql", "dbms", "relational", "table"])
+        topic_lower = topic.lower()
 
-        if "commerce" in prompt_lower or "b.com" in prompt_lower or "finance" in prompt_lower:
+        # Domain classification based on topic first
+        is_algo = any(w in topic_lower for w in ["algorithm", "daa", "complexity", "asymptotic", "sorting", "graph", "tree", "dynamic programming", "divide and conquer", "greedy", "searching", "data structure", "big-o", "recurrence"])
+        is_automata = any(w in topic_lower for w in ["theory of computation", "computation", "automata", "formal language", "chomsky", "turing", "dfa", "nfa", "grammar", "pda", "regex", "decidab", "regular expression", "context-free"])
+        is_ai = any(w in topic_lower for w in ["artificial intelligence", "ai", "machine learning", "neural", "heuristic", "agent", "state-space", "search agent", "expert system", "reinforcement"])
+        is_java = any(w in topic_lower for w in ["java", "enterprise", "spring", "maven", "jdbc", "jvm", "servlet"])
+        is_db = any(w in topic_lower for w in ["database", "sql", "dbms", "relational", "rdbms", "postgresql", "mysql", "nosql", "query optimization"])
+        is_quant = any(w in topic_lower for w in ["aptitude", "quantitative", "reasoning", "number system", "permutation", "combination", "probability", "algebra"])
+        is_ethics = any(w in topic_lower for w in ["ethics", "corporate", "professionalism", "governance", "compliance", "moral"])
+
+        prompt_lower = prompt.lower()
+        if is_algo:
+            example_title = "Algorithmic Implementation & Asymptotic Complexity"
+        elif is_automata:
+            example_title = "Formal Automaton State Simulation"
+        elif is_ai:
+            example_title = "State-Space Heuristic Search Agent"
+        elif is_java:
+            example_title = "Enterprise Service & Modular Architecture"
+        elif is_db:
+            example_title = "Relational Schema & Query Optimization"
+        elif is_quant:
+            example_title = "Analytical Quantitative Formulation"
+        elif is_ethics:
+            example_title = "Professional Governance & Ethical Dilemma Case"
+        elif "commerce" in prompt_lower or "b.com" in prompt_lower or "finance" in prompt_lower:
             example_title = "Financial Analysis Case"
         elif "law" in prompt_lower or "legal" in prompt_lower:
             example_title = "Case Law Analysis"
@@ -464,23 +487,274 @@ class MockLLMProvider(BaseLLMProvider):
             f"- Foundational computing abstractions, data organization, and procedural execution flow.\n"
             f"- Basic understanding of system boundaries, runtime validation, and state persistence.\n\n"
             f"### 💡 Why This Topic Matters\n"
-            f"In enterprise systems and scalable architectures, **{topic}** ensures reliable throughput, fault isolation, and deterministic performance under real-world workloads."
+            f"In scalable software engineering and enterprise computing, **{topic}** provides the formal guarantees, mathematical boundaries, and deterministic invariants required for robust production systems."
         )
 
         expl_content = (
-            f"### 1. Conceptual Foundation & Abstraction\n"
-            f"At its core, **{topic}** defines a structured abstraction designed to manage state, compute transitions, and isolate execution complexity from downstream consumers.\n\n"
+            f"### 1. Conceptual Foundation & Formal Abstraction\n"
+            f"At its core, **{topic}** defines a structured computational abstraction designed to manage state transitions, enforce operational invariants, and isolate algorithmic complexity.\n\n"
             f"### 2. Core Mechanics & Operational Lifecycle\n"
-            f"- **State Invariants**: Formal guarantees that the underlying structure remains consistent before, during, and after mutations.\n"
-            f"- **Validation & Boundary Handling**: Guarding against null inputs, duplicate keys, memory fragmentation, and invalid transitions.\n"
-            f"- **Execution Pipeline**: Data transitions from ingestion through validation, transformation, and persistent storage.\n\n"
+            f"- **State Invariants**: Formal mathematical guarantees that internal invariants remain consistent before and after mutations.\n"
+            f"- **Boundary Guarding**: Defensive validation guarding against null inputs, boundary overflow, and invalid transitions.\n"
+            f"- **Execution Pipeline**: Inputs transition deterministically from evaluation through processing and persistent state verification.\n\n"
             f"### 3. Engineering Best Practices & Trade-offs\n"
-            f"- **Time vs. Space Efficiency**: Balancing cache utilization and low-latency queries against memory footprint.\n"
-            f"- **ACID & Consistency Guarantees**: Enforcing durability and atomic isolation across multi-user environments.\n"
-            f"- **Maintainability**: Writing modular, self-documenting code with comprehensive automated test coverage."
+            f"- **Complexity vs. Resource Footprint**: Evaluating asymptotic time bounds against memory allocation constraints.\n"
+            f"- **Correctness Guarantees**: Formal mathematical proofs and regression test suites validating edge cases.\n"
+            f"- **Maintainability**: Self-documenting design adhering to modular cohesion and clean API boundaries."
         )
 
-        if is_db:
+        if is_algo:
+            code_snippet = (
+                f"# Divide-and-Conquer Algorithm implementation for {topic}\n"
+                f"def merge_sort(arr: list[int]) -> list[int]:\n"
+                f"    \"\"\"\n"
+                f"    Asymptotic Complexity Analysis:\n"
+                f"      - Best Case:    O(N log N)\n"
+                f"      - Average Case: O(N log N)\n"
+                f"      - Worst Case:   O(N log N)\n"
+                f"      - Space:        O(N) auxiliary space\n"
+                f"    \"\"\"\n"
+                f"    if len(arr) <= 1:\n"
+                f"        return arr\n\n"
+                f"    mid = len(arr) // 2\n"
+                f"    left_half = merge_sort(arr[:mid])\n"
+                f"    right_half = merge_sort(arr[mid:])\n"
+                f"    return _merge(left_half, right_half)\n\n"
+                f"def _merge(left: list[int], right: list[int]) -> list[int]:\n"
+                f"    merged = []\n"
+                f"    i = j = 0\n"
+                f"    while i < len(left) and j < len(right):\n"
+                f"        if left[i] <= right[j]:\n"
+                f"            merged.append(left[i])\n"
+                f"            i += 1\n"
+                f"        else:\n"
+                f"            merged.append(right[j])\n"
+                f"            j += 1\n"
+                f"    merged.extend(left[i:])\n"
+                f"    merged.extend(right[j:])\n"
+                f"    return merged\n\n"
+                f"# Verification trace\n"
+                f"test_data = [38, 27, 43, 3, 9, 82, 10]\n"
+                f"result = merge_sort(test_data)\n"
+                f"print('Sorted Array:', result)\n"
+            )
+            code_lang = "python"
+            example_content = (
+                f"### 🔍 Algorithmic Implementation Walkthrough: {topic}\n\n"
+                f"Review the production algorithmic implementation below illustrating how **{topic}** decomposes problem instances, guarantees $O(N \\log N)$ asymptotic bounds, and preserves data stability.\n\n"
+                f"### 🛠️ Key Algorithmic Decisions\n"
+                f"- **Asymptotic Complexity**: Guarantees optimal $O(N \\log N)$ worst-case time complexity via balanced divide-and-conquer recurrence.\n"
+                f"- **Recurrence Invariant**: Follows $T(n) = 2T(n/2) + O(n)$, terminating strictly at the atomic base case ($|arr| \\le 1$).\n"
+                f"- **State Stability**: Sub-arrays maintain non-decreasing order during two-pointer linear merge passes.\n\n"
+                f"```{code_lang}\n{code_snippet}```\n\n"
+                f"### ⚙️ Execution Trace & Verification\n"
+                f"1. **Partitioning**: Recursive division branches into single-element leaf nodes across $\\lceil \\log_2 N \\rceil$ levels.\n"
+                f"2. **Linear Merge**: Pointers `i` and `j` perform pairwise comparisons in linear $O(N)$ time per level.\n"
+                f"3. **Resulting Output**: Unsorted array `[38, 27, 43, 3, 9, 82, 10]` transforms deterministically into `[3, 9, 10, 27, 38, 43, 82]`."
+            )
+            visual_content = (
+                f"### 📐 Algorithmic Execution Tree & State Transitions\n\n"
+                f"```\n"
+                f"                    [ 38, 27, 43, 3, 9, 82, 10 ]\n"
+                f"                                │\n"
+                f"              ┌─────────────────┴─────────────────┐\n"
+                f"      [ 38, 27, 43 ]                      [ 3, 9, 82, 10 ]\n"
+                f"        ┌─────┴─────┐                       ┌─────┴─────┐\n"
+                f"    [ 38 ]      [ 27, 43 ]              [ 3, 9 ]    [ 82, 10 ]\n"
+                f"                  ┌───┴───┐               ┌───┴───┐   ┌───┴───┐\n"
+                f"                [27]    [43]             [3]     [9] [82]    [10]\n"
+                f"                                │\n"
+                f"                      RECURSIVE MERGE PASS\n"
+                f"                                ▼\n"
+                f"                    [ 3, 9, 10, 27, 38, 43, 82 ] (Sorted Invariant)\n"
+                f"```\n\n"
+                f"### 🔄 Complexity & Recurrence Proof\n"
+                f"- **Recurrence Formula**: $T(n) = 2T(n/2) + \\Theta(n)$. By Master Theorem Case 2, $T(n) = \\Theta(n \\log n)$.\n"
+                f"- **Auxiliary Storage**: Requires $O(N)$ working memory for temporary sub-array buffering.\n"
+                f"- **Stability**: Preserves relative ordering of duplicate elements."
+            )
+        elif is_automata:
+            code_snippet = (
+                f"# Formal 5-tuple DFA Engine M = (Q, Sigma, delta, q0, F) for {topic}\n"
+                f"class DeterministicFiniteAutomaton:\n"
+                f"    \"\"\"\n"
+                f"    Formal DFA simulator recognizing Language L = {{w in {{0, 1}}* | w ends with '01'}}.\n"
+                f"    States: {{q0, q1, q2}} where q0 is Start, q2 is Final Accept State.\n"
+                f"    \"\"\"\n"
+                f"    def __init__(self) -> None:\n"
+                f"        self.states = {{'q0', 'q1', 'q2'}}\n"
+                f"        self.alphabet = {{'0', '1'}}\n"
+                f"        self.start_state = 'q0'\n"
+                f"        self.accept_states = {{'q2'}}\n"
+                f"        # Transition function delta: Q x Sigma -> Q\n"
+                f"        self.delta = {{\n"
+                f"            ('q0', '0'): 'q1', ('q0', '1'): 'q0',\n"
+                f"            ('q1', '0'): 'q1', ('q1', '1'): 'q2',\n"
+                f"            ('q2', '0'): 'q1', ('q2', '1'): 'q0',\n"
+                f"        }}\n\n"
+                f"    def process(self, tape: str) -> bool:\n"
+                f"        current_state = self.start_state\n"
+                f"        for symbol in tape:\n"
+                f"            if symbol not in self.alphabet:\n"
+                f"                raise ValueError(f'Invalid alphabet symbol: {{symbol}}')\n"
+                f"            current_state = self.delta[(current_state, symbol)]\n"
+                f"        return current_state in self.accept_states\n\n"
+                f"# Verification test\n"
+                f"dfa = DeterministicFiniteAutomaton()\n"
+                f"print('Tape 10101 accepted?', dfa.process('10101'))  # True\n"
+                f"print('Tape 10100 accepted?', dfa.process('10100'))  # False\n"
+            )
+            code_lang = "python"
+            example_content = (
+                f"### 🔍 Computational State Machine Walkthrough: {topic}\n\n"
+                f"Review the formal automaton transition engine below illustrating how **{topic}** evaluates tape inputs, models computation, and validates formal language membership.\n\n"
+                f"### 🛠️ Key Theoretical Decisions\n"
+                f"- **Formal 5-Tuple Definition**: Strict mathematical specification $M = (Q, \\Sigma, \\delta, q_0, F)$.\n"
+                f"- **Deterministic Transitions**: For every state $q \\in Q$ and symbol $\\sigma \\in \\Sigma$, exactly one unambiguous transition $\\delta(q, \\sigma)$ exists.\n"
+                f"- **Acceptance Invariant**: Tape $w$ is accepted if and only if computation terminates in $q \\in F$.\n\n"
+                f"```{code_lang}\n{code_snippet}```\n\n"
+                f"### ⚙️ Execution Trace & Verification\n"
+                f"1. **Start State**: Automaton begins in initial state $q_0$.\n"
+                f"2. **State Progression**: On input `'10101'`, transitions follow $q_0 \\xrightarrow{1} q_0 \\xrightarrow{0} q_1 \\xrightarrow{1} q_2 \\xrightarrow{0} q_1 \\xrightarrow{1} q_2$.\n"
+                f"3. **Acceptance Test**: Because final state $q_2 \\in F$, the string is formally accepted into language $L$."
+            )
+            visual_content = (
+                f"### 📐 State Transition Diagram (DFA Topology)\n\n"
+                f"```\n"
+                f"             1\n"
+                f"           ┌───┐\n"
+                f"           ▼   │   0             1           0\n"
+                f"  ──► (( q0 )) ───► (( q1 )) ───► [[[ q2 ]]] ───┐\n"
+                f"       ▲   ▲           │            (ACCEPT)    │\n"
+                f"       │   └──── 1 ────┴────────────────────────┘\n"
+                f"```\n\n"
+                f"### 🔄 Formal Automaton Specification\n"
+                f"- **States $Q$**: $\\lbrace q_0, q_1, q_2 \\rbrace$ where $q_0$ is Start and $q_2$ is Final/Accept.\n"
+                f"- **Alphabet $\\Sigma$**: $\\lbrace 0, 1 \\rbrace$.\n"
+                f"- **Language Class**: Regular Language recognized by finite memory bounds without auxiliary stack storage."
+            )
+        elif is_ai:
+            code_snippet = (
+                f"# Heuristic State-Space Search Agent (A* Algorithm) for {topic}\n"
+                f"import heapq\n\n"
+                f"class AStarSearchAgent:\n"
+                f"    \"\"\"\n"
+                f"    A* State-Space Agent evaluating nodes with f(n) = g(n) + h(n).\n"
+                f"    Guarantees optimal solution path when heuristic h(n) is admissible.\n"
+                f"    \"\"\"\n"
+                f"    def __init__(self, adjacency_graph: dict, heuristic_map: dict) -> None:\n"
+                f"        self.graph = adjacency_graph\n"
+                f"        self.h = heuristic_map\n\n"
+                f"    def find_path(self, start: str, goal: str) -> tuple[list[str], float]:\n"
+                f"        # Priority queue stores tuples: (f_score, g_cost, current_node, path_history)\n"
+                f"        frontier = [(self.h.get(start, 0), 0.0, start, [start])]\n"
+                f"        explored = set()\n\n"
+                f"        while frontier:\n"
+                f"            f, g, current, path = heapq.heappop(frontier)\n"
+                f"            if current == goal:\n"
+                f"                return path, g\n"
+                f"            if current in explored:\n"
+                f"                continue\n"
+                f"            explored.add(current)\n\n"
+                f"            for neighbor, step_cost in self.graph.get(current, []):\n"
+                f"                if neighbor not in explored:\n"
+                f"                    new_g = g + step_cost\n"
+                f"                    new_f = new_g + self.h.get(neighbor, 0)\n"
+                f"                    heapq.heappush(frontier, (new_f, new_g, neighbor, path + [neighbor]))\n"
+                f"        return [], float('inf')\n"
+            )
+            code_lang = "python"
+            example_content = (
+                f"### 🔍 AI Search Agent Walkthrough: {topic}\n\n"
+                f"Review the heuristic search implementation below illustrating how **{topic}** evaluates state spaces, prunes sub-optimal paths, and converges to the goal.\n\n"
+                f"### 🛠️ Key AI Architectural Decisions\n"
+                f"- **Evaluation Function**: Computes $f(n) = g(n) + h(n)$ balancing past path cost and anticipated distance.\n"
+                f"- **Admissible Heuristic**: Requires $h(n) \\le h^*(n)$ to guarantee mathematical optimality without early termination errors.\n"
+                f"- **Graph-Search Closed Set**: Tracks visited vertices in `explored` set preventing infinite loops in cyclic domains.\n\n"
+                f"```{code_lang}\n{code_snippet}```\n\n"
+                f"### ⚙️ Execution Trace & Verification\n"
+                f"1. **Initialization**: Start state enqueued with $g=0$ and $f=h(start)$.\n"
+                f"2. **Priority Expansion**: Node with minimum $f(n)$ popped and explored first.\n"
+                f"3. **Goal Reached**: When goal state is dequeued from frontier, the path is guaranteed to be cost-minimal."
+            )
+            visual_content = (
+                f"### 📐 State-Space Search Tree & Evaluation Flow\n\n"
+                f"```\n"
+                f"                  [ START STATE: S ] (g=0, h=6, f=6)\n"
+                f"                           │\n"
+                f"              ┌────────────┴────────────┐\n"
+                f"      [ Node A ] (g=2, h=4, f=6)    [ Node B ] (g=3, h=5, f=8)\n"
+                f"              │                           │\n"
+                f"      ┌───────┴───────┐                   └── (Pruned / Deferred)\n"
+                f"  [ Node C ]      [ GOAL STATE: G ]\n"
+                f" (g=5, h=2, f=7)  (g=6, h=0, f=6)  <-- Optimal Goal Extraction\n"
+                f"```\n\n"
+                f"### 🔄 Evaluation Function & Invariants\n"
+                f"- **Path Cost $g(n)$**: Accumulated true cost from start state to node $n$.\n"
+                f"- **Heuristic $h(n)$**: Admissible estimate of remaining cost from $n$ to goal ($h(n) \\le h^*(n)$).\n"
+                f"- **Optimality Guarantee**: Complete and optimal with admissible and consistent heuristics."
+            )
+        elif is_java:
+            code_snippet = (
+                f"// Enterprise Java Architecture implementation for {topic}\n"
+                f"package com.unios.enterprise.service;\n\n"
+                f"import java.util.Optional;\n"
+                f"import java.util.logging.Logger;\n\n"
+                f"public class EnterpriseExecutionService {{\n"
+                f"    private static final Logger log = Logger.getLogger(EnterpriseExecutionService.class.getName());\n"
+                f"    private final DomainRepository repository;\n\n"
+                f"    public EnterpriseExecutionService(DomainRepository repository) {{\n"
+                f"        this.repository = repository;\n"
+                f"    }}\n\n"
+                f"    public ExecutionResult executeTransaction(Long entityId, String payload) {{\n"
+                f"        log.info(\"Executing transactional boundary for entity: \" + entityId);\n"
+                f"        if (entityId == null || payload == null || payload.isBlank()) {{\n"
+                f"            throw new IllegalArgumentException(\"Invalid input parameters: Entity ID and payload required\");\n"
+                f"        }}\n"
+                f"        Optional<DomainEntity> entity = repository.findById(entityId);\n"
+                f"        if (entity.isEmpty()) {{\n"
+                f"            return ExecutionResult.failure(\"ENTITY_NOT_FOUND\");\n"
+                f"        }}\n"
+                f"        repository.saveTransition(entityId, payload);\n"
+                f"        return ExecutionResult.success();\n"
+                f"    }}\n"
+                f"}}\n"
+            )
+            code_lang = "java"
+            example_content = (
+                f"### 🔍 Enterprise Architecture Walkthrough: {topic}\n\n"
+                f"Review the production Java service pattern below illustrating how **{topic}** isolates business logic, manages transactions, and validates boundaries.\n\n"
+                f"### 🛠️ Key Architectural Decisions\n"
+                f"- **Dependency Injection**: Decouples business logic from persistence implementation via constructor injection.\n"
+                f"- **Transactional Boundary**: Operations execute inside clean unit-of-work isolation.\n"
+                f"- **Defensive Validation**: Strict non-null checks prevent runtime NPEs and invalid state corruption.\n\n"
+                f"```{code_lang}\n{code_snippet}```\n\n"
+                f"### ⚙️ Execution Trace & Verification\n"
+                f"1. **Input Validation**: Verifies entity presence and non-blank payload.\n"
+                f"2. **Repository Lookup**: Queries domain state from persistent store.\n"
+                f"3. **Commit**: Persists transactional mutation and returns typed result."
+            )
+            visual_content = (
+                f"### 📐 Layered Enterprise Topology Map\n\n"
+                f"```\n"
+                f"+-------------------------------------------------------------+\n"
+                f"|                     ENTERPRISE ARCHITECTURE                 |\n"
+                f"+-------------------------------------------------------------+\n"
+                f"| [REST Controller / Gateway Interface]                       |\n"
+                f"|              │                                              |\n"
+                f"|              ▼ (DTO Validation & Mapping)                   |\n"
+                f"| [Service Layer: EnterpriseExecutionService]                 |\n"
+                f"|              │                                              |\n"
+                f"|              ▼ (Transactional Boundary / ORM Mapping)       |\n"
+                f"| [Persistence Layer: Repository / Database]                  |\n"
+                f"+-------------------------------------------------------------+\n"
+                f"```\n\n"
+                f"### 🔄 Structural Breakdown\n"
+                f"- **Gateway Layer**: Handles authentication, rate limiting, and parameter validation.\n"
+                f"- **Business Domain**: Implements domain rules and algorithmic orchestration.\n"
+                f"- **Data Access Layer**: Abstracted via Repository pattern for zero-leakage persistence."
+            )
+        elif is_db:
             code_snippet = (
                 f"-- Relational Schema and DML for {topic}\n"
                 f"CREATE TABLE {topic.replace(' ', '_').lower()} (\n"
@@ -499,6 +773,108 @@ class MockLLMProvider(BaseLLMProvider):
                 f"ORDER BY created_at DESC;\n"
             )
             code_lang = "sql"
+            example_content = (
+                f"### 🔍 Relational Schema & Query Walkthrough: {topic}\n\n"
+                f"Review the relational schema implementation below illustrating how **{topic}** is defined, indexed, and queried.\n\n"
+                f"### 🛠️ Key Architectural Decisions\n"
+                f"- **Entity Definition**: Schema fields use strict types and explicit primary constraints.\n"
+                f"- **Validation Gateways**: Operations check boundaries before mutating persistent records.\n"
+                f"- **Query Optimization**: Indexed lookups minimize full scans and reduce query latency.\n\n"
+                f"```{code_lang}\n{code_snippet}```\n\n"
+                f"### ⚙️ Execution Trace & Verification\n"
+                f"1. **Execution**: The database engine compiles and validates the DDL schema statement.\n"
+                f"2. **State Transition**: A new record `'Enterprise Alpha'` is committed into `{topic.replace(' ', '_').lower()}`.\n"
+                f"3. **Query Result**: Filtered lookup on `category = 'Production'` executes using the indexed path."
+            )
+            visual_content = (
+                f"### 📐 Relational Entity Topology & Data Flow Map\n\n"
+                f"```\n"
+                f"+-------------------------------------------------------------+\n"
+                f"|                     RELATIONAL DATABASE                     |\n"
+                f"+-------------------------------------------------------------+\n"
+                f"| [Client Application / Query Interface]                      |\n"
+                f"|              │                                              |\n"
+                f"|              ▼ (Validated SQL DML / Parameterized Query)    |\n"
+                f"| [Query Optimizer & Index Engine]                            |\n"
+                f"|              │                                              |\n"
+                f"|              ▼ (ACID Transaction Commit)                    |\n"
+                f"| [Durable Storage / Table: {topic.replace(' ', '_').lower()}]|\n"
+                f"+-------------------------------------------------------------+\n"
+                f"```\n\n"
+                f"### 🔄 Structural Breakdown & Cardinality\n"
+                f"- **Ingestion Interface**: Normalizes incoming caller requests and checks structural constraints.\n"
+                f"- **Operational Pipeline**: Executes query logic within ACID transactional boundaries.\n"
+                f"- **Durable Persistence**: Enforces referential integrity, durability, and indexed retrieval."
+            )
+        elif is_quant:
+            code_snippet = (
+                f"# Analytical Quantitative Problem Formulation for {topic}\n"
+                f"def calculate_quantitative_metrics(values: list[float]) -> dict:\n"
+                f"    \"\"\"\n"
+                f"    Computes analytical arithmetic, central tendencies, and variance for {topic}.\n"
+                f"    \"\"\"\n"
+                f"    if not values:\n"
+                f"        return {{'mean': 0.0, 'variance': 0.0, 'count': 0}}\n"
+                f"    n = len(values)\n"
+                f"    mean = sum(values) / n\n"
+                f"    variance = sum((x - mean) ** 2 for x in values) / n\n"
+                f"    return {{\n"
+                f"        'count': n,\n"
+                f"        'mean': round(mean, 4),\n"
+                f"        'variance': round(variance, 4),\n"
+                f"        'std_dev': round(variance ** 0.5, 4)\n"
+                f"    }}\n\n"
+                f"sample_dataset = [12.5, 14.2, 18.9, 21.0, 16.4]\n"
+                f"print('Analysis:', calculate_quantitative_metrics(sample_dataset))\n"
+            )
+            code_lang = "python"
+            example_content = (
+                f"### 🔍 Quantitative Formulation Walkthrough: {topic}\n\n"
+                f"Review the mathematical derivation and implementation below illustrating how **{topic}** is analyzed.\n\n"
+                f"### 🛠️ Key Analytical Decisions\n"
+                f"- **Formula Invariance**: Uses standard algebraic reduction to prevent precision degradation.\n"
+                f"- **Boundary Guarding**: Checks for division by zero and null sequence anomalies.\n"
+                f"- **Precision Guarantee**: Formulates mathematical steps with rigorous analytical justification.\n\n"
+                f"```{code_lang}\n{code_snippet}```\n"
+            )
+            visual_content = (
+                f"### 📐 Quantitative Problem Formulation Workflow\n\n"
+                f"```\n"
+                f"[ Input Variables / Dataset ] ──► [ Algebraic Reduction ] ──► [ Analytical Solution ]\n"
+                f"```\n"
+            )
+        elif is_ethics:
+            code_snippet = (
+                f"### Corporate Governance Framework: {topic}\n\n"
+                f"1. **Ethical Principles**: Autonomy, Beneficence, Non-maleficence, and Justice.\n"
+                f"2. **Stakeholder Analysis**: Mapping impacts across employees, clients, shareholders, and society.\n"
+                f"3. **Resolution Matrix**: Evaluating decisions against corporate fiduciary duties and regulatory standards.\n"
+            )
+            code_lang = "markdown"
+            example_content = (
+                f"### 🔍 Case Study & Governance Walkthrough: {topic}\n\n"
+                f"Review the professional governance case study below illustrating how **{topic}** guides leadership decision-making.\n\n"
+                f"### 🛠️ Key Governance Principles\n"
+                f"- **Transparency**: Complete disclosure of operational risks and fiduciary accountability.\n"
+                f"- **Compliance Alignment**: Adherence to statutory guidelines and industry ethical codes.\n"
+                f"- **Remediation Protocols**: Structured resolution procedures for conflict of interest.\n\n"
+                f"```{code_lang}\n{code_snippet}```\n"
+            )
+            visual_content = (
+                f"### 📐 Corporate Ethics Decision Flowchart\n\n"
+                f"```\n"
+                f"[ Ethical Dilemma Identified ]\n"
+                f"             │\n"
+                f"             ▼\n"
+                f"[ Stakeholder Impact Evaluation ]\n"
+                f"             │\n"
+                f"             ▼\n"
+                f"[ Regulatory Compliance Check ]\n"
+                f"             │\n"
+                f"             ▼\n"
+                f"[ Final Decision & Audit Log ]\n"
+                f"```\n"
+            )
         else:
             code_snippet = (
                 f"# Production-grade implementation for {topic}\n"
@@ -521,37 +897,35 @@ class MockLLMProvider(BaseLLMProvider):
                 f"        raise KeyError(f'Record {{record_id}} not found')\n"
             )
             code_lang = "python"
-
-        example_content = (
-            f"### 🔍 Step-by-Step Implementation Walkthrough\n"
-            f"Review the production implementation below illustrating how **{topic}** is constructed and validated.\n\n"
-            f"### 🛠️ Key Architectural Decisions\n"
-            f"- **Entity Definition**: Schema fields use strict types and explicit primary constraints.\n"
-            f"- **Validation Gateways**: Operations check boundaries before mutating persistent records.\n"
-            f"- **Query Optimization**: Indexed lookups minimize full scans and reduce query latency.\n\n"
-            f"```\n{code_snippet}```\n"
-        )
-
-        visual_content = (
-            f"### 📐 System Topology & Data Flow Map\n\n"
-            f"```\n"
-            f"+-------------------------------------------------------------+\n"
-            f"|                      SYSTEM ARCHITECTURE                    |\n"
-            f"+-------------------------------------------------------------+\n"
-            f"| [Client Request / Query Interface]                         |\n"
-            f"|              │                                              |\n"
-            f"|              ▼ (Validated Payload / Command)                |\n"
-            f"| [Execution Engine: {topic}]                                |\n"
-            f"|              │                                              |\n"
-            f"|              ▼ (State Transition / Relational Commit)       |\n"
-            f"| [Durable Storage / Persistence Layer]                       |\n"
-            f"+-------------------------------------------------------------+\n"
-            f"```\n\n"
-            f"### 🔄 Structural Breakdown & Cardinality\n"
-            f"- **Ingestion Interface**: Normalizes incoming caller requests and checks structural constraints.\n"
-            f"- **Operational Pipeline**: Executes algorithmic business logic within transactional boundaries.\n"
-            f"- **Durable Persistence**: Enforces referential integrity, ACID durability, and indexed retrieval."
-        )
+            example_content = (
+                f"### 🔍 Step-by-Step Implementation Walkthrough\n"
+                f"Review the production implementation below illustrating how **{topic}** is constructed and validated.\n\n"
+                f"### 🛠️ Key Architectural Decisions\n"
+                f"- **Entity Definition**: Schema fields use strict types and explicit primary constraints.\n"
+                f"- **Validation Gateways**: Operations check boundaries before mutating persistent records.\n"
+                f"- **Operational Integrity**: Lookups minimize full scans and reduce execution latency.\n\n"
+                f"```{code_lang}\n{code_snippet}```\n"
+            )
+            visual_content = (
+                f"### 📐 System Topology & Data Flow Map\n\n"
+                f"```\n"
+                f"+-------------------------------------------------------------+\n"
+                f"|                      SYSTEM ARCHITECTURE                    |\n"
+                f"+-------------------------------------------------------------+\n"
+                f"| [Client Request / Query Interface]                         |\n"
+                f"|              │                                              |\n"
+                f"|              ▼ (Validated Payload / Command)                |\n"
+                f"| [Execution Engine: {topic}]                                |\n"
+                f"|              │                                              |\n"
+                f"|              ▼ (State Transition Commit)                    |\n"
+                f"| [Durable Storage / Persistence Layer]                       |\n"
+                f"+-------------------------------------------------------------+\n"
+                f"```\n\n"
+                f"### 🔄 Structural Breakdown & Cardinality\n"
+                f"- **Ingestion Interface**: Normalizes incoming caller requests and checks structural constraints.\n"
+                f"- **Operational Pipeline**: Executes algorithmic business logic within transactional boundaries.\n"
+                f"- **Durable Persistence**: Enforces referential integrity, durability, and indexed retrieval."
+            )
 
         practice_content = (
             f"### 🎯 Guided Challenge: Applied {topic}\n\n"
