@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 from uuid import UUID
 
@@ -12,6 +12,39 @@ class ProjectType(str, Enum):
     ANALYSIS = "ANALYSIS"
     DESIGN = "DESIGN"
     OTHER = "OTHER"
+
+def normalize_project_type(v: Any) -> ProjectType:
+    if isinstance(v, ProjectType):
+        return v
+    if isinstance(v, str):
+        cleaned = v.strip().lower()
+        mapping = {
+            "coding": ProjectType.CODING,
+            "code_project": ProjectType.CODING,
+            "code": ProjectType.CODING,
+            "software": ProjectType.CODING,
+            "research": ProjectType.RESEARCH,
+            "research_report": ProjectType.RESEARCH,
+            "essay": ProjectType.RESEARCH,
+            "lab_notebook": ProjectType.RESEARCH,
+            "business": ProjectType.BUSINESS,
+            "business_plan": ProjectType.BUSINESS,
+            "analysis": ProjectType.ANALYSIS,
+            "data_analysis": ProjectType.ANALYSIS,
+            "case_analysis": ProjectType.ANALYSIS,
+            "design": ProjectType.DESIGN,
+            "design_artifact": ProjectType.DESIGN,
+            "oral_viva": ProjectType.OTHER,
+            "portfolio": ProjectType.OTHER,
+            "general": ProjectType.OTHER,
+            "other": ProjectType.OTHER,
+        }
+        if cleaned in mapping:
+            return mapping[cleaned]
+        upper = v.strip().upper()
+        if upper in ProjectType.__members__:
+            return ProjectType[upper]
+    return ProjectType.OTHER
 
 class ProjectStatus(str, Enum):
     DRAFT = "DRAFT"
@@ -58,6 +91,11 @@ class CreateProjectInput(CamelModel):
     goal: Optional[str] = None
     skills: List[str] = Field(default_factory=list)
 
+    @field_validator("type", mode="before")
+    @classmethod
+    def validate_type(cls, v: Any) -> ProjectType:
+        return normalize_project_type(v)
+
 class UpdateProjectInput(CamelModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -66,6 +104,13 @@ class UpdateProjectInput(CamelModel):
     goal: Optional[str] = None
     skills: Optional[List[str]] = None
     status: Optional[ProjectStatus] = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def validate_type(cls, v: Any) -> Optional[ProjectType]:
+        if v is None:
+            return None
+        return normalize_project_type(v)
 
 class Project(CamelModel):
     id: UUID
@@ -206,9 +251,14 @@ class BuildCoachResponse(CamelModel):
 
 class RecommendedProject(CamelModel):
     title: str
-    description: str
+    description: Optional[str] = ""
     type: ProjectType
-    skills: List[str]
+    skills: List[str] = Field(default_factory=list)
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def validate_type(cls, v: Any) -> ProjectType:
+        return normalize_project_type(v)
 
 class ProjectRecommendationResponse(CamelModel):
-    recommendations: List[RecommendedProject]
+    recommendations: List[RecommendedProject] = Field(default_factory=list)

@@ -5,6 +5,8 @@ from fastapi import HTTPException
 from app.core.config import settings
 from app.schemas.build import (
     ProjectRecommendationResponse,
+    RecommendedProject,
+    ProjectType,
     BuildCoachRequest,
     BuildCoachResponse,
     CreateMilestoneInput,
@@ -19,19 +21,45 @@ class BuildKIEClient:
     async def get_recommendations(learner_id: str) -> ProjectRecommendationResponse:
         """
         Calls KIE /api/v1/kie/build/recommend to fetch AI recommendations based on learner profile.
+        Falls back to curated starter recommendations if KIE is unavailable or returns empty results.
         """
-        async with httpx.AsyncClient() as client:
+        timeout = httpx.Timeout(10.0, connect=3.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
             try:
                 response = await client.get(
                     f"{settings.KIE_BASE_URL}/api/v1/kie/build/recommend",
-                    params={"learner_id": learner_id},
-                    timeout=30.0
+                    params={"learner_id": learner_id}
                 )
                 response.raise_for_status()
-                return ProjectRecommendationResponse(**response.json())
+                data = response.json()
+                recs = data.get("recommendations", [])
+                if isinstance(recs, list) and len(recs) > 0:
+                    return ProjectRecommendationResponse(recommendations=recs)
             except Exception as exc:
-                logger.error(f"Failed to fetch project recommendations: {exc}")
-                raise HTTPException(status_code=503, detail="Failed to fetch recommendations from AI engine")
+                logger.warning(f"Could not fetch AI recommendations from KIE ({exc}), serving curated defaults")
+
+        return ProjectRecommendationResponse(
+            recommendations=[
+                RecommendedProject(
+                    title="End-to-End Web Application",
+                    description="Design, build, and deploy a responsive full-stack application with authentication, API endpoints, and database persistence.",
+                    type=ProjectType.CODING,
+                    skills=["React", "TypeScript", "FastAPI", "Database Design", "REST APIs"]
+                ),
+                RecommendedProject(
+                    title="Data Analysis & Performance Dashboard",
+                    description="Collect, clean, and visualize complex metrics and operational KPIs with interactive charts and automated reporting.",
+                    type=ProjectType.ANALYSIS,
+                    skills=["Data Analysis", "Python", "Visualization", "Metrics", "SQL"]
+                ),
+                RecommendedProject(
+                    title="System Architecture & Scalability Review",
+                    description="Benchmark performance, identify latency bottlenecks, and design a resilient microservices architecture blueprint.",
+                    type=ProjectType.RESEARCH,
+                    skills=["System Design", "Cloud Architecture", "Performance Tuning", "Benchmarking"]
+                )
+            ]
+        )
 
     @staticmethod
     async def generate_plan(project_id: str) -> Dict[str, Any]:
