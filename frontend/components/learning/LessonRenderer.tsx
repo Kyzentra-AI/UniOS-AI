@@ -8,6 +8,7 @@ import CodeBlock from './blocks/CodeBlock';
 import QuestionBlock from './blocks/QuestionBlock';
 import PracticeBlock from './blocks/PracticeBlock';
 import VideoBlock from './blocks/VideoBlock';
+import DiagramBlock from './blocks/DiagramBlock';
 
 import { Check, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 
@@ -21,8 +22,31 @@ interface LessonRendererProps {
   onNextBlock: () => void;
 }
 
+function isDiagramBlock(block: LessonBlock): boolean {
+  const typeUpper = String(block.type ?? '').toUpperCase();
+  if (typeUpper === 'DIAGRAM') return true;
+
+  if (typeof block.content === 'string') {
+    const trimmed = block.content.trim();
+    if (
+      trimmed.includes('Renderer Type: Diagram') ||
+      trimmed.startsWith('```mermaid') ||
+      trimmed.startsWith('graph ') ||
+      trimmed.startsWith('flowchart ')
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function renderBlock(block: LessonBlock) {
-  switch (block.type) {
+  if (isDiagramBlock(block)) {
+    return <DiagramBlock block={block} />;
+  }
+
+  const typeUpper = String(block.type ?? '').toUpperCase();
+  switch (typeUpper) {
     case 'TEXT':
       return <TextBlock block={block} />;
     case 'VIDEO':
@@ -33,6 +57,8 @@ function renderBlock(block: LessonBlock) {
       return <QuestionBlock block={block} />;
     case 'INTERACTIVE':
       return <PracticeBlock block={block} />;
+    case 'DIAGRAM':
+      return <DiagramBlock block={block} />;
     default:
       return (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">

@@ -4,7 +4,8 @@ export type LessonBlockType =
   | 'VIDEO'
   | 'INTERACTIVE'
   | 'QUIZ'
-  | 'CODE';
+  | 'CODE'
+  | 'DIAGRAM';
 
 export interface LessonBlock {
   id: string;

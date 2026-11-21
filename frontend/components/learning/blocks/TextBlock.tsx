@@ -1,6 +1,7 @@
 
 import type { ReactNode } from 'react';
 import type { LessonBlock } from '@/types/learning';
+import DiagramBlock from './DiagramBlock';
 
 interface TextBlockProps {
   block: LessonBlock;
@@ -45,6 +46,10 @@ function renderInline(text: string): ReactNode[] {
 }
 
 export default function TextBlock({ block }: TextBlockProps) {
+  if (block.content && block.content.includes('Renderer Type: Diagram')) {
+    return <DiagramBlock block={block} />;
+  }
+
   const lines = (block.content ?? '').replace(/\r\n/g, '\n').split('\n');
 
   const elements: ReactNode[] = [];

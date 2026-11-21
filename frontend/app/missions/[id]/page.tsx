@@ -54,7 +54,7 @@ export default function MissionsPage({
       await startMission(mission.id);
 
       const searchParams = new URLSearchParams({
-        topic: mission.subject || mission.title,
+        topic: mission.title || mission.subject || '',
         lesson_id: mission.id,
         mission_id: mission.id,
       });
