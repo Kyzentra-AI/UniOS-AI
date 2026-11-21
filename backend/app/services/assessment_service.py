@@ -565,7 +565,7 @@ class AssessmentService:
 
         hints_used_count = sum(a.hints_used for a in attempt_in.answers)
         now_dt = datetime.now(timezone.utc)
-        attempt_id = f"attempt_{uuid.uuid4().hex[:12]}"
+        attempt_id = str(uuid.uuid4())
 
         # 9. Persist attempt (explicitly raise on DB error instead of returning in-memory record silently)
         attempt_data = {
