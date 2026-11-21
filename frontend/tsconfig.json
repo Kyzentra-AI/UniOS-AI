@@ -31,8 +31,6 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules",
-    "vite.config.ts",
-    "cloudflare.config.ts"
+    "node_modules"
   ]
 }
