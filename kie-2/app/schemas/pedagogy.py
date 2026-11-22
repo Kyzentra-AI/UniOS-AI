@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class TeachingStrategy(str, Enum):
+    # Core legacy types
     FOUNDATIONAL = "foundational"
     REINFORCEMENT = "reinforcement"
     ADVANCEMENT = "advancement"
@@ -13,6 +14,13 @@ class TeachingStrategy(str, Enum):
     CASE_DRIVEN = "case_driven"
     PRACTICAL_FIRST = "practical_first"
     CHALLENGE_BASED = "challenge_based"
+
+    # UniOS Adaptive Learning Architecture (5 Core Teaching Strategies)
+    FOUNDATIONAL_SUPPORT = "foundational_support"
+    VISUAL_SUPPORT = "visual_support"
+    LOGICAL_ANALYTICAL = "logical_analytical"
+    PRACTICAL_APPLIED = "practical_applied"
+    ADVANCED_EXTENSION = "advanced_extension"
 
 
 class DifficultyLevel(str, Enum):
@@ -43,6 +51,10 @@ class PedagogyDecision(BaseModel):
     """The pedagogy strategy chosen for the learner and topic (A2-S4-01)."""
 
     strategy: TeachingStrategy
+    adaptive_strategy: Optional[str] = Field(
+        default=None,
+        description="UniOS Adaptive Content Architecture teaching strategy (foundational_support, visual_support, logical_analytical, practical_applied, advanced_extension)",
+    )
     difficulty: DifficultyLevel
     presentation_mode: PresentationMode
     explanation_depth: str = Field(

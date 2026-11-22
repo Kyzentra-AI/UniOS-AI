@@ -1,0 +1,9 @@
+# Environment & IDE
+.vscode/
+.idea/
+*.docx
+__pycache__/
+*.pyc
+myvenv/
+venv/
+.env
