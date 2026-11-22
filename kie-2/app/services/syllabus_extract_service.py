@@ -193,6 +193,22 @@ class SyllabusExtractService:
                 )
             )
 
+        if any(w in text_lower for w in ["daa", "design and analysis of algorithm", "divide and conquer", "greedy algorithm", "dynamic programming", "branch and bound"]):
+            matched.append(
+                SyllabusSubject(
+                    name="Design and Analysis of Algorithms",
+                    topics=[
+                        "Introduction to Algorithms & Asymptotic Notations",
+                        "Divide and Conquer & Recurrence Relations",
+                        "Greedy Algorithms & Minimum Spanning Trees",
+                        "Dynamic Programming & Optimal Substructure",
+                        "Backtracking & State-Space Trees",
+                        "Branch and Bound & State-Space Search",
+                        "Graph Algorithms & Complexity Theory",
+                    ],
+                )
+            )
+
         if any(w in text_lower for w in ["data structures", "algorithms", "relational database", "dbms", "sql", "operating systems", "computer networks"]):
             matched.append(
                 SyllabusSubject(

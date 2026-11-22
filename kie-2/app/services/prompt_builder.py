@@ -30,6 +30,37 @@ def get_stage_guidelines(stage: LearnerStage) -> str:
         )
 
 
+def get_strategy_delivery_guidelines(strategy: Any) -> str:
+    """Returns pedagogical delivery instructions according to UniOS Adaptive Learning Architecture (Section 1)."""
+    clean_strat = _val(strategy).lower()
+    if "foundational" in clean_strat or "remediation" in clean_strat:
+        return (
+            "- Teaching Strategy: Foundational Support\n"
+            "- Method: Use plain language, smaller progressive steps, familiar everyday analogies, and fully worked examples with clear baseline checks."
+        )
+    elif "visual" in clean_strat:
+        return (
+            "- Teaching Strategy: Visual Support\n"
+            "- Method: Prioritize flowcharts, tree structures, state diagrams, execution graphs, and visual comparisons."
+        )
+    elif "logical" in clean_strat or "analytical" in clean_strat:
+        return (
+            "- Teaching Strategy: Logical / Analytical Support\n"
+            "- Method: Provide step-by-step reasoning, mathematical recurrence derivations, formal invariant proofs, assumptions, and equations."
+        )
+    elif "practical" in clean_strat or "applied" in clean_strat:
+        return (
+            "- Teaching Strategy: Practical / Applied Support\n"
+            "- Method: Deliver complete executable code, runtime trace benchmarks, datasets, debugging scenarios, and concrete implementation tasks."
+        )
+    elif "advanced" in clean_strat or "extension" in clean_strat or "advancement" in clean_strat:
+        return (
+            "- Teaching Strategy: Advanced / Extension\n"
+            "- Method: Deepen theoretical rigor, edge-case optimization, formal asymptotic boundary proofs (constants c, n_0), and unfamiliar challenge problems."
+        )
+    return "- Teaching Strategy: Standard Balanced Instruction"
+
+
 def build_pedagogy_prompt(context: NormalizedLearningContext) -> str:
     """Constructs the prompt for selecting the teaching strategy and presentation mode."""
     learner = context.learner_state
@@ -71,7 +102,7 @@ RELEVANT LEARNER MEMORY INTELLIGENCE:
 
     domain_info = context.academic_domain or (learner.academic_domain if learner else None) or (learner.academic_program if learner else "Standard")
 
-    return f"""You are the UniOS Pedagogy Engine. Determine how to teach the following topic to the student.
+    return f"""You are the UniOS Pedagogy Engine. Determine how to teach the following topic according to the UniOS Adaptive Learning Content Architecture.
 
 LEARNER CONTEXT:
 {stage_guide}
@@ -86,9 +117,15 @@ TARGET TOPIC & OBJECTIVE:
 - Objective: {context.objective}
 
 INSTRUCTIONS:
-1. Select the appropriate TeachingStrategy (foundational, reinforcement, advancement, remediation).
-   - If Active Friction Points are present on this or related topics, prioritize REMEDIATION with foundational scaffolding.
-2. Select DifficultyLevel (beginner, intermediate, advanced) based on mastery.
+1. Select the appropriate TeachingStrategy from UniOS Adaptive Learning Architecture:
+   - foundational_support: Plain language, smaller steps, familiar analogies, fully worked examples.
+   - visual_support: Flowcharts, diagrams, graphs, animations, visual comparisons.
+   - logical_analytical: Step-by-step reasoning, patterns, equations, derivations, assumptions, proofs.
+   - practical_applied: Code, experiments, datasets, real-world use cases, debugging, implementation tasks.
+   - advanced_extension: Deeper theory, edge cases, optimization, formal analysis, unfamiliar challenge problems.
+   - (Or legacy strategies: foundational, reinforcement, advancement, remediation).
+   - If Active Friction Points or low confidence are present, prioritize foundational_support / remediation.
+2. Select DifficultyLevel (beginner, intermediate, advanced) based on demonstrated mastery.
 3. Select PresentationMode (traditional, visual, story, simulation, animation, interactive, analytical, case_study) calibrated to learner modality and domain.
 4. Provide a clear pedagogical rationale for your choices.
 5. Return strictly structured output adhering to the PedagogyDecision schema.
@@ -116,6 +153,8 @@ def build_lesson_prompt(
     if context.curriculum_references:
         grounded_refs = f"\nGROUNDED CURRICULUM CONTEXT:\n" + "\n".join(f"- {ref}" for ref in context.curriculum_references)
 
+    strategy_instructions = get_strategy_delivery_guidelines(pedagogy.strategy)
+
     return f"""You are the senior pedagogical architect for UniOS. Generate a comprehensive, university-level, masterclass lesson for the student.
 
 LEARNER CONTEXT:
@@ -125,6 +164,7 @@ LEARNER CONTEXT:
 {format_priorities_line}
 SELECTED PEDAGOGICAL STRATEGY:
 - Strategy: {_val(pedagogy.strategy)}
+{strategy_instructions}
 - Difficulty: {_val(pedagogy.difficulty)}
 - Presentation Mode: {_val(pedagogy.presentation_mode)}
 - Explanation Depth: {pedagogy.explanation_depth}
@@ -136,7 +176,7 @@ TOPIC & OBJECTIVE:
 - Objective: {context.objective}
 - Grounded References: {context.curriculum_references if context.curriculum_references else 'Standard curriculum'}
 
-CONTENT MAXIMIZATION & STRUCTURE REQUIREMENTS:
+CONTENT MAXIMIZATION & 10-STAGE ADAPTIVE STRUCTURE REQUIREMENTS:
 1. MAXIMIZE PEDAGOGICAL DEPTH:
    - Absolutely DO NOT produce brief 1-2 sentence summaries. Provide rigorous, extensive, deeply educational content for each section.
 2. RICH MARKDOWN FORMATTING:
@@ -144,14 +184,18 @@ CONTENT MAXIMIZATION & STRUCTURE REQUIREMENTS:
    - Use bold ('**Key Concept**') to emphasize technical terminology, definitions, and invariants.
    - Use bullet points ('- Point') and numbered lists ('1. Step') for procedural logic and takeaways.
    - Use inline code spans ('`code`') for keywords, syntax, commands, and function calls.
-3. VISUAL / ARCHITECTURE SPEC:
-   - Provide an ASCII box-drawing diagram or tabular schema map showing tables, components, and relationships, followed by a detailed breakdown of entities, cardinality, and data flow.
-4. CODE / WORKED EXAMPLE:
-   - Provide a complete, production-grade, commented implementation (e.g. SQL DDL/DML, Python code, etc.) with step-by-step commentary and input/output examples.
-5. GUIDED PRACTICE CHALLENGE:
-   - Provide a structured challenge with Scenario, Requirements Checklist, Starter Template, and Hints.
-6. COMPREHENSION CHECK:
-   - Provide a multiple-choice question with 4 options ('A) ...', 'B) ...', 'C) ...', 'D) ...'), correct answer, and explanation.
-7. Under no circumstances output raw HTML, JSX, or React UI tags. Output clean text and markdown.
+3. LEARNING OBJECTIVE & PREREQUISITE CHECK:
+   - In the objective block, explicitly define the observable outcome and include a short prerequisite check identifying missing foundational knowledge.
+4. PERSONALIZED INTRODUCTION & CORE CONCEPT:
+   - Open with an explanation selected for the student's current needs according to the selected Teaching Strategy.
+   - Deliver an accurate, syllabus-aligned conceptual deep-dive detailing foundational theory, core mechanics, and constraints.
+5. WORKED EXAMPLE & ALTERNATIVE REPRESENTATION:
+   - Provide a complete, production-quality implementation walkthrough (e.g. Python, SQL, Java) with step-by-step commentary and input/output traces.
+   - Deliver an alternative visual representation (ASCII architecture/flowchart diagram, state-space tree, execution graph, or formal mathematical derivation).
+6. GUIDED PRACTICE CHALLENGE:
+   - Provide a structured hands-on challenge with Scenario, Requirements Checklist, Starter Template, and scaffolded Hints.
+7. COMPREHENSION CHECK & MASTERY EVALUATION:
+   - Provide an insightful scenario-based question assessing concept transfer and application, with 4 options ('A) ...', 'B) ...', 'C) ...', 'D) ...'), correct answer, and detailed explanation.
+8. Under no circumstances output raw HTML, JSX, or React UI tags. Output clean text and markdown.
 """
 

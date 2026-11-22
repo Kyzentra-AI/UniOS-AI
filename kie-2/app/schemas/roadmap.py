@@ -20,6 +20,7 @@ class SubjectTrack(BaseModel):
     mission_count: int
     estimated_total_minutes: int
     core_topics: List[str] = Field(default_factory=list)
+    chapters: List[Dict[str, Any]] = Field(default_factory=list, description="Structured chapters for this subject")
 
 
 class RoadmapMission(BaseModel):
@@ -32,6 +33,8 @@ class RoadmapMission(BaseModel):
     priority: str = Field(default="MEDIUM", description="Priority level: HIGH | MEDIUM | LOW")
     estimated_minutes: int = Field(default=90, ge=1, description="Estimated duration in minutes")
     subject: str = Field(default="General", min_length=1, description="Exact subject name this mission belongs to")
+    chapter: Optional[str] = Field(default=None, description="Chapter or unit name within the subject")
+    topic: Optional[str] = Field(default=None, description="Granular curriculum topic name")
     week: int = Field(default=1, ge=1, description="Week number in the progression plan")
     sequence: int = Field(default=1, ge=1, description="Sequence order within the week")
 
@@ -42,6 +45,7 @@ class RoadmapSubject(BaseModel):
 
     name: str = Field(..., min_length=1)
     topics: List[str] = Field(default_factory=list)
+    chapters: List[Dict[str, Any]] = Field(default_factory=list, description="Hierarchical chapters")
 
 
 class RoadmapSemester(BaseModel):

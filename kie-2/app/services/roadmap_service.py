@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
 from app.schemas.context_v2 import AnalyzeContextRequest
+from app.data.canonical_curricula import get_canonical_curriculum
 from app.schemas.roadmap import (
     AIMLRoadmapResponse,
     MissionType,
@@ -137,6 +138,111 @@ Every single mission MUST have subject: "{target_subject}".
         syllabus = request.syllabus or {}
         learner = request.learner or {}
         primary_goal = learner.get("primary_goal") or f"Mastery in {target_subject}"
+
+        # Grounding against UniOS Canonical Curricula (e.g. DAA 7-Chapter Architecture)
+        canonical = get_canonical_curriculum(target_subject)
+        if canonical:
+            missions: List[RoadmapMission] = []
+            seq = 1
+            for c_idx, ch in enumerate(canonical["chapters"]):
+                ch_title = ch["title"]
+                ch_topics = [t["title"] for t in ch.get("topics", [])]
+                m_type = (
+                    MissionType.LEARNING if c_idx in {0, 3}
+                    else (MissionType.PRACTICAL if c_idx in {1, 2, 5}
+                    else MissionType.ASSIGNMENT)
+                )
+                t_sample = ch_topics[:3] if ch_topics else [ch_title]
+                missions.append(
+                    RoadmapMission(
+                        title=f"{ch_title}: {', '.join(t_sample[:2])}",
+                        type=m_type,
+                        description=(
+                            f"🎯 Objectives: {ch.get('outcome', f'Master competencies in {ch_title}')}\n"
+                            f"📚 Core Concepts: {', '.join(ch_topics[:4])}.\n"
+                            f"💻 Deliverables: Implement verified solution module with automated test coverage.\n"
+                            f"✅ Mastery Criteria: Attain >= 85% accuracy on conceptual comprehension checks and runtime benchmarks."
+                        ),
+                        priority="HIGH" if c_idx in {0, 1, 3} else "MEDIUM",
+                        estimated_minutes=90,
+                        subject=target_subject,
+                        chapter=ch_title,
+                        topic=ch_topics[0] if ch_topics else ch_title,
+                        week=(c_idx // 2) + 1,
+                        sequence=seq,
+                    )
+                )
+                seq += 1
+
+            if scope in {"CAREER", "BOTH"}:
+                missions.append(
+                    RoadmapMission(
+                        title=f"Technical Interview Review & Portfolio Capstone: {target_subject}",
+                        type=MissionType.CAREER,
+                        description=(
+                            f"🎯 Objectives: Translate technical achievements in {target_subject} into high-impact career credentials.\n"
+                            f"📚 Core Concepts: Google XYZ bullet formulation (Accomplished [X], as measured by [Y], by doing [Z]).\n"
+                            f"💻 Deliverables: Draft portfolio case study and complete architectural interview walkthroughs targeting '{primary_goal}'.\n"
+                            f"✅ Mastery Criteria: Verified ATS keyword density and executive technical articulation."
+                        ),
+                        priority="HIGH",
+                        estimated_minutes=90,
+                        subject=target_subject,
+                        chapter="Capstone & Career Readiness",
+                        topic="Career Interview & Capstone",
+                        week=4,
+                        sequence=seq,
+                    )
+                )
+
+            topics = [c["title"] for c in canonical["chapters"]]
+            subject_tracks = [
+                SubjectTrack(
+                    subject_name=target_subject,
+                    mission_count=len(missions),
+                    estimated_total_minutes=sum(m.estimated_minutes for m in missions),
+                    core_topics=topics[:6],
+                    chapters=canonical["chapters"],
+                )
+            ]
+            semesters = [
+                RoadmapSemester(
+                    name="Dedicated Subject Track",
+                    subjects=[RoadmapSubject(name=target_subject, topics=topics[:6], chapters=canonical["chapters"])],
+                )
+            ] if scope in {"ACADEMIC", "BOTH"} else []
+
+            career = (
+                RoadmapCareer(
+                    goals=[
+                        f"Achieve production-grade mastery in {target_subject}",
+                        f"Ship {target_subject} Algorithm Capstone System",
+                    ]
+                )
+                if scope in {"CAREER", "BOTH"}
+                else None
+            )
+
+            goals = [
+                f"Achieve topic mastery across all {len(canonical['chapters'])} canonical chapters of {target_subject}",
+                f"Construct and validate an end-to-end algorithmic portfolio capstone",
+            ]
+            milestones = [
+                f"Chapter {c['chapter_number']}: {c['title']}" for c in canonical["chapters"][:4]
+            ]
+            if scope in {"CAREER", "BOTH"}:
+                milestones.append(f"{target_subject} Technical Articulation & Career Readiness")
+
+            return AIMLRoadmapResponse(
+                scope=scope,
+                target_subject=target_subject,
+                subject_tracks=subject_tracks,
+                semesters=semesters,
+                career=career,
+                goals=goals,
+                milestones=milestones,
+                missions=missions,
+            )
 
         topics: List[str] = []
         for s in syllabus.get("subjects", []):
@@ -648,10 +754,15 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
                     s_name = str(s["name"]).strip()
                     if selected_lookup and s_name.lower() not in selected_lookup:
                         continue
+                    canonical = get_canonical_curriculum(s_name)
+                    raw_topics = [str(t) for t in s.get("topics", [])]
+                    if not raw_topics and canonical:
+                        raw_topics = [c["title"] for c in canonical["chapters"]]
                     parsed_subjects.append(
                         RoadmapSubject(
                             name=s_name,
-                            topics=[str(t) for t in s.get("topics", [])[:6]],
+                            topics=raw_topics[:7],
+                            chapters=canonical["chapters"] if canonical else [],
                         )
                     )
 
@@ -782,12 +893,14 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
         # Build subject tracks
         subject_tracks: List[SubjectTrack] = []
         if target_subject:
+            canonical = get_canonical_curriculum(target_subject)
             subject_tracks.append(
                 SubjectTrack(
                     subject_name=target_subject,
                     mission_count=len(sanitized_missions),
                     estimated_total_minutes=sum(m.estimated_minutes for m in sanitized_missions),
                     core_topics=(expected_topics or [target_subject])[:6],
+                    chapters=canonical["chapters"] if canonical else [],
                 )
             )
         else:
@@ -798,12 +911,14 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
             for s_name in sorted(unique_subjects):
                 s_missions = [m for m in sanitized_missions if m.subject.lower() == s_name.lower()]
                 orig_subj = subjects_map.get(s_name.lower())
+                canonical = get_canonical_curriculum(s_name)
                 subject_tracks.append(
                     SubjectTrack(
                         subject_name=s_name,
                         mission_count=len(s_missions),
                         estimated_total_minutes=sum(m.estimated_minutes for m in s_missions),
                         core_topics=orig_subj.topics[:6] if orig_subj else [s_name],
+                        chapters=(orig_subj.chapters if orig_subj and orig_subj.chapters else (canonical["chapters"] if canonical else [])),
                     )
                 )
 

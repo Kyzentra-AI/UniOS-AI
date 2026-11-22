@@ -173,8 +173,25 @@ class PedagogyEngine:
             elif stage == LearnerStage.GRADUATE:
                 explanation_depth = "step-by-step"
 
+        # 6. UniOS Adaptive Content Architecture (5 Teaching Strategies)
+        if is_remediation or confidence == ConfidenceLevel.LOW:
+            adaptive_strategy = TeachingStrategy.FOUNDATIONAL_SUPPORT.value
+        elif difficulty == DifficultyLevel.ADVANCED or stage == LearnerStage.MASTER:
+            adaptive_strategy = TeachingStrategy.ADVANCED_EXTENSION.value
+        elif presentation_mode == PresentationMode.VISUAL:
+            adaptive_strategy = TeachingStrategy.VISUAL_SUPPORT.value
+        elif presentation_mode == PresentationMode.ANALYTICAL:
+            adaptive_strategy = TeachingStrategy.LOGICAL_ANALYTICAL.value
+        elif presentation_mode in {PresentationMode.INTERACTIVE, PresentationMode.SIMULATION} or (
+            context.memory_context and context.memory_context.relevant_preferences.practical_vs_theory_ratio > 0.6
+        ):
+            adaptive_strategy = TeachingStrategy.PRACTICAL_APPLIED.value
+        else:
+            adaptive_strategy = TeachingStrategy.FOUNDATIONAL_SUPPORT.value
+
         return PedagogyDecision(
             strategy=strategy,
+            adaptive_strategy=adaptive_strategy,
             difficulty=difficulty,
             presentation_mode=presentation_mode,
             explanation_depth=explanation_depth,
@@ -216,7 +233,9 @@ class PedagogyEngine:
             return PresentationMode.CASE_STUDY
         elif any(term in d_lower for term in ["humanities", "arts", "psychology", "history", "philosophy"]):
             return PresentationMode.ANALYTICAL
-        elif any(term in d_lower for term in ["science", "biotech", "physics", "chemistry", "biology", "msc"]):
+        elif any(term in d_lower for term in ["biotech", "physics", "chemistry", "biology", "msc"]) or (
+            "science" in d_lower and not any(cs in d_lower for cs in ["computer", "data", "info", "software"])
+        ):
             return PresentationMode.SIMULATION
         elif any(term in d_lower for term in ["design", "architecture"]):
             return PresentationMode.VISUAL
