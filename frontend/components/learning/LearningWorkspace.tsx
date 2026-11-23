@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -41,6 +40,10 @@ export default function LearningWorkspace({
 
   const [saved, setSaved] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [isFinishingLesson, setIsFinishingLesson] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(
+    null,
+  );
 
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [isAssessmentLoading, setIsAssessmentLoading] = useState(false);
@@ -76,16 +79,19 @@ export default function LearningWorkspace({
     syncCheckpoint,
     pauseSession,
     pauseSessionOnExit,
+    completeSession,
     nextBlock,
     previousBlock,
   } = useLearning({
     session: learningSession,
   });
 
+  const sessionCompleted = sessionData?.status === 'COMPLETED';
+
   // Best-effort pause when the user closes the tab or uses browser Back.
   useEffect(() => {
     const handlePageExit = () => {
-      if (pauseStartedRef.current) {
+      if (pauseStartedRef.current || sessionCompleted) {
         return;
       }
 
@@ -100,13 +106,13 @@ export default function LearningWorkspace({
       window.removeEventListener('pagehide', handlePageExit);
       window.removeEventListener('popstate', handlePageExit);
     };
-  }, [pauseSessionOnExit]);
+  }, [pauseSessionOnExit, sessionCompleted]);
 
-  // Generate/load assessment when its tab is opened.
-  // forceRetake is true only when the user explicitly requests a retake.
+  // Generate/load assessment only after the backend confirms completion.
   useEffect(() => {
     if (
       activePanel !== 'assessment' ||
+      !sessionCompleted ||
       !sessionData?.id ||
       assessment
     ) {
@@ -155,6 +161,7 @@ export default function LearningWorkspace({
     };
   }, [
     activePanel,
+    sessionCompleted,
     sessionData,
     topic,
     assessment,
@@ -173,7 +180,13 @@ export default function LearningWorkspace({
   }
 
   async function handlePauseAndExit() {
-    if (isExiting || isSaving || !sessionData) {
+    if (
+      isExiting ||
+      isSaving ||
+      isFinishingLesson ||
+      !sessionData ||
+      sessionCompleted
+    ) {
       return;
     }
 
@@ -181,7 +194,6 @@ export default function LearningWorkspace({
     pauseStartedRef.current = true;
 
     try {
-      // Wait until the backend confirms that the session is paused.
       await pauseSession();
 
       if (missionId) {
@@ -190,9 +202,42 @@ export default function LearningWorkspace({
         router.push('/missions');
       }
     } catch {
-      // Keep the user on the lesson if the pause request fails.
       pauseStartedRef.current = false;
       setIsExiting(false);
+    }
+  }
+
+  // Complete the backend session before opening the assessment panel.
+  async function handleFinishLesson() {
+    if (
+      isFinishingLesson ||
+      isSaving ||
+      !sessionData ||
+      !lesson ||
+      progress < 100
+    ) {
+      return;
+    }
+
+    setIsFinishingLesson(true);
+    setCompletionError(null);
+
+    try {
+      await completeSession();
+
+      setAssessment(null);
+      setAssessmentError(null);
+      setForceRetake(false);
+
+      setActivePanel('assessment');
+    } catch (err) {
+      setCompletionError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to complete the lesson. Please try again.',
+      );
+    } finally {
+      setIsFinishingLesson(false);
     }
   }
 
@@ -215,22 +260,28 @@ export default function LearningWorkspace({
     setAssessmentRetryKey((key) => key + 1);
   }
 
+  const missionTitle = sessionData?.topic || topic;
+
+  const activeIndex = panels.findIndex(
+    (panel) => panel.id === activePanel,
+  );
+
   // Loading state.
   if (isLoading) {
     return (
       <main
         role="status"
         aria-live="polite"
-        className="min-h-screen bg-[var(--background)]"
+        className="flex h-dvh flex-col overflow-hidden bg-[var(--background)]"
       >
-        <div className="border-b border-[var(--border)] bg-[var(--surface)]">
+        <header className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)]">
           <div className="mx-auto w-full max-w-7xl space-y-2 px-4 py-4 sm:px-6">
             <div className="skeleton h-3 w-14 rounded-md" />
             <div className="skeleton h-5 w-56 max-w-full rounded-md" />
           </div>
-        </div>
+        </header>
 
-        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
+        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
           <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
             <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
             Loading your learning session…
@@ -251,7 +302,7 @@ export default function LearningWorkspace({
   // Error or missing-data state.
   if (error || !lesson || !sessionData) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[var(--background)] p-4 sm:p-6">
+      <main className="flex h-dvh items-center justify-center overflow-y-auto bg-[var(--background)] p-4 sm:p-6">
         <section
           role="alert"
           className="rise w-full max-w-lg rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_8px_28px_rgba(24,52,58,0.04)] sm:p-8"
@@ -281,46 +332,40 @@ export default function LearningWorkspace({
     );
   }
 
-  const missionTitle = sessionData.topic || topic;
-
-  const activeIndex = panels.findIndex(
-    (panel) => panel.id === activePanel,
-  );
-
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      {/* Workspace header */}
-      <header className="rise border-b border-[var(--border)] bg-[var(--surface)]">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-xs text-[var(--text-muted)]">
-              Mission
-            </p>
+    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--background)]">
+      {/* Compact workspace top bar */}
+      <header className="z-30 shrink-0 border-b border-[var(--border)] bg-[var(--surface)]">
+        <div className="flex min-h-[68px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
+                Learning Workspace
+              </p>
 
-            <h1 className="mt-0.5 truncate text-lg font-semibold text-[var(--text-primary)]">
-              {missionTitle}
-            </h1>
+              <h1 className="mt-0.5 truncate text-sm font-semibold text-[var(--text-primary)] sm:text-base">
+                {missionTitle}
+              </h1>
+            </div>
+
+            <span className="hidden h-8 w-px shrink-0 bg-[var(--border)] sm:block" />
+
+            <div className="hidden min-w-0 sm:block">
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Current lesson
+              </p>
+
+              <p className="mt-0.5 max-w-[260px] truncate text-sm font-medium text-[var(--text-secondary)]">
+                {lesson.title}
+              </p>
+            </div>
           </div>
 
-          <div className="min-w-0 sm:text-right">
-            <p className="text-xs text-[var(--text-muted)]">
-              Current lesson
-            </p>
-
-            <p className="mt-0.5 truncate text-sm font-medium text-[var(--text-primary)]">
-              {lesson.title}
-            </p>
-          </div>
-        </div>
-      </header>
-
-      {/* Workspace tabs */}
-      <div className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)]">
-        <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6">
+          {/* Workspace tabs */}
           <div
             role="tablist"
             aria-label="Learning workspace"
-            className="relative grid grid-cols-2 rounded-full bg-[var(--surface-alt)] p-1 sm:max-w-md"
+            className="relative grid w-full grid-cols-2 rounded-full bg-[var(--surface-alt)] p-1 sm:w-[280px]"
           >
             <span
               aria-hidden="true"
@@ -332,6 +377,8 @@ export default function LearningWorkspace({
 
             {panels.map((panel) => {
               const active = activePanel === panel.id;
+              const locked =
+                panel.id === 'assessment' && !sessionCompleted;
 
               return (
                 <button
@@ -341,11 +388,24 @@ export default function LearningWorkspace({
                   id={`tab-${panel.id}`}
                   aria-selected={active}
                   aria-controls={`panel-${panel.id}`}
-                  onClick={() => setActivePanel(panel.id)}
-                  className={`relative z-10 rounded-full px-3 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 sm:px-4 ${
+                  aria-disabled={locked}
+                  disabled={locked}
+                  onClick={() => {
+                    if (!locked) {
+                      setActivePanel(panel.id);
+                    }
+                  }}
+                  title={
+                    locked
+                      ? 'Complete the lesson before opening the assessment.'
+                      : undefined
+                  }
+                  className={`relative z-10 rounded-full px-3 py-2 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 sm:text-sm ${
                     active
                       ? 'text-white'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      : locked
+                        ? 'cursor-not-allowed text-[var(--text-muted)] opacity-60'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   {panel.label}
@@ -354,48 +414,108 @@ export default function LearningWorkspace({
             })}
           </div>
         </div>
-      </div>
+      </header>
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        {/* Lesson and Tutor workspace */}
+      {/* Main workspace area */}
+      <main className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
+        {/* Lesson and AI Mentor panel */}
         <div
           role="tabpanel"
           id="panel-lesson"
           aria-labelledby="tab-lesson"
           hidden={activePanel !== 'lesson'}
-          className="rise"
+          className="h-full min-h-0"
         >
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-            {/* Main lesson content */}
-            <div className="min-w-0 space-y-6">
-              <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_8px_28px_rgba(24,52,58,0.04)] sm:p-5">
-                <div className="flex flex-wrap items-center gap-4">
+          <div className="grid min-h-full grid-cols-1 gap-4 p-3 sm:gap-5 sm:p-5 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-5 lg:p-5">
+            {/* Left: Lesson reader */}
+            <section className="flex min-h-[650px] min-w-0 flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_28px_rgba(24,52,58,0.04)] lg:min-h-0">
+              {/* Lesson progress header */}
+              <div className="shrink-0 border-b border-[var(--border)] px-4 py-3 sm:px-5">
+                <div className="flex items-center gap-3">
                   <ProgressRing
                     value={Math.round(progress)}
-                    size={64}
-                    stroke={6}
+                    size={48}
+                    stroke={5}
                   />
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Learning progress
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        Lesson progress
+                      </p>
 
-                    <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
-                      {progress}% completed
-                    </p>
+                      <p className="text-xs font-medium text-[var(--text-secondary)]">
+                        {Math.round(progress)}%
+                      </p>
+                    </div>
 
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {completedBlockIds.length} of {lesson.blocks.length} blocks completed
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--surface-alt)]">
+                      <div
+                        className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-700 ease-out"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, progress))}%`,
+                        }}
+                      />
+                    </div>
+
+                    <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                      {completedBlockIds.length} of {lesson.blocks.length} sections completed
                     </p>
                   </div>
+                </div>
+              </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+              {/* Independently scrollable lesson content */}
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5 sm:py-5">
+                <LessonRenderer
+                  lesson={lesson}
+                  completedBlockIds={completedBlockIds}
+                  currentBlockIndex={currentBlockIndex}
+                  isSaving={isSaving || isExiting}
+                  isCompleting={isFinishingLesson}
+                  onMarkBlockComplete={markBlockComplete}
+                  onPreviousBlock={previousBlock}
+                  onNextBlock={nextBlock}
+                  onFinishLesson={handleFinishLesson}
+                />
+
+                {error && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  >
+                    {error}
+                  </p>
+                )}
+
+                {completionError && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  >
+                    {completionError}
+                  </p>
+                )}
+              </div>
+
+              {/* Persistent left-side workspace footer */}
+              <footer className="z-10 shrink-0 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3 sm:px-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="hidden text-xs text-[var(--text-muted)] sm:block">
+                    Your learning progress is saved to this session.
+                  </p>
+
+                  <div className="ml-auto flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={handleSaveProgress}
-                      disabled={isSaving || isExiting}
-                      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--primary)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                      disabled={
+                        isSaving ||
+                        isExiting ||
+                        isFinishingLesson ||
+                        sessionCompleted
+                      }
+                      className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2.5 text-xs font-semibold text-[var(--text-primary)] transition hover:border-[var(--primary)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] sm:px-4 sm:text-sm"
                     >
                       {isSaving ? (
                         <>
@@ -415,8 +535,13 @@ export default function LearningWorkspace({
                     <button
                       type="button"
                       onClick={handlePauseAndExit}
-                      disabled={isSaving || isExiting}
-                      className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+                      disabled={
+                        isSaving ||
+                        isExiting ||
+                        isFinishingLesson ||
+                        sessionCompleted
+                      }
+                      className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
                     >
                       {isExiting ? (
                         <>
@@ -429,37 +554,11 @@ export default function LearningWorkspace({
                     </button>
                   </div>
                 </div>
+              </footer>
+            </section>
 
-                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[var(--surface-alt)]">
-                  <div
-                    className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-700 ease-out"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </section>
-
-              <LessonRenderer
-                lesson={lesson}
-                completedBlockIds={completedBlockIds}
-                currentBlockIndex={currentBlockIndex}
-                isSaving={isSaving || isExiting}
-                onMarkBlockComplete={markBlockComplete}
-                onPreviousBlock={previousBlock}
-                onNextBlock={nextBlock}
-              />
-
-              {error && (
-                <p
-                  role="alert"
-                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-                >
-                  {error}
-                </p>
-              )}
-            </div>
-
-            {/* AI Tutor sidebar */}
-            <aside className="min-w-0 lg:sticky lg:top-24">
+            {/* Right: Full-height AI Mentor */}
+            <aside className="flex min-h-[650px] min-w-0 flex-col lg:h-full lg:min-h-0">
               <MentorPanel
                 lesson={lesson}
                 roadmapId={roadmapId}
@@ -471,24 +570,26 @@ export default function LearningWorkspace({
           </div>
         </div>
 
-        {/* Assessment workspace - kept mounted */}
+        {/* Assessment workspace */}
         <div
           role="tabpanel"
           id="panel-assessment"
           aria-labelledby="tab-assessment"
           hidden={activePanel !== 'assessment'}
-          className="rise"
+          className="h-full min-h-0 overflow-y-auto p-3 sm:p-5"
         >
-          <AssessmentPanel
-            lesson={lesson}
-            assessment={assessment}
-            topic={sessionData.topic || topic}
-            sessionId={sessionData.id}
-            isLoading={isAssessmentLoading}
-            loadError={assessmentError}
-            onRetry={retryAssessment}
-            onRetake={handleRetakeAssessment}
-          />
+          <div className="mx-auto w-full max-w-5xl">
+            <AssessmentPanel
+              lesson={lesson}
+              assessment={assessment}
+              topic={sessionData.topic || topic}
+              sessionId={sessionData.id}
+              isLoading={isAssessmentLoading}
+              loadError={assessmentError}
+              onRetry={retryAssessment}
+              onRetake={handleRetakeAssessment}
+            />
+          </div>
         </div>
       </main>
     </div>

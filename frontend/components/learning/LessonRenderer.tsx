@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Lesson, LessonBlock } from '@/types/learning';
@@ -10,16 +9,23 @@ import PracticeBlock from './blocks/PracticeBlock';
 import VideoBlock from './blocks/VideoBlock';
 import DiagramBlock from './blocks/DiagramBlock';
 
-import { Check, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Lock,
+} from 'lucide-react';
 
 interface LessonRendererProps {
   lesson: Lesson;
   completedBlockIds: string[];
   currentBlockIndex: number;
   isSaving: boolean;
+  isCompleting: boolean;
   onMarkBlockComplete: (blockId: string) => Promise<void>;
   onPreviousBlock: () => void;
   onNextBlock: () => void;
+  onFinishLesson: () => void;
 }
 
 function isDiagramBlock(block: LessonBlock): boolean {
@@ -49,16 +55,18 @@ function renderBlock(block: LessonBlock) {
   switch (typeUpper) {
     case 'TEXT':
       return <TextBlock block={block} />;
+
     case 'VIDEO':
       return <VideoBlock block={block} />;
+
     case 'CODE':
       return <CodeBlock block={block} />;
+
     case 'QUIZ':
       return <QuestionBlock block={block} />;
+
     case 'INTERACTIVE':
       return <PracticeBlock block={block} />;
-    case 'DIAGRAM':
-      return <DiagramBlock block={block} />;
     default:
       return (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
@@ -67,11 +75,13 @@ function renderBlock(block: LessonBlock) {
               {block.title}
             </h3>
           )}
+
           {block.content && (
             <p className="mt-2 whitespace-pre-line text-sm leading-7 text-[var(--text-secondary)]">
               {block.content}
             </p>
           )}
+
           <p className="mt-3 text-xs text-[var(--text-muted)]">
             Unsupported block type: {block.type}
           </p>
@@ -85,9 +95,11 @@ export default function LessonRenderer({
   completedBlockIds,
   currentBlockIndex,
   isSaving,
+  isCompleting,
   onMarkBlockComplete,
   onPreviousBlock,
   onNextBlock,
+  onFinishLesson,
 }: LessonRendererProps) {
   const blocks = lesson.blocks;
   const total = blocks.length;
@@ -118,9 +130,11 @@ export default function LessonRenderer({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
             Your learning session
           </p>
+
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
             {lesson.title}
           </h1>
+
           <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
             {lesson.objective}
           </p>
@@ -131,6 +145,7 @@ export default function LessonRenderer({
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-label)]">
               Before you begin
             </p>
+
             <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               {lesson.prerequisites.join(' · ')}
             </p>
@@ -145,10 +160,12 @@ export default function LessonRenderer({
             <p className="text-sm font-semibold text-[var(--text-primary)]">
               Your progress
             </p>
+
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
               {completedCount} of {total} sections completed
             </p>
           </div>
+
           <span className="text-lg font-bold tabular-nums text-[var(--primary)]">
             {Math.round((completedCount / total) * 100)}%
           </span>
@@ -164,7 +181,9 @@ export default function LessonRenderer({
         >
           <div
             className="h-full rounded-full bg-[var(--primary)] transition-all duration-500"
-            style={{ width: `${(completedCount / total) * 100}%` }}
+            style={{
+              width: `${(completedCount / total) * 100}%`,
+            }}
           />
         </div>
 
@@ -186,7 +205,13 @@ export default function LessonRenderer({
                       : 'bg-[var(--surface-alt)] text-[var(--text-muted)]'
                 }`}
               >
-                {done ? <Check size={14} /> : locked ? <Lock size={12} /> : index + 1}
+                {done ? (
+                  <Check size={14} />
+                ) : locked ? (
+                  <Lock size={12} />
+                ) : (
+                  index + 1
+                )}
               </span>
             );
           })}
@@ -204,6 +229,7 @@ export default function LessonRenderer({
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
               Section {currentBlockIndex + 1} of {total}
             </p>
+
             <h2 className="mt-1 text-xl font-bold text-[var(--text-primary)]">
               {currentBlock.title || `Section ${currentBlockIndex + 1}`}
             </h2>
@@ -225,7 +251,7 @@ export default function LessonRenderer({
           <button
             type="button"
             onClick={onPreviousBlock}
-            disabled={currentBlockIndex === 0 || isSaving}
+            disabled={currentBlockIndex === 0 || isSaving || isCompleting}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-alt)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ChevronLeft size={17} />
@@ -235,12 +261,12 @@ export default function LessonRenderer({
           {!isCompleted ? (
             <button
               type="button"
-              disabled={isSaving}
+              disabled={isSaving || isCompleting}
               onClick={() => {
-  void onMarkBlockComplete(currentBlock.id).catch(() => {
-    // Error is handled by useLearning.
-  });
-}}
+                void onMarkBlockComplete(currentBlock.id).catch(() => {
+                  // Error is handled by useLearning.
+                });
+              }}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] disabled:cursor-wait disabled:opacity-60"
             >
               {isSaving ? (
@@ -260,16 +286,35 @@ export default function LessonRenderer({
             <button
               type="button"
               onClick={onNextBlock}
-              disabled={isSaving}
+              disabled={isSaving || isCompleting}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
             >
               Continue learning
               <ChevronRight size={17} />
             </button>
+          ) : allCompleted ? (
+            <button
+              type="button"
+              onClick={onFinishLesson}
+              disabled={isSaving || isCompleting}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+            >
+              {isCompleting ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Completing lesson…
+                </>
+              ) : (
+                <>
+                  <Check size={17} />
+                  Finish Lesson & Start Assessment
+                  <ChevronRight size={17} />
+                </>
+              )}
+            </button>
           ) : (
-            <div className="rounded-xl bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700">
-              <Check className="mr-2 inline" size={16} />
-              {allCompleted ? 'Lesson completed!' : 'Final section completed!'}
+            <div className="rounded-xl bg-[var(--surface-alt)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)]">
+              Complete all sections to continue.
             </div>
           )}
         </div>

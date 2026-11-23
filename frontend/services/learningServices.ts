@@ -64,6 +64,20 @@ export function saveLearningCheckpoint(
 }
 
 /**
+ * Explicitly completes a learning session.
+ * This is called only after every lesson section is completed.
+ */
+export function completeLearningSession(sessionId: string) {
+  return apiRequest<LearningSession>(
+    `${LEARNING_BASE}/sessions/${encodeURIComponent(sessionId)}/complete`,
+    {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    },
+  );
+}
+
+/**
  * Best-effort checkpoint request for page unload / browser exit.
  *
  * This intentionally uses fetch directly with keepalive.
@@ -84,7 +98,6 @@ export function saveLearningCheckpointOnExit(
       },
     );
 
-    // There may be no page left to handle the response.
     void request.catch(() => undefined);
   } catch {
     // Unload handlers must never throw.

@@ -92,12 +92,13 @@ export default function MentorPanel({
 
   const stepContent = getStepContent(currentBlock);
 
+  // Keep the latest message visible inside the independently scrolling chat.
   useEffect(() => {
-    const el = listRef.current;
+    const element = listRef.current;
 
-    if (el) {
-      el.scrollTo({
-        top: el.scrollHeight,
+    if (element) {
+      element.scrollTo({
+        top: element.scrollHeight,
         behavior: 'smooth',
       });
     }
@@ -137,8 +138,6 @@ export default function MentorPanel({
           topic: lesson.title,
           roadmapId,
           missionId,
-
-          // Current step context
           stepIndex: currentBlockIndex + 1,
           stepTitle,
           stepContent,
@@ -171,10 +170,11 @@ export default function MentorPanel({
   }
 
   return (
-    <section className="w-full min-w-0">
-      <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_28px_rgba(24,52,58,0.04)]">
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-col">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_28px_rgba(24,52,58,0.04)]">
+
         {/* Header */}
-        <div className="border-b border-[var(--border)] p-4 sm:p-5">
+        <div className="shrink-0 border-b border-[var(--border)] p-4 sm:p-5">
           <p className="text-sm font-medium text-[var(--feature-blue)]">
             AI Mentor
           </p>
@@ -190,7 +190,7 @@ export default function MentorPanel({
         </div>
 
         {/* Mentor modes */}
-        <div className="border-b border-[var(--border)] px-4 py-4 sm:px-5">
+        <div className="shrink-0 border-b border-[var(--border)] px-4 py-3 sm:px-5">
           <div
             role="radiogroup"
             aria-label="Mentor mode"
@@ -220,14 +220,14 @@ export default function MentorPanel({
 
           <p
             key={mode}
-            className="rise mt-3 text-sm text-[var(--text-secondary)]"
+            className="rise mt-2 text-xs text-[var(--text-secondary)]"
           >
             {currentMode?.description}
           </p>
         </div>
 
         {/* Current lesson context */}
-        <div className="flex items-start gap-3 border-b border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3 sm:px-5">
+        <div className="flex shrink-0 items-start gap-3 border-b border-[var(--border)] bg-[var(--surface-alt)] px-4 py-3 sm:px-5">
           <span
             aria-hidden="true"
             className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--feature-blue)]"
@@ -254,16 +254,16 @@ export default function MentorPanel({
           </div>
         </div>
 
-        {/* Conversation */}
+        {/* Independently scrollable conversation */}
         <div
           ref={listRef}
           role="log"
           aria-live="polite"
           aria-label="Conversation with your mentor"
-          className="min-h-[300px] max-h-[70vh] space-y-4 overflow-y-auto p-4 sm:p-5"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5"
         >
           {messages.length === 0 && (
-            <div className="flex min-h-[240px] items-center justify-center">
+            <div className="flex min-h-full items-center justify-center">
               <div className="max-w-sm text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--surface-alt)] text-lg">
                   ✦
@@ -356,7 +356,7 @@ export default function MentorPanel({
 
         {/* API error */}
         {error && (
-          <div className="border-t border-[var(--border)] px-4 pt-4 sm:px-5">
+          <div className="shrink-0 border-t border-[var(--border)] px-4 pt-3 sm:px-5">
             <div
               role="alert"
               className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
@@ -375,8 +375,8 @@ export default function MentorPanel({
           </div>
         )}
 
-        {/* Message input */}
-        <div className="border-t border-[var(--border)] p-3 sm:p-4">
+        {/* Message input stays at the bottom */}
+        <div className="shrink-0 border-t border-[var(--border)] bg-[var(--surface)] p-3 sm:p-4">
           <form
             onSubmit={(event) => {
               event.preventDefault();

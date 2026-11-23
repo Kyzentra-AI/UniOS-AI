@@ -29,7 +29,13 @@ export interface Evidence {
   id: string; projectId: string; artifactId?: string | null; title: string;
   description?: string | null; skills: string[]; createdAt: string;
 }
-export interface RecommendedProject { title: string; description: string; type: ProjectType; skills: string[]; }
+export interface RecommendedProject {
+  title: string;
+  description: string;
+  type: ProjectType;
+  domain?: string | null;
+  skills: string[];
+}
 export interface ProjectRecommendationResponse { recommendations: RecommendedProject[]; }
 export interface BuildCoachRequest { intent: string; message: string; context?: Record<string, unknown>; }
 export interface BuildCoachResponse { reply: string; suggestions?: string[] | null; actionItems?: Record<string, unknown>[] | null; }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Suspense } from "react";
@@ -7,6 +8,12 @@ import Roadmap from "@/components/roadmap/Roadmap";
 import SubjectTabs from "@/components/roadmap/SubjectTabs";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useRoadmap } from "@/hooks/useRoadmap";
+
+import type { RoadmapSubjectSummary } from "@/types/roadmap";
+
+function normalizeSubjectName(name: string): string {
+  return name.trim().toLowerCase();
+}
 
 function RoadmapPageContent() {
   const router = useRouter();
@@ -25,6 +32,55 @@ function RoadmapPageContent() {
     refetch,
   } = useRoadmap({ subject });
 
+  // Derive the complete academic subject list from the roadmap.
+  const academicSubjects =
+    roadmap?.scope_data?.semesters?.flatMap(
+      (semester) => semester.subjects ?? []
+    ) ?? [];
+
+  // Keep academic subjects even when they have zero missions.
+  // Use backend summaries for actual mission statistics.
+  const subjectMap = new Map<string, RoadmapSubjectSummary>();
+
+  for (const academicSubject of academicSubjects) {
+    const name = academicSubject.name?.trim();
+
+    if (!name) continue;
+
+    const key = normalizeSubjectName(name);
+
+    if (!subjectMap.has(key)) {
+      subjectMap.set(key, {
+        name,
+        total_missions: 0,
+        completed_missions: 0,
+        in_progress_missions: 0,
+        progress_percentage: 0,
+      });
+    }
+  }
+
+  for (const summary of availableSubjects ?? []) {
+    const name = summary.name?.trim();
+
+    if (!name) continue;
+
+    const key = normalizeSubjectName(name);
+    const existing = subjectMap.get(key);
+
+    subjectMap.set(key, {
+      name: existing?.name ?? name,
+      total_missions: summary.total_missions ?? 0,
+      completed_missions: summary.completed_missions ?? 0,
+      in_progress_missions: summary.in_progress_missions ?? 0,
+      progress_percentage: summary.progress_percentage ?? 0,
+    });
+  }
+
+  const subjects = Array.from(subjectMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
   return (
     <main className="min-h-screen px-6 py-8">
       <div className="mx-auto max-w-6xl">
@@ -38,9 +94,9 @@ function RoadmapPageContent() {
           </h1>
         </header>
 
-        {!isLoading && (
+        {!isLoading && subjects.length > 0 && (
           <SubjectTabs
-            subjects={availableSubjects}
+            subjects={subjects}
             selectedSubject={subject}
             activeSubject={activeSubject}
           />
