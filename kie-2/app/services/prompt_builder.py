@@ -1,5 +1,6 @@
 from typing import Any
 from app.schemas import NormalizedLearningContext, PedagogyDecision, LearnerStage
+from app.services.domain_classifier import classify_domain, DomainArchetype
 
 
 def _val(x: Any) -> str:
@@ -135,12 +136,18 @@ INSTRUCTIONS:
 def build_lesson_prompt(
     context: NormalizedLearningContext, pedagogy: PedagogyDecision
 ) -> str:
-    """Constructs the prompt for generating structured lesson blocks with maximum pedagogical depth."""
+    """Constructs the prompt for generating a 5-section domain-adaptive lesson blueprint (1,200-1,800 words)."""
     learner = context.learner_state
     stage_guide = get_stage_guidelines(learner.stage)
     domain_info = context.academic_domain or (learner.academic_domain if learner else None) or (learner.academic_program if learner else "Standard")
 
-    # Honor memory preference if available, else learner state preference
+    archetype = classify_domain(
+        subject=context.topic,
+        degree_program=learner.academic_program if learner else None,
+        topic=context.topic,
+        academic_domain=context.academic_domain,
+    )
+
     preferred_mode = _val(learner.learning_preference)
     format_priorities_line = ""
     if context.memory_context and context.memory_context.relevant_preferences:
@@ -155,10 +162,47 @@ def build_lesson_prompt(
 
     strategy_instructions = get_strategy_delivery_guidelines(pedagogy.strategy)
 
-    return f"""You are the senior pedagogical architect for UniOS. Generate a comprehensive, university-level, masterclass lesson for the student.
+    is_coding = archetype == DomainArchetype.CODING_CS
+
+    domain_specific_walkthrough_rule = ""
+    if archetype == DomainArchetype.BUSINESS_MANAGEMENT:
+        domain_specific_walkthrough_rule = (
+            "FOR BUSINESS_MANAGEMENT: Provide a concrete corporate case study (e.g. how Tata, Zomato, or Swiggy applies "
+            "Planning, Organizing, Directing, and Controlling) with strategic decisions and operational takeaways. "
+            "DO NOT write Python code or technical software classes."
+        )
+    elif archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT:
+        domain_specific_walkthrough_rule = (
+            "FOR ACCOUNTING_FINANCE_QUANT: Provide step-by-step worked numerical problems (e.g., journal entries in debit/credit tables, "
+            "trial balance, or elasticity calculations with LaTeX formulas). DO NOT write Python code or software scripts."
+        )
+    elif archetype == DomainArchetype.APPLIED_OFFICE_IT:
+        domain_specific_walkthrough_rule = (
+            "FOR APPLIED_OFFICE_IT: Provide practical workflow walkthroughs (e.g., spreadsheet formulas such as XLOOKUP/VLOOKUP, "
+            "SUMIFS, PivotTables, data validation, or executive document structuring). DO NOT write OOP Python classes."
+        )
+    elif archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE:
+        domain_specific_walkthrough_rule = (
+            "FOR GENERAL_HUMANITIES_SCIENCE: Provide critical textual analysis, scientific empirical methodology, or "
+            "historical/ethical framework analysis. DO NOT write software engineering code."
+        )
+    else:
+        domain_specific_walkthrough_rule = (
+            "FOR CODING_CS: Provide a runnable, verified code walkthrough with step-by-step commentary and input/output traces."
+        )
+
+    code_rule = (
+        "STRICT ARCHETYPE RULE: Code blocks (type: 'code'), schema design, and system architecture diagrams are FORBIDDEN "
+        "unless the archetype is CODING_CS."
+        if not is_coding
+        else "Permitted to include clean executable code blocks for algorithmic walkthrough."
+    )
+
+    return f"""You are the senior pedagogical architect for UniOS. Generate a comprehensive, textbook-grade, 5-section masterclass lesson (Target 1,200 to 1,800 words).
 
 LEARNER CONTEXT:
 {stage_guide}
+- Domain Archetype: {archetype.value}
 - Academic Domain / Program: {domain_info}
 - Preferred Mode: {preferred_mode}
 {format_priorities_line}
@@ -168,34 +212,30 @@ SELECTED PEDAGOGICAL STRATEGY:
 - Difficulty: {_val(pedagogy.difficulty)}
 - Presentation Mode: {_val(pedagogy.presentation_mode)}
 - Explanation Depth: {pedagogy.explanation_depth}
-- Pedagogical Sequence: {', '.join(pedagogy.sequence)}
-- Practice Level: {_val(pedagogy.practice_level)}
 {grounded_refs}
 TOPIC & OBJECTIVE:
 - Topic: {context.topic}
 - Objective: {context.objective}
-- Grounded References: {context.curriculum_references if context.curriculum_references else 'Standard curriculum'}
 
-CONTENT MAXIMIZATION & 10-STAGE ADAPTIVE STRUCTURE REQUIREMENTS:
-1. MAXIMIZE PEDAGOGICAL DEPTH:
-   - Absolutely DO NOT produce brief 1-2 sentence summaries. Provide rigorous, extensive, deeply educational content for each section.
-2. RICH MARKDOWN FORMATTING:
-   - Use markdown subheadings ('### Heading') to clearly segment core concepts.
-   - Use bold ('**Key Concept**') to emphasize technical terminology, definitions, and invariants.
-   - Use bullet points ('- Point') and numbered lists ('1. Step') for procedural logic and takeaways.
-   - Use inline code spans ('`code`') for keywords, syntax, commands, and function calls.
-3. LEARNING OBJECTIVE & PREREQUISITE CHECK:
-   - In the objective block, explicitly define the observable outcome and include a short prerequisite check identifying missing foundational knowledge.
-4. PERSONALIZED INTRODUCTION & CORE CONCEPT:
-   - Open with an explanation selected for the student's current needs according to the selected Teaching Strategy.
-   - Deliver an accurate, syllabus-aligned conceptual deep-dive detailing foundational theory, core mechanics, and constraints.
-5. WORKED EXAMPLE & ALTERNATIVE REPRESENTATION:
-   - Provide a complete, production-quality implementation walkthrough (e.g. Python, SQL, Java) with step-by-step commentary and input/output traces.
-   - Deliver an alternative visual representation (ASCII architecture/flowchart diagram, state-space tree, execution graph, or formal mathematical derivation).
-6. GUIDED PRACTICE CHALLENGE:
-   - Provide a structured hands-on challenge with Scenario, Requirements Checklist, Starter Template, and scaffolded Hints.
-7. COMPREHENSION CHECK & MASTERY EVALUATION:
-   - Provide an insightful scenario-based question assessing concept transfer and application, with 4 options ('A) ...', 'B) ...', 'C) ...', 'D) ...'), correct answer, and detailed explanation.
-8. Under no circumstances output raw HTML, JSX, or React UI tags. Output clean text and markdown.
+5-SECTION LESSON BLUEPRINT (Strict Sequence):
+1. Section 1 — Learning Outcomes & Context (type: 'objective'):
+   - Clear bulleted objectives, why this topic matters in the real world, and prerequisite concepts.
+   - Absolutely NO robotic 'establish a rigorous theoretical mastery over its core invariants' phrasing.
+2. Section 2 — Deep Concept Breakdown (type: 'explanation'):
+   - Full, textbook-grade explanation broken into digestible sub-concepts.
+   - Key definitions in callout blocks (> [!NOTE]) and clear comparisons (e.g., Top vs Middle vs First-Line Management, Taylor vs Fayol).
+3. Section 3 — Real-World Applied Walkthrough (type: 'worked_example'):
+   - {domain_specific_walkthrough_rule}
+4. Section 4 — Visual Framework & Mental Model (type: 'visual_spec'):
+   - Output a valid fenced ```mermaid diagram (flowchart, hierarchy, mindmap, or cycle) or a structured GFM Markdown comparison table tailored to the topic.
+   - NEVER output a raw ASCII box, drawing instructions, or CS topology map.
+5. Section 5 — Applied Scenario & Exam Takeaways (type: 'practice_task'):
+   - A domain-appropriate mini-scenario/reflection prompt + concise exam-ready summary points and common mistakes.
+
+CRITICAL CONSTRAINTS:
+- {code_rule}
+- REMOVE SECTION 6: Do NOT generate an inline Comprehension Check MCQ or quiz block. Assessment belongs exclusively to the assessment service.
+- MARKDOWN HYGIENE: Ban #### headers (use ## and ### only) and NEVER emit triple single quotes ('''python). Always use standard triple backticks (```).
+- Under NO circumstances output raw HTML, JSX, or React UI tags.
 """
 

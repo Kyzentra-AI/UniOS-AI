@@ -19,7 +19,7 @@ Public contract (Backend-approved):
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Body, HTTPException, Query, status
 
 from app.schemas.build import (
     ArtifactType,
@@ -27,6 +27,7 @@ from app.schemas.build import (
     BuildCoachPublicResponse,
     BuildCoachRequest,
     BuildRecommendContext,
+    BuildRecommendRequest,
     BuildRecommendResponse,
 )
 from app.schemas.build_plan import (
@@ -232,56 +233,31 @@ def build_coach(public_request: BuildCoachPublicRequest) -> BuildCoachPublicResp
 
 
 # ---------------------------------------------------------------------------
-# GET /recommend
+# GET & POST /recommend
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/recommend",
-    response_model=BuildRecommendResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Project Recommendations (A2-S5-02)",
-    description=(
-        "Returns a ranked list of domain-adaptive build project recommendations "
-        "for a learner. Only learner_id is required as the public query parameter. "
-        "Learner context (skills, goals, domain) is retrieved from the AI/ML-2 "
-        "Sprint 3 memory engine where available. "
-        "Each recommendation exposes: title, description, type, and skills. "
-        "Backend is responsible for persisting any selected recommendation as a project record."
-    ),
-    responses={
-        200: {"description": "Project recommendations returned."},
-        422: {"description": "Validation error: Missing or invalid learner_id."},
-        500: {"description": "Internal error generating recommendations."},
-    },
-)
-def build_recommend(
-    learner_id: str = Query(
-        ...,
-        min_length=1,
-        description="Learner identifier from Backend / KIE. The only required public parameter.",
-    ),
+def _execute_build_recommend(
+    learner_id: Optional[str] = None,
+    degree_program: Optional[str] = None,
+    academic_domain: Optional[str] = None,
+    syllabus_subjects: Optional[list] = None,
+    syllabus_topics: Optional[list] = None,
+    target_role: Optional[str] = None,
+    count: int = 3,
 ) -> BuildRecommendResponse:
-    """
-    AI/ML-2 interface: Returns domain-adaptive project recommendations.
-
-    Public contract: only learner_id is a documented query parameter.
-    Learner context (domain, stage, target role, weak topics, completed milestones)
-    is retrieved from the Sprint 3 memory engine (best-effort). If memory has no
-    record for this learner, a general fallback recommendation set is returned.
-    """
-    clean_id = learner_id.strip()
+    clean_id = (learner_id or "").strip()
     if not clean_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="learner_id cannot be empty or whitespace.",
         )
 
-    print(f"\n>>> [API /api/v1/kie/build/recommend] learner={clean_id!r}")
+    print(f"\n>>> [API /api/v1/kie/build/recommend] learner={clean_id!r} degree={degree_program!r} domain={academic_domain!r}")
 
     # --- Retrieve learner context from Sprint 3 memory engine (best-effort) ---
-    academic_domain: Optional[str] = None
+    mem_domain: Optional[str] = None
     learner_stage: Optional[str] = None
-    target_role: Optional[str] = None
+    mem_target_role: Optional[str] = None
     weak_topics: Optional[list] = None
     completed_milestones: Optional[list] = None
 
@@ -300,35 +276,40 @@ def build_recommend(
         completed_milestones = mem_ctx.active_goal.completed_milestones or []
 
         # Target role from active goal
-        target_role = mem_ctx.active_goal.primary_target_role or None
+        mem_target_role = mem_ctx.active_goal.primary_target_role or None
 
         # Academic domain from secondary interests or detected weaknesses
-        # secondary_interests may encode domain hints (e.g. "engineering", "commerce")
         for interest in (mem_ctx.active_goal.secondary_interests or []):
             for domain_kw in ["engineering", "commerce", "humanities", "science", "management", "law"]:
                 if domain_kw in interest.lower():
-                    academic_domain = domain_kw
+                    mem_domain = domain_kw
                     break
-            if academic_domain:
+            if mem_domain:
                 break
 
         # Fallback: infer domain from weak topic content
-        if not academic_domain and weak_topics:
+        if not mem_domain and weak_topics:
             topic_text = " ".join(weak_topics).lower()
             for domain_kw in ["engineering", "commerce", "humanities", "science", "management", "law"]:
                 if domain_kw in topic_text:
-                    academic_domain = domain_kw
+                    mem_domain = domain_kw
                     break
 
     except Exception:
         # Memory enrichment is best-effort; proceed with empty context
         pass
 
+    effective_domain = academic_domain or mem_domain
+    effective_role = target_role or mem_target_role
+
     context = BuildRecommendContext(
         learner_id=clean_id,
-        academic_domain=academic_domain,
+        academic_domain=effective_domain,
+        degree_program=degree_program,
+        syllabus_subjects=syllabus_subjects,
+        syllabus_topics=syllabus_topics,
         learner_stage=learner_stage,
-        target_role=target_role,
+        target_role=effective_role,
         completed_milestones=completed_milestones,
         current_weak_topics=weak_topics,
     )
@@ -339,7 +320,7 @@ def build_recommend(
     service = get_build_coach_service()
     try:
         response = service.generate_recommendations(
-            context, request_id=internal_request_id, count=3
+            context, request_id=internal_request_id, count=count
         )
     except Exception as err:
         raise HTTPException(
@@ -350,6 +331,73 @@ def build_recommend(
     print(
         f">>> [API /api/v1/kie/build/recommend] "
         f"returning {len(response.recommendations)} recommendations "
-        f"domain={academic_domain or 'general'} role={target_role or 'unknown'}"
+        f"domain={effective_domain or 'general'} role={effective_role or 'unknown'}"
     )
     return response
+
+
+@router.get(
+    "/recommend",
+    response_model=BuildRecommendResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Project Recommendations (GET /api/v1/kie/build/recommend)",
+    description=(
+        "Returns a ranked list of domain-adaptive build project recommendations "
+        "for a learner. Only learner_id is required as the public query parameter."
+    ),
+    responses={
+        200: {"description": "Project recommendations returned."},
+        422: {"description": "Validation error: Missing or invalid learner_id."},
+        500: {"description": "Internal error generating recommendations."},
+    },
+)
+def build_recommend_get(
+    learner_id: str = Query(
+        ...,
+        min_length=1,
+        description="Learner identifier from Backend / KIE. The only required public parameter.",
+    ),
+) -> BuildRecommendResponse:
+    """GET route: accepts learner_id query param for backward compatibility."""
+    return _execute_build_recommend(learner_id=learner_id)
+
+
+@router.post(
+    "/recommend",
+    response_model=BuildRecommendResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Project Recommendations (POST /api/v1/kie/build/recommend)",
+    description=(
+        "Returns a ranked list of syllabus-grounded build project recommendations. "
+        "Accepts degree_program, academic_domain, and syllabus subjects/topics."
+    ),
+    responses={
+        200: {"description": "Project recommendations returned."},
+        422: {"description": "Validation error: Missing or invalid learner_id."},
+        500: {"description": "Internal error generating recommendations."},
+    },
+)
+def build_recommend_post(
+    learner_id: Optional[str] = Query(default=None),
+    degree_program: Optional[str] = Query(default=None),
+    domain: Optional[str] = Query(default=None),
+    payload: Optional[BuildRecommendRequest] = Body(default=None),
+) -> BuildRecommendResponse:
+    """POST route: supports body and query parameters for full syllabus grounding."""
+    eff_id = learner_id or (payload.learner_id if payload else None)
+    eff_degree = degree_program or (payload.degree_program if payload else None)
+    eff_domain = domain or (payload.academic_domain if payload else None) or (payload.domain if payload else None)
+    eff_subjects = payload.syllabus_subjects if payload else None
+    eff_topics = payload.syllabus_topics if payload else None
+    eff_role = payload.target_role if payload else None
+    eff_count = payload.count if payload and payload.count else 3
+
+    return _execute_build_recommend(
+        learner_id=eff_id,
+        degree_program=eff_degree,
+        academic_domain=eff_domain,
+        syllabus_subjects=eff_subjects,
+        syllabus_topics=eff_topics,
+        target_role=eff_role,
+        count=eff_count,
+    )

@@ -42,6 +42,11 @@ class ArtifactType(str, Enum):
     PORTFOLIO       = "portfolio"         # Multi-artifact composite submission
     GENERAL         = "general"           # Domain-agnostic fallback
 
+    # Canonical uppercase aliases for Backend / Frontend contract alignment
+    BUSINESS        = "BUSINESS"
+    ANALYSIS        = "ANALYSIS"
+    RESEARCH        = "RESEARCH"
+
 
 class BuildDifficulty(str, Enum):
     FOUNDATIONAL   = "foundational"
@@ -393,14 +398,34 @@ class ProjectRecommendation(BaseModel):
     )
 
 
+class BuildRecommendRequest(BaseModel):
+    """
+    Optional request payload for POST /api/v1/kie/build/recommend.
+    Allows passing syllabus topics, degree program, and domain directly from Backend.
+    """
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    learner_id: Optional[str] = Field(default=None, description="Learner identifier")
+    degree_program: Optional[str] = Field(default=None, description="Enrolled degree (e.g. BBA, B.Com, B.Tech)")
+    academic_domain: Optional[str] = Field(default=None, description="Academic domain")
+    domain: Optional[str] = Field(default=None, description="Domain alias")
+    syllabus_subjects: Optional[List[str]] = Field(default=None, description="Active syllabus subjects")
+    syllabus_topics: Optional[List[str]] = Field(default=None, description="Active syllabus topics")
+    target_role: Optional[str] = Field(default=None, description="Target career role or goal")
+    count: Optional[int] = Field(default=3, ge=1, le=10, description="Number of recommendations requested")
+
+
 class BuildRecommendContext(BaseModel):
     """
     Learner context used internally by the recommendation engine.
-    Constructed from memory engine retrieval; not exposed on the public API.
+    Constructed from memory engine retrieval and request payload; not exposed on the public API.
     """
 
     learner_id: str
     academic_domain: Optional[str] = None
+    degree_program: Optional[str] = None
+    syllabus_subjects: Optional[List[str]] = Field(default=None)
+    syllabus_topics: Optional[List[str]] = Field(default=None)
     learner_stage: Optional[str] = None
     target_role: Optional[str] = None
     completed_milestones: Optional[List[str]] = Field(default=None)

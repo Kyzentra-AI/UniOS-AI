@@ -35,6 +35,7 @@ from app.services.llm_provider import (
     get_llm_provider,
 )
 from app.services.memory_engine import get_memory_engine
+from app.services.domain_classifier import classify_domain, DomainArchetype
 
 
 # ---------------------------------------------------------------------------
@@ -62,10 +63,12 @@ def _difficulty_from_str(raw: Any) -> BuildDifficulty:
 
 def _artifact_type_from_str(raw: Any) -> ArtifactType:
     if isinstance(raw, str):
-        try:
-            return ArtifactType(raw.strip().lower())
-        except ValueError:
-            pass
+        cleaned = raw.strip()
+        for candidate in (cleaned, cleaned.upper(), cleaned.lower()):
+            try:
+                return ArtifactType(candidate)
+            except ValueError:
+                pass
     return ArtifactType.GENERAL
 
 
@@ -370,7 +373,15 @@ class BuildCoachService:
         recs: List[ProjectRecommendation] = []
 
         # --- Domain-specific recommendation banks ---
-        rec_bank = self._get_domain_rec_bank(domain, role, weak_topics, stage)
+        rec_bank = self._get_domain_rec_bank(
+            domain,
+            role,
+            weak_topics,
+            stage,
+            degree_program=context.degree_program,
+            syllabus_subjects=context.syllabus_subjects,
+            syllabus_topics=context.syllabus_topics,
+        )
 
         for i, rec_data in enumerate(rec_bank[:count]):
             rec_id = f"rec_{uuid.uuid4().hex[:6]}"
@@ -412,185 +423,225 @@ class BuildCoachService:
         role: str,
         weak_topics: List[str],
         stage: str,
+        degree_program: Optional[str] = None,
+        syllabus_subjects: Optional[List[str]] = None,
+        syllabus_topics: Optional[List[str]] = None,
     ) -> List[dict]:
         """Returns ordered list of recommendation dicts for a given domain."""
+        archetype = classify_domain(
+            subject=" ".join(syllabus_subjects or []),
+            degree_program=degree_program,
+            topic=" ".join(syllabus_topics or weak_topics or []),
+            academic_domain=domain,
+        )
 
-        if any(k in domain for k in ["engineering", "computer", "software", "tech"]):
+        if archetype == DomainArchetype.BUSINESS_MANAGEMENT or any(k in domain for k in ["bba", "management", "business", "mba"]) or (degree_program and any(k in degree_program.lower() for k in ["bba", "mba", "management"])):
             return [
                 {
-                    "title": f"End-to-End {role} Implementation Project",
-                    "artifact_type": ArtifactType.CODE_PROJECT,
+                    "title": "Small Venture Business Plan & PESTLE Analysis",
+                    "artifact_type": ArtifactType.BUSINESS,
                     "difficulty": BuildDifficulty.INTERMEDIATE,
                     "description": (
-                        f"Design and implement a functional {role} system demonstrating "
-                        "modular architecture, error handling, and test coverage."
+                        "Develop an actionable business plan for a new commercial venture, incorporating "
+                        "detailed PESTLE environmental scanning, market opportunity assessment, and projected unit economics."
                     ),
-                    "rationale": f"Directly targets {role} competency gaps with applied implementation.",
-                    "skills": [role, "System Design", "Testing"],
-                    "hours": 20.0,
-                    "prerequisites": weak_topics[:2] if weak_topics else ["Data Structures", "OOP"],
+                    "rationale": "Applies business management, entrepreneurship, and environmental scanning in a domain-authentic capstone format.",
+                    "skills": ["Business Planning", "PESTLE Analysis", "Market Opportunity Assessment", "Financial Forecasting"],
+                    "hours": 16.0,
+                    "prerequisites": weak_topics[:2] if weak_topics else ["Principles of Management", "Business Environment"],
                 },
                 {
-                    "title": "Algorithm Complexity Analysis Report",
-                    "artifact_type": ArtifactType.RESEARCH_REPORT,
+                    "title": "Retail Financial Ledger & Trial Balance Workbook",
+                    "artifact_type": ArtifactType.ANALYSIS,
                     "difficulty": BuildDifficulty.FOUNDATIONAL,
-                    "description": "Analyze and compare time/space complexity of core algorithms using empirical benchmarks.",
-                    "rationale": "Reinforces algorithmic thinking, a prerequisite for advanced engineering builds.",
-                    "skills": ["Algorithm Analysis", "Big-O", "Data Structures"],
-                    "hours": 8.0,
-                    "prerequisites": ["Recursion", "Sorting Algorithms"],
+                    "description": (
+                        "Construct a comprehensive business accounting ledger recording 20+ commercial transactions, "
+                        "posting journal entries to T-accounts, and compiling a verified Trial Balance."
+                    ),
+                    "rationale": "Builds foundational financial accounting and ledger balancing competencies essential for business management.",
+                    "skills": ["General Ledger", "Journal Entries", "Trial Balance", "Financial Statements"],
+                    "hours": 12.0,
+                    "prerequisites": ["Basic Accounting Principles", "Double Entry System"],
                 },
                 {
-                    "title": "System Design Architecture Document",
-                    "artifact_type": ArtifactType.DESIGN_ARTIFACT,
-                    "difficulty": BuildDifficulty.ADVANCED,
-                    "description": "Produce a scalable system design document with component diagrams, API contracts, and tradeoff analysis.",
-                    "rationale": "Develops architectural reasoning skills required for senior engineering roles.",
-                    "skills": ["System Design", "API Design", "Trade-off Analysis"],
-                    "hours": 15.0,
-                    "prerequisites": ["Databases", "Networking Basics"],
+                    "title": "Local Product Demand & Pricing Elasticity Study",
+                    "artifact_type": ArtifactType.RESEARCH,
+                    "difficulty": BuildDifficulty.INTERMEDIATE,
+                    "description": (
+                        "Conduct an empirical demand and pricing analysis for a consumer product or service, "
+                        "evaluating price elasticity coefficients, consumer sensitivity, and market equilibrium."
+                    ),
+                    "rationale": "Connects microeconomic principles with real-world managerial pricing decisions.",
+                    "skills": ["Demand Estimation", "Price Elasticity", "Managerial Economics", "Market Survey"],
+                    "hours": 14.0,
+                    "prerequisites": ["Law of Demand", "Elasticity Fundamentals"],
                 },
-            ]
-
-        elif any(k in domain for k in ["commerce", "finance", "accounting", "business", "b.com"]):
-            return [
                 {
-                    "title": "Small Business Financial Health Analysis",
+                    "title": "Corporate Governance & Ethics Case Brief",
                     "artifact_type": ArtifactType.CASE_ANALYSIS,
                     "difficulty": BuildDifficulty.INTERMEDIATE,
                     "description": (
-                        "Analyse the financial statements of a given SME, identify key ratios, "
-                        "and recommend strategic improvements."
+                        "Analyze a real-world corporate governance and ethics dilemma, evaluating board oversight failures "
+                        "and formulating an organizational compliance framework."
                     ),
+                    "rationale": "Develops critical thinking in corporate ethics, human values, and executive governance.",
+                    "skills": ["Corporate Governance", "Business Ethics", "Stakeholder Analysis"],
+                    "hours": 10.0,
+                    "prerequisites": ["Business Ethics Basics", "Corporate Stakeholder Theory"],
+                },
+            ]
+
+        elif archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT or any(k in domain for k in ["commerce", "finance", "accounting", "b.com", "bcom"]):
+            return [
+                {
+                    "title": "Retail Financial Ledger & Trial Balance Workbook",
+                    "artifact_type": ArtifactType.ANALYSIS,
+                    "difficulty": BuildDifficulty.FOUNDATIONAL,
+                    "description": "Construct a full-cycle financial ledger workbook covering journalizing, ledger posting, and trial balance verification.",
+                    "rationale": "Directly develops core double-entry accounting and financial statement compilation skills.",
+                    "skills": ["Financial Accounting", "General Ledger", "Trial Balance", "Reconciliation"],
+                    "hours": 12.0,
+                    "prerequisites": weak_topics[:2] if weak_topics else ["Journal Entries", "Debit/Credit Rules"],
+                },
+                {
+                    "title": "Small Business Financial Health Analysis",
+                    "artifact_type": ArtifactType.ANALYSIS,
+                    "difficulty": BuildDifficulty.INTERMEDIATE,
+                    "description": "Analyse the financial statements of an enterprise, identify key ratios, and recommend strategic improvements.",
                     "rationale": "Applies accounting fundamentals in a realistic business scenario.",
                     "skills": ["Financial Ratios", "Balance Sheet Analysis", "Recommendations"],
                     "hours": 10.0,
                     "prerequisites": weak_topics[:2] if weak_topics else ["Financial Statements", "Ratio Analysis"],
                 },
                 {
-                    "title": "Market Entry Business Plan",
-                    "artifact_type": ArtifactType.BUSINESS_PLAN,
-                    "difficulty": BuildDifficulty.ADVANCED,
-                    "description": (
-                        "Develop a comprehensive market entry plan including competitor analysis, "
-                        "SWOT, financial projections, and go-to-market strategy."
-                    ),
-                    "rationale": "Integrates multiple commerce domains into a capstone-level deliverable.",
-                    "skills": ["Market Analysis", "SWOT", "Financial Projections"],
-                    "hours": 20.0,
-                    "prerequisites": ["Microeconomics", "Marketing Fundamentals"],
-                },
-                {
-                    "title": "Taxation Case Study",
-                    "artifact_type": ArtifactType.CASE_ANALYSIS,
-                    "difficulty": BuildDifficulty.FOUNDATIONAL,
-                    "description": "Solve a structured taxation problem set covering income tax computation and deduction analysis.",
-                    "rationale": "Directly addresses tax accounting as a core commerce competency.",
-                    "skills": ["Tax Computation", "Deductions", "Compliance"],
-                    "hours": 6.0,
-                    "prerequisites": ["Basic Accounting"],
-                },
-            ]
-
-        elif any(k in domain for k in ["law", "legal", "jurisprudence"]):
-            return [
-                {
-                    "title": "Constitutional Law Case Brief",
-                    "artifact_type": ArtifactType.CASE_ANALYSIS,
+                    "title": "SME Working Capital & Cash Flow Forecast",
+                    "artifact_type": ArtifactType.ANALYSIS,
                     "difficulty": BuildDifficulty.INTERMEDIATE,
-                    "description": "Write an IRAC-structured case brief on a landmark constitutional ruling, identifying ratio decidendi and obiter dicta.",
-                    "rationale": "Develops core legal reasoning and case analysis skills.",
-                    "skills": ["IRAC", "Legal Reasoning", "Case Briefing"],
-                    "hours": 8.0,
-                    "prerequisites": weak_topics[:2] if weak_topics else ["Constitutional Law Basics"],
+                    "description": "Develop a multi-month working capital and cash budget model evaluating liquidity and operational cash flow requirements.",
+                    "rationale": "Applies quantitative financial planning to practical business solvency management.",
+                    "skills": ["Cash Flow Modeling", "Working Capital", "Financial Ratios"],
+                    "hours": 14.0,
+                    "prerequisites": ["Cash Flow Concepts", "Ratio Analysis"],
                 },
                 {
-                    "title": "Contract Dispute Moot Argument",
-                    "artifact_type": ArtifactType.ORAL_VIVA,
+                    "title": "Corporate Financial Statement Ratio Analysis",
+                    "artifact_type": ArtifactType.RESEARCH,
                     "difficulty": BuildDifficulty.ADVANCED,
-                    "description": "Prepare and deliver a 10-minute oral argument for a simulated contract dispute, applying offer, acceptance, and consideration doctrine.",
-                    "rationale": "Integrates oral advocacy with substantive contract law knowledge.",
-                    "skills": ["Oral Advocacy", "Contract Law", "Argumentation"],
-                    "hours": 12.0,
-                    "prerequisites": ["Contract Law Fundamentals"],
-                },
-            ]
-
-        elif any(k in domain for k in ["science", "biology", "chemistry", "physics", "biotech", "msc"]):
-            return [
-                {
-                    "title": "Experimental Lab Report",
-                    "artifact_type": ArtifactType.LAB_NOTEBOOK,
-                    "difficulty": BuildDifficulty.INTERMEDIATE,
-                    "description": (
-                        "Design an experiment to test a specific hypothesis, document methodology, "
-                        "collect data, and produce a structured lab report with statistical analysis."
-                    ),
-                    "rationale": "Applies scientific method and data analysis in a domain-authentic format.",
-                    "skills": ["Hypothesis Formulation", "Data Analysis", "Scientific Writing"],
-                    "hours": 12.0,
-                    "prerequisites": weak_topics[:2] if weak_topics else ["Scientific Method", "Statistics"],
-                },
-                {
-                    "title": "Literature Review on Emerging Research",
-                    "artifact_type": ArtifactType.RESEARCH_REPORT,
-                    "difficulty": BuildDifficulty.ADVANCED,
-                    "description": "Critically review 5–8 peer-reviewed papers on a current research topic and synthesise key findings and open questions.",
-                    "rationale": "Develops critical evaluation and scientific writing skills for postgraduate readiness.",
-                    "skills": ["Critical Analysis", "Literature Review", "Academic Writing"],
-                    "hours": 15.0,
-                    "prerequisites": ["Research Methodology"],
-                },
-            ]
-
-        elif any(k in domain for k in ["humanities", "arts", "psychology", "history", "philosophy"]):
-            return [
-                {
-                    "title": "Critical Essay on a Core Theoretical Debate",
-                    "artifact_type": ArtifactType.ESSAY,
-                    "difficulty": BuildDifficulty.INTERMEDIATE,
-                    "description": (
-                        "Write a 2000-word analytical essay arguing a position on a key theoretical debate "
-                        "in your discipline, supported by primary and secondary sources."
-                    ),
-                    "rationale": "Develops argumentation, critical thinking, and scholarly writing.",
-                    "skills": ["Argumentation", "Critical Analysis", "Academic Citation"],
-                    "hours": 10.0,
-                    "prerequisites": weak_topics[:2] if weak_topics else ["Theoretical Frameworks", "Citation Standards"],
-                },
-                {
-                    "title": "Oral Presentation on Applied Theory",
-                    "artifact_type": ArtifactType.ORAL_VIVA,
-                    "difficulty": BuildDifficulty.FOUNDATIONAL,
-                    "description": "Prepare and deliver a 10-minute seminar presentation applying a theoretical concept to a real-world case.",
-                    "rationale": "Develops oral communication and applied theoretical reasoning.",
-                    "skills": ["Oral Communication", "Presentation", "Theory Application"],
-                    "hours": 6.0,
-                    "prerequisites": ["Core Theory in Domain"],
-                },
-            ]
-
-        elif any(k in domain for k in ["management", "mba", "marketing"]):
-            return [
-                {
-                    "title": "Strategic Business Case Analysis",
-                    "artifact_type": ArtifactType.CASE_ANALYSIS,
-                    "difficulty": BuildDifficulty.INTERMEDIATE,
-                    "description": "Analyse a real-world corporate strategic decision, applying SWOT, PESTLE, and Porter's Five Forces.",
-                    "rationale": "Applies management frameworks to real strategic scenarios.",
-                    "skills": ["SWOT", "PESTLE", "Strategic Analysis"],
-                    "hours": 12.0,
-                    "prerequisites": weak_topics[:2] if weak_topics else ["Strategic Management Basics"],
-                },
-                {
-                    "title": "Marketing Campaign Portfolio",
-                    "artifact_type": ArtifactType.PORTFOLIO,
-                    "difficulty": BuildDifficulty.ADVANCED,
-                    "description": "Design a multi-channel marketing campaign for a product launch, including positioning, messaging, and KPI framework.",
-                    "rationale": "Integrates marketing theory with practical execution for career readiness.",
-                    "skills": ["Marketing Strategy", "KPI Design", "Campaign Planning"],
+                    "description": "Perform comprehensive comparative ratio analysis across profitability, liquidity, and solvency metrics.",
+                    "rationale": "Synthesizes advanced accounting analysis and corporate finance evaluation.",
+                    "skills": ["Ratio Analysis", "DuPont Analysis", "Financial Performance"],
                     "hours": 18.0,
-                    "prerequisites": ["Consumer Behaviour", "Digital Marketing"],
+                    "prerequisites": ["Financial Statement Analysis", "Corporate Finance"],
+                },
+            ]
+
+        elif archetype == DomainArchetype.APPLIED_OFFICE_IT:
+            return [
+                {
+                    "title": "Executive Dashboard & PivotTable Analytics Workbook",
+                    "artifact_type": ArtifactType.ANALYSIS,
+                    "difficulty": BuildDifficulty.FOUNDATIONAL,
+                    "description": "Design an automated business analytics workbook using modern spreadsheet formulas (XLOOKUP, SUMIFS), data validation, and dynamic PivotTables.",
+                    "rationale": "Develops high-demand spreadsheet and office analytics capabilities for modern workplace readiness.",
+                    "skills": ["Spreadsheets", "PivotTables", "Data Validation", "XLOOKUP/VLOOKUP"],
+                    "hours": 10.0,
+                    "prerequisites": weak_topics[:2] if weak_topics else ["Spreadsheet Basics", "Data Entry"],
+                },
+                {
+                    "title": "Office Automation & Business Reporting System",
+                    "artifact_type": ArtifactType.PORTFOLIO,
+                    "difficulty": BuildDifficulty.INTERMEDIATE,
+                    "description": "Create an integrated business documentation and presentation suite automating recurring weekly operational summaries.",
+                    "rationale": "Builds applied IT productivity and professional reporting competencies.",
+                    "skills": ["Document Automation", "Executive Presentation", "Office IT"],
+                    "hours": 12.0,
+                    "prerequisites": ["Business Documentation", "Presentation Design"],
+                },
+            ]
+
+        elif archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE:
+            if any(k in domain for k in ["law", "legal", "jurisprudence"]):
+                return [
+                    {
+                        "title": "Constitutional Law Landmark Case Brief",
+                        "artifact_type": ArtifactType.CASE_ANALYSIS,
+                        "difficulty": BuildDifficulty.INTERMEDIATE,
+                        "description": "Draft an authoritative IRAC-structured case brief on a landmark constitutional ruling, analyzing judicial ratio and doctrine.",
+                        "rationale": "Builds rigorous legal analysis and statutory interpretation skills.",
+                        "skills": ["IRAC Framework", "Case Law Analysis", "Judicial Precedent"],
+                        "hours": 10.0,
+                        "prerequisites": weak_topics[:2] if weak_topics else ["Constitutional Principles"],
+                    },
+                    {
+                        "title": "Contract Dispute Moot Argument",
+                        "artifact_type": ArtifactType.ORAL_VIVA,
+                        "difficulty": BuildDifficulty.ADVANCED,
+                        "description": "Prepare and deliver an oral argument for a simulated contract dispute, applying offer, acceptance, and consideration doctrine.",
+                        "rationale": "Integrates oral advocacy with substantive contract law knowledge.",
+                        "skills": ["Oral Advocacy", "Contract Law", "Argumentation"],
+                        "hours": 12.0,
+                        "prerequisites": ["Contract Law Fundamentals"],
+                    },
+                ]
+            else:
+                return [
+                    {
+                        "title": "Environmental Impact Assessment & Sustainability Audit",
+                        "artifact_type": ArtifactType.RESEARCH,
+                        "difficulty": BuildDifficulty.INTERMEDIATE,
+                        "description": "Conduct a structured sustainability audit and environmental impact report evaluating campus or local resource consumption.",
+                        "rationale": "Grounds environmental science and policy concepts in empirical investigation.",
+                        "skills": ["Environmental Impact Assessment", "Data Collection", "Policy Evaluation"],
+                        "hours": 12.0,
+                        "prerequisites": weak_topics[:2] if weak_topics else ["Ecosystem Principles", "Environmental Policy"],
+                    },
+                    {
+                        "title": "Critical Discourse & Applied Ethics Essay",
+                        "artifact_type": ArtifactType.ESSAY,
+                        "difficulty": BuildDifficulty.FOUNDATIONAL,
+                        "description": "Author an academic essay examining moral philosophy, human values, and societal implications in contemporary institutions.",
+                        "rationale": "Strengthens argumentative clarity, critical analysis, and scholarly writing.",
+                        "skills": ["Critical Thinking", "Scholarly Writing", "Applied Ethics"],
+                        "hours": 8.0,
+                        "prerequisites": ["Foundations of Ethics", "Academic Writing"],
+                    },
+                ]
+
+        elif archetype == DomainArchetype.CODING_CS or any(k in domain for k in ["engineering", "computer", "software", "tech"]):
+            clean_role = role if role and "software" not in role.lower() and "professional" not in role.lower() else "Software Engineering"
+            return [
+                {
+                    "title": f"End-to-End {clean_role} Portfolio Implementation",
+                    "artifact_type": ArtifactType.CODE_PROJECT,
+                    "difficulty": BuildDifficulty.INTERMEDIATE,
+                    "description": (
+                        f"Design and implement an end-to-end {clean_role} system demonstrating "
+                        "clean architecture, test automation, and robust error handling."
+                    ),
+                    "rationale": f"Demonstrates concrete production capabilities in {clean_role}.",
+                    "skills": [clean_role, "Software Architecture", "Unit Testing"],
+                    "hours": 20.0,
+                    "prerequisites": weak_topics[:2] if weak_topics else ["Data Structures", "OOP"],
+                },
+                {
+                    "title": "Algorithm Benchmark & Optimization Report",
+                    "artifact_type": ArtifactType.RESEARCH_REPORT,
+                    "difficulty": BuildDifficulty.FOUNDATIONAL,
+                    "description": "Analyze and compare the empirical runtime and memory characteristics of algorithmic solutions across varied workloads.",
+                    "rationale": "Reinforces algorithmic problem-solving and empirical profiling.",
+                    "skills": ["Performance Profiling", "Algorithmic Analysis", "Benchmarking"],
+                    "hours": 8.0,
+                    "prerequisites": ["Algorithms", "Data Structures"],
+                },
+                {
+                    "title": "Modular Service Architecture Specification",
+                    "artifact_type": ArtifactType.DESIGN_ARTIFACT,
+                    "difficulty": BuildDifficulty.ADVANCED,
+                    "description": "Produce a comprehensive architecture document with component diagrams, API specifications, and database schema models.",
+                    "rationale": "Prepares learners for large-scale systems thinking and technical documentation.",
+                    "skills": ["System Design", "API Design", "Data Modeling"],
+                    "hours": 15.0,
+                    "prerequisites": ["Databases", "Distributed Systems Basics"],
                 },
             ]
 
@@ -600,18 +651,72 @@ class BuildCoachService:
     def _generic_recommendation(
         self, domain: str, role: str, difficulty: BuildDifficulty
     ) -> ProjectRecommendation:
-        return ProjectRecommendation(
-            recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
-            title=f"Foundational {role} Build Project",
-            type=ArtifactType.GENERAL.value,
-            difficulty=difficulty,
-            academic_domain=domain,
-            description=f"Complete a structured build project demonstrating core {role} competencies in the {domain} domain.",
-            rationale="Targeted at building core domain competency through applied project work.",
-            skills=[role, "Critical Thinking", "Applied Practice"],
-            estimated_effort_hours=10.0,
-            prerequisite_topics=[],
-        )
+        archetype = classify_domain(academic_domain=domain)
+        if archetype == DomainArchetype.BUSINESS_MANAGEMENT:
+            return ProjectRecommendation(
+                recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
+                title="Small Venture Business Plan & PESTLE Analysis",
+                type=ArtifactType.BUSINESS.value,
+                difficulty=difficulty,
+                academic_domain=domain,
+                description="Develop an actionable business plan for a new commercial venture incorporating PESTLE scanning and financial forecasting.",
+                rationale="Applies management principles and market analysis in a practical capstone project.",
+                skills=["Business Planning", "PESTLE Analysis", "Management"],
+                estimated_effort_hours=16.0,
+                prerequisite_topics=[],
+            )
+        elif archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT:
+            return ProjectRecommendation(
+                recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
+                title="Retail Financial Ledger & Trial Balance Workbook",
+                type=ArtifactType.ANALYSIS.value,
+                difficulty=difficulty,
+                academic_domain=domain,
+                description="Construct an accounting ledger recording commercial transactions, posting journal entries, and compiling a Trial Balance.",
+                rationale="Builds foundational financial accounting and ledger balancing competencies.",
+                skills=["General Ledger", "Trial Balance", "Financial Statements"],
+                estimated_effort_hours=12.0,
+                prerequisite_topics=[],
+            )
+        elif archetype == DomainArchetype.APPLIED_OFFICE_IT:
+            return ProjectRecommendation(
+                recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
+                title="Executive Dashboard & PivotTable Analytics Workbook",
+                type=ArtifactType.ANALYSIS.value,
+                difficulty=difficulty,
+                academic_domain=domain,
+                description="Design an automated business analytics workbook using modern spreadsheet formulas and dynamic PivotTables.",
+                rationale="Builds high-demand spreadsheet and office analytics capabilities.",
+                skills=["Spreadsheets", "PivotTables", "Data Modeling"],
+                estimated_effort_hours=10.0,
+                prerequisite_topics=[],
+            )
+        elif archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE:
+            return ProjectRecommendation(
+                recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
+                title="Environmental Sustainability Impact Study",
+                type=ArtifactType.RESEARCH.value,
+                difficulty=difficulty,
+                academic_domain=domain,
+                description="Conduct a structured sustainability audit and environmental impact report evaluating local resource usage.",
+                rationale="Grounds empirical investigation in scientific research methodology.",
+                skills=["Research Methodology", "Environmental Impact", "Data Analysis"],
+                estimated_effort_hours=12.0,
+                prerequisite_topics=[],
+            )
+        else:
+            return ProjectRecommendation(
+                recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
+                title="End-to-End Implementation Project",
+                type=ArtifactType.CODE_PROJECT.value,
+                difficulty=difficulty,
+                academic_domain=domain,
+                description="Design and implement a modular software solution demonstrating test coverage and clean architecture.",
+                rationale="Targeted at building core software development and architectural competency.",
+                skills=["Software Engineering", "System Design", "Testing"],
+                estimated_effort_hours=15.0,
+                prerequisite_topics=[],
+            )
 
     def _parse_recommendations(
         self, raw: Dict[str, Any], context: BuildRecommendContext

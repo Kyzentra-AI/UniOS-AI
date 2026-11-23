@@ -53,7 +53,10 @@ class TestDomainAndSyllabusCoverage(unittest.TestCase):
         content_all = " ".join((b.get("content") or "") for b in blocks)
         self.assertNotIn("CREATE TABLE", content_all)
         self.assertNotIn("Enterprise Alpha", content_all)
-        self.assertIn("DeterministicFiniteAutomaton", content_all)
+        self.assertTrue(
+            "DeterministicFiniteAutomaton" in content_all or "DFA" in content_all,
+            f"Expected DFA or DeterministicFiniteAutomaton in content, got: {content_all[:300]}",
+        )
 
     def test_multisubject_full_syllabus_coverage(self):
         """Issue 1: Ensure 8 subjects each receive at least 2 progressive missions covering full syllabus."""

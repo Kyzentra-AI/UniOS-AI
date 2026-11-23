@@ -35,6 +35,10 @@ class RoadmapMission(BaseModel):
     subject: str = Field(default="General", min_length=1, description="Exact subject name this mission belongs to")
     chapter: Optional[str] = Field(default=None, description="Chapter or unit name within the subject")
     topic: Optional[str] = Field(default=None, description="Granular curriculum topic name")
+    objectives: Optional[str] = Field(default=None, description="Structured learning objectives and goals")
+    core_concepts: Optional[str] = Field(default=None, description="Structured core concepts to master")
+    deliverables: Optional[str] = Field(default=None, description="Structured deliverables or exercises")
+    mastery_criteria: Optional[str] = Field(default=None, description="Structured evaluation and mastery criteria")
     week: int = Field(default=1, ge=1, description="Week number in the progression plan")
     sequence: int = Field(default=1, ge=1, description="Sequence order within the week")
 
