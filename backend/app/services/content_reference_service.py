@@ -29,10 +29,44 @@ class ContentReferenceService:
                 if topic_match or keyword_match:
                     references.append(block)
         elif isinstance(parsed_content, dict):
-            # Try to see if there's a matching key or section
-            for key, value in parsed_content.items():
-                if query.topic.lower() in key.lower():
-                    references.append({key: value})
+            subjects = parsed_content.get("subjects")
+            if isinstance(subjects, list):
+                topic_lower = query.topic.lower()
+                kw_lowers = [kw.lower() for kw in (query.keywords or []) if kw]
+                for subj in subjects:
+                    if not isinstance(subj, dict):
+                        continue
+                    subj_name = str(subj.get("name", ""))
+                    # Match chapter-level topics
+                    for ch in subj.get("chapters") or []:
+                        if not isinstance(ch, dict):
+                            continue
+                        ch_title = str(ch.get("title") or ch.get("name") or "")
+                        ch_topics = ch.get("topics") or []
+                        ch_blob = f"{subj_name} {ch_title} {ch_topics}".lower()
+                        if topic_lower in ch_blob or any(kw in ch_blob for kw in kw_lowers):
+                            references.append({
+                                "subject": subj_name,
+                                "module": ch_title,
+                                "heading": ch_title,
+                                "content": f"{subj_name} — {ch_title}: {', '.join(str(t) for t in ch_topics)}",
+                            })
+                    # Match flat subject topics if no chapter matched
+                    subj_topics = subj.get("topics") or []
+                    for t in subj_topics:
+                        t_str = str(t.get("name") or t.get("title") if isinstance(t, dict) else t)
+                        t_lower = t_str.lower()
+                        if topic_lower in t_lower or t_lower in topic_lower or any(kw in t_lower for kw in kw_lowers):
+                            references.append({
+                                "subject": subj_name,
+                                "heading": t_str,
+                                "content": f"{subj_name}: {t_str}",
+                            })
+            # Fallback: check top-level keys
+            if not references:
+                for key, value in parsed_content.items():
+                    if query.topic.lower() in key.lower():
+                        references.append({key: value})
         
         return ContentReferenceResponse(
             topic=query.topic,

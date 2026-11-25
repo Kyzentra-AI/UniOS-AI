@@ -35,6 +35,24 @@ class LearningSessionService:
                 return res.data[0] if (res and res.data) else session
             return session
 
+        # Resolve subject and syllabus_id if omitted
+        resolved_subject = session_in.subject
+        resolved_syllabus_id = str(session_in.syllabus_id) if session_in.syllabus_id else None
+        if not resolved_subject and session_in.mission_id:
+            try:
+                m_res = supabase_admin.table("missions").select("subject").eq("id", str(session_in.mission_id)).limit(1).execute()
+                if m_res and m_res.data:
+                    resolved_subject = m_res.data[0].get("subject")
+            except Exception:
+                pass
+        if not resolved_syllabus_id and session_in.roadmap_id:
+            try:
+                r_res = supabase_admin.table("roadmaps").select("syllabus_id").eq("id", str(session_in.roadmap_id)).limit(1).execute()
+                if r_res and r_res.data and r_res.data[0].get("syllabus_id"):
+                    resolved_syllabus_id = str(r_res.data[0]["syllabus_id"])
+            except Exception:
+                pass
+
         # Create new
         data = {
             "learner_id": learner_id,
@@ -42,6 +60,8 @@ class LearningSessionService:
             "mission_id": str(session_in.mission_id) if session_in.mission_id else None,
             "topic": session_in.topic,
             "lesson_id": session_in.lesson_id,
+            "subject": resolved_subject,
+            "syllabus_id": resolved_syllabus_id,
             "status": "IN_PROGRESS",
             "completed_block_ids": [],
             "progress_percentage": 0
@@ -120,7 +140,11 @@ class LearningSessionService:
 
     @staticmethod
     def complete_session(session_id: str, learner_id: str) -> dict:
-        """Explicitly marks a learning session as completed with 100% progress."""
+        """
+        Explicitly marks a learning session as completed with 100% progress.
+        Does not require an inline Section 6 comprehension quiz block in lesson_data,
+        and returns an assessment handoff payload for direct transition to POST /api/v1/assessments/generate.
+        """
         session = LearningSessionService.get_session(session_id, learner_id)
         update_data = {
             "status": "COMPLETED",
@@ -128,9 +152,25 @@ class LearningSessionService:
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         res = supabase_admin.table("learning_sessions").update(update_data).eq("id", session_id).execute()
-        updated_session = res.data[0]
+        updated_session = dict(res.data[0])
         if session["status"] != "COMPLETED":
             event_service.record_event(learner_id, "SESSION_COMPLETED", "LESSON", updated_session["lesson_id"])
+
+        subject = updated_session.get("subject") or session.get("subject")
+        if not subject and updated_session.get("mission_id"):
+            try:
+                m_res = supabase_admin.table("missions").select("subject").eq("id", str(updated_session["mission_id"])).limit(1).execute()
+                if m_res and m_res.data:
+                    subject = m_res.data[0].get("subject")
+            except Exception:
+                pass
+
+        updated_session["next_step"] = "ASSESSMENT"
+        updated_session["assessment_context"] = {
+            "session_id": str(updated_session.get("id") or session_id),
+            "topic": updated_session.get("topic") or session.get("topic"),
+            "subject": subject,
+        }
         return updated_session
 
 learning_session_service = LearningSessionService()

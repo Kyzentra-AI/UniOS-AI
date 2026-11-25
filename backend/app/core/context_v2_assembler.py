@@ -23,10 +23,21 @@ class ContextV2Assembler:
         pref_res = supabase_admin.table("learning_preferences").select("*").eq("learner_profile_id", learner_id).execute()
         preferences = pref_res.data[0] if pref_res.data else {}
 
-        # Fetch Syllabus
+        # Fetch Syllabus (explicit syllabus_id, or latest confirmed active syllabus for learner)
         syllabus = {}
         if syllabus_id:
             syllabus_res = supabase_admin.table("syllabus_documents").select("*").eq("id", syllabus_id).execute()
+            syllabus = syllabus_res.data[0] if syllabus_res.data else {}
+        else:
+            syllabus_res = (
+                supabase_admin.table("syllabus_documents")
+                .select("*")
+                .eq("learner_id", learner_id)
+                .eq("status", "CONFIRMED")
+                .order("confirmed_at", desc=True)
+                .limit(1)
+                .execute()
+            )
             syllabus = syllabus_res.data[0] if syllabus_res.data else {}
 
         # Fetch Active Roadmap
