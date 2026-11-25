@@ -7,6 +7,7 @@ import type {
   Roadmap,
   RoadmapMission,
 } from "@/types/roadmap";
+
 import { Chevron, Node, ProgressRing, stagger } from "./UI";
 
 interface RoadmapProps {
@@ -14,16 +15,24 @@ interface RoadmapProps {
   onMissionClick?: (mission: RoadmapMission) => void;
 }
 
+interface RoadmapWeek {
+  week: number;
+  items: RoadmapMission[];
+}
+
 export default function Roadmap({
   roadmap,
   onMissionClick,
 }: RoadmapProps) {
-  const missions = [...roadmap.missions].sort((a, b) => {
-    if (a.week !== b.week) {
-      return a.week - b.week;
+  // Sort missions by week first, then by sequence.
+  const missions = [...(roadmap.missions ?? [])].sort((a, b) => {
+    const weekDifference = Number(a.week) - Number(b.week);
+
+    if (weekDifference !== 0) {
+      return weekDifference;
     }
 
-    return a.sequence - b.sequence;
+    return Number(a.sequence) - Number(b.sequence);
   });
 
   const completedMissions = missions.filter(
@@ -39,20 +48,26 @@ export default function Roadmap({
       ? Math.round((completedMissions / missions.length) * 100)
       : 0;
 
-  const weeks = missions.reduce<{ week: number; items: RoadmapMission[] }[]>(
-    (acc, mission) => {
-      const last = acc[acc.length - 1];
+  // Always display the complete 16-week timeline.
+  // Preserve any additional week numbers returned by the backend.
+  const weekNumbers = Array.from(
+    new Set([
+      ...Array.from({ length: 16 }, (_, index) => index + 1),
+      ...missions
+        .map((mission) => Number(mission.week))
+        .filter(
+          (week) => Number.isFinite(week) && week > 0
+        ),
+    ])
+  ).sort((a, b) => a - b);
 
-      if (last && last.week === mission.week) {
-        last.items.push(mission);
-      } else {
-        acc.push({ week: mission.week, items: [mission] });
-      }
-
-      return acc;
-    },
-    []
-  );
+  // Group sorted missions under their respective weeks.
+  const weeks: RoadmapWeek[] = weekNumbers.map((week) => ({
+    week,
+    items: missions.filter(
+      (mission) => Number(mission.week) === week
+    ),
+  }));
 
   let nodeIndex = 0;
 
@@ -86,26 +101,37 @@ export default function Roadmap({
             <ProgressRing value={progress} size={120} stroke={10} />
 
             <div className="w-full min-w-0 flex-1">
-              <p className="text-sm font-semibold">Overall progress</p>
+              <p className="text-sm font-semibold">
+                Overall progress
+              </p>
 
               <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--border)] text-center sm:text-left">
                 {[
-                  { label: "Completed", value: completedMissions },
-                  { label: "In progress", value: inProgressMissions },
+                  {
+                    label: "Completed",
+                    value: completedMissions,
+                  },
+                  {
+                    label: "In progress",
+                    value: inProgressMissions,
+                  },
                   {
                     label: "Remaining",
                     value: missions.length - completedMissions,
                   },
-                ].map((stat, i) => (
+                ].map((stat, index) => (
                   <div
                     key={stat.label}
                     className={
-                      i > 0 ? "px-2 sm:px-5" : "pr-2 sm:pr-5"
+                      index > 0
+                        ? "px-2 sm:px-5"
+                        : "pr-2 sm:pr-5"
                     }
                   >
                     <p className="text-2xl font-bold tracking-tight sm:text-3xl">
                       {stat.value}
                     </p>
+
                     <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
                       {stat.label}
                     </p>
@@ -118,12 +144,12 @@ export default function Roadmap({
                 role="img"
                 aria-label={`${completedMissions} of ${missions.length} missions completed`}
               >
-                {missions.map((mission, i) => (
+                {missions.map((mission, index) => (
                   <span
                     key={mission.id}
                     className="seg h-2 flex-1 rounded-full"
                     style={{
-                      ...stagger(Math.min(i, 40)),
+                      ...stagger(Math.min(index, 40)),
                       backgroundColor:
                         mission.status === "COMPLETED"
                           ? "var(--primary)"
@@ -159,7 +185,9 @@ export default function Roadmap({
 
         {missions.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center">
-            <h3 className="font-semibold">No missions available yet</h3>
+            <h3 className="font-semibold">
+              No missions available yet
+            </h3>
 
             <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--text-secondary)]">
               Your missions will appear here once your roadmap has been generated.
@@ -169,7 +197,7 @@ export default function Roadmap({
           <div className="space-y-8 md:space-y-10">
             {weeks.map(({ week, items }) => {
               const done = items.filter(
-                (m) => m.status === "COMPLETED"
+                (mission) => mission.status === "COMPLETED"
               ).length;
 
               return (
@@ -187,44 +215,50 @@ export default function Roadmap({
                     </p>
                   </div>
 
-                  <ol className="relative">
-                    <span
-                      aria-hidden="true"
-                      className="line-grow absolute bottom-8 left-[14px] top-8 w-px bg-[var(--border)]"
-                    />
+                  {items.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)]/60 px-4 py-3 text-xs text-[var(--text-muted)]">
+                      No missions scheduled for this week yet.
+                    </div>
+                  ) : (
+                    <ol className="relative">
+                      <span
+                        aria-hidden="true"
+                        className="line-grow absolute bottom-8 left-[14px] top-8 w-px bg-[var(--border)]"
+                      />
 
-                    {items.map((mission) => {
-                      const idx = Math.min(nodeIndex++, 8);
+                      {items.map((mission) => {
+                        const index = Math.min(nodeIndex++, 8);
 
-                      return (
-                        <li
-                          key={mission.id}
-                          className="relative pb-2.5 pl-11 last:pb-0"
-                          style={stagger(idx)}
-                        >
-                          <span className="absolute left-0 top-[18px]">
-                            <Node
-                              tone="orange"
-                              state={
-                                mission.status === "COMPLETED"
-                                  ? "done"
-                                  : mission.status === "IN_PROGRESS"
-                                    ? "active"
-                                    : "idle"
-                              }
-                            >
-                              {mission.sequence}
-                            </Node>
-                          </span>
+                        return (
+                          <li
+                            key={mission.id}
+                            className="relative pb-2.5 pl-11 last:pb-0"
+                            style={stagger(index)}
+                          >
+                            <span className="absolute left-0 top-[18px]">
+                              <Node
+                                tone="orange"
+                                state={
+                                  mission.status === "COMPLETED"
+                                    ? "done"
+                                    : mission.status === "IN_PROGRESS"
+                                      ? "active"
+                                      : "idle"
+                                }
+                              >
+                                {mission.sequence}
+                              </Node>
+                            </span>
 
-                          <MissionRow
-                            mission={mission}
-                            onClick={onMissionClick}
-                          />
-                        </li>
-                      );
-                    })}
-                  </ol>
+                            <MissionRow
+                              mission={mission}
+                              onClick={onMissionClick}
+                            />
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
                 </div>
               );
             })}

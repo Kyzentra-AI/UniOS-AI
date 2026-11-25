@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -12,9 +11,11 @@ import type {
   LearningSession,
   LearningSessionCreate,
   Lesson,
+  LessonBlock,
 } from '@/types/learning';
 
 import {
+  completeLearningSession,
   createLearningSession,
   generateLesson,
   getLearningSession,
@@ -44,7 +45,36 @@ interface UseLearningResult {
   syncCheckpoint: () => Promise<void>;
   pauseSession: () => Promise<void>;
   pauseSessionOnExit: () => void;
+  completeSession: () => Promise<void>;
   refreshSession: () => Promise<void>;
+}
+
+/**
+ * The final inline comprehension-check quiz belongs to the
+ * dedicated assessment experience, not the lesson stepper.
+ *
+ * Other quiz blocks are preserved.
+ */
+function isInlineComprehensionCheck(block: LessonBlock): boolean {
+  if (block.type !== 'QUIZ') {
+    return false;
+  }
+
+  const title = (block.title ?? '').trim().toLowerCase();
+
+  return (
+    title.includes('comprehension check') ||
+    /\bsection\s*6\b/.test(title)
+  );
+}
+
+function normalizeLesson(lesson: Lesson): Lesson {
+  return {
+    ...lesson,
+    blocks: lesson.blocks.filter(
+      (block) => !isInlineComprehensionCheck(block),
+    ),
+  };
 }
 
 function getLessonFromSession(
@@ -62,7 +92,7 @@ function getLessonFromSession(
     return null;
   }
 
-  return data as unknown as Lesson;
+  return normalizeLesson(data as unknown as Lesson);
 }
 
 /**
@@ -125,10 +155,12 @@ export function useLearning({
       let loadedLesson = getLessonFromSession(created);
 
       if (!loadedLesson) {
-        loadedLesson = await generateLesson(created.id, {
+        const generated = await generateLesson(created.id, {
           topic: created.topic,
           lesson_id: created.lesson_id,
         });
+
+        loadedLesson = normalizeLesson(generated);
       }
 
       setLesson(loadedLesson);
@@ -272,8 +304,8 @@ export function useLearning({
             checkpoint_block_id: nextBlockId,
             completed_block_ids: nextCompletedIds,
             progress_percentage: nextProgress,
-            status:
-              nextProgress >= 100 ? 'COMPLETED' : 'IN_PROGRESS',
+            // Session completion is handled by the dedicated POST endpoint.
+            status: 'IN_PROGRESS',
           },
         );
 
@@ -336,14 +368,18 @@ export function useLearning({
           checkpoint_block_id: block?.id,
           completed_block_ids: completedBlockIds,
           progress_percentage: progress,
-          status: progress >= 100 ? 'COMPLETED' : 'IN_PROGRESS',
+          status: 'IN_PROGRESS',
         },
       );
 
       setSessionData(updated);
 
       if (updated.completed_block_ids) {
-        setCompletedBlockIds(updated.completed_block_ids);
+        setCompletedBlockIds(
+          updated.completed_block_ids.filter((id) =>
+            lesson.blocks.some((item) => item.id === id),
+          ),
+        );
       }
     } catch (err) {
       const message =
@@ -382,14 +418,18 @@ export function useLearning({
           checkpoint_block_id: block?.id,
           completed_block_ids: completedBlockIds,
           progress_percentage: progress,
-          status: progress >= 100 ? 'COMPLETED' : 'PAUSED',
+          status: 'PAUSED',
         },
       );
 
       setSessionData(updated);
 
       if (updated.completed_block_ids) {
-        setCompletedBlockIds(updated.completed_block_ids);
+        setCompletedBlockIds(
+          updated.completed_block_ids.filter((id) =>
+            lesson.blocks.some((item) => item.id === id),
+          ),
+        );
       }
     } catch (err) {
       const message =
@@ -424,7 +464,7 @@ export function useLearning({
         checkpoint_block_id: block?.id,
         completed_block_ids: completedBlockIds,
         progress_percentage: progress,
-        status: progress >= 100 ? 'COMPLETED' : 'PAUSED',
+        status: 'PAUSED',
       },
     );
   }, [
@@ -434,6 +474,39 @@ export function useLearning({
     completedBlockIds,
     progress,
   ]);
+
+  // Explicitly complete the session after every lesson section is done.
+  const completeSession = useCallback(async () => {
+    if (!sessionData || !lesson) {
+      throw new Error('Learning session or lesson is not loaded.');
+    }
+
+    if (progress < 100 || lesson.blocks.length === 0) {
+      throw new Error('Complete every lesson section before continuing.');
+    }
+
+    if (sessionData.status === 'COMPLETED') {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const updated = await completeLearningSession(sessionData.id);
+      setSessionData(updated);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Unable to complete the learning session. Please try again.';
+
+      setError(message);
+      throw err;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [sessionData, lesson, progress]);
 
   const refreshSession = useCallback(async () => {
     if (!sessionData) return;
@@ -485,6 +558,7 @@ export function useLearning({
     syncCheckpoint,
     pauseSession,
     pauseSessionOnExit,
+    completeSession,
     refreshSession,
   };
 }

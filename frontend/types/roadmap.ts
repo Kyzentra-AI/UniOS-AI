@@ -1,31 +1,24 @@
 
-export type RoadmapScope =
-  | 'ACADEMIC'
-  | 'CAREER'
-  | 'BOTH';
+export type RoadmapScope = "ACADEMIC" | "CAREER" | "BOTH";
 
-export type RoadmapStatus =
-  | 'ACTIVE'
-  | 'INACTIVE';
+export type RoadmapStatus = "ACTIVE" | "INACTIVE";
 
-export type RoadmapGenerationStatus =
-  | 'PROCESSING'
-  | 'ACTIVE';
+export type RoadmapGenerationStatus = "PROCESSING" | "ACTIVE";
 
 export type MissionType =
-  | 'LEARNING'
-  | 'REVISION'
-  | 'ASSIGNMENT'
-  | 'PRACTICAL'
-  | 'ARTIFACT'
-  | 'CAREER';
+  | "LEARNING"
+  | "REVISION"
+  | "ASSIGNMENT"
+  | "PRACTICAL"
+  | "ARTIFACT"
+  | "CAREER";
 
 export type MissionStatus =
-  | 'PENDING'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'DEFERRED'
-  | 'SKIPPED';
+  | "PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "DEFERRED"
+  | "SKIPPED";
 
 export interface RoadmapRequest {
   syllabus_id: string;
@@ -35,7 +28,8 @@ export interface RoadmapRequest {
 
 export interface RoadmapGenerationResponse {
   message: string;
-  status: 'PROCESSING';
+  status: "PROCESSING";
+  subject?: string | null;
 }
 
 export interface RoadmapMission {
@@ -52,6 +46,17 @@ export interface RoadmapMission {
   status: MissionStatus;
 }
 
+export interface RoadmapPlanMission {
+  title: string;
+  type: MissionType;
+  description: string;
+  priority: string;
+  estimated_minutes: number;
+  subject?: string | null;
+  week: number;
+  sequence: number;
+}
+
 export interface RoadmapSubject {
   name: string;
   topics: string[];
@@ -66,24 +71,22 @@ export interface RoadmapCareer {
   goals: string[];
 }
 
-export interface RoadmapScopeData {
-  scope: string;
-  semesters: RoadmapSemester[];
-  career?: RoadmapCareer | null;
-  goals: string[];
-  milestones: string[];
-  missions: RoadmapPlanMission[];
+export interface RoadmapSubjectTrack {
+  subject_name: string;
+  mission_count: number;
+  estimated_total_minutes: number;
+  core_topics: string[];
 }
 
-export interface RoadmapPlanMission {
-  title: string;
-  type: MissionType;
-  description: string;
-  priority: string;
-  estimated_minutes: number;
-  subject?: string | null;
-  week: number;
-  sequence: number;
+export interface RoadmapScopeData {
+  scope?: string;
+  target_subject?: string | null;
+  subject_tracks?: RoadmapSubjectTrack[];
+  semesters?: RoadmapSemester[];
+  career?: RoadmapCareer | null;
+  goals?: string[];
+  milestones?: string[];
+  missions?: RoadmapPlanMission[];
 }
 
 export interface Roadmap {

@@ -1,12 +1,34 @@
-import type { LessonBlock } from '@/types/learning';
+
+import type { LessonBlock } from "@/types/learning";
+import MarkdownContent from "./MarkdownContent";
 
 interface CodeBlockProps {
   block: LessonBlock;
 }
 
+function createMarkdownFence(code: string): string {
+  const matches = code.match(/`{3,}/g) ?? [];
+
+  const longestFence = Math.max(
+    2,
+    ...matches.map((fence) => fence.length),
+  );
+
+  return "`".repeat(longestFence + 1);
+}
+
 export default function CodeBlock({
   block,
 }: CodeBlockProps) {
+  const code = block.code ?? block.content ?? "";
+  const language = (block.language ?? "text")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_+-]/g, "");
+
+  const fence = createMarkdownFence(code);
+  const markdown = `${fence}${language}\n${code}\n${fence}`;
+
   return (
     <section className="space-y-3">
       {block.title && (
@@ -22,9 +44,9 @@ export default function CodeBlock({
           </div>
         )}
 
-        <pre className="overflow-x-auto p-5 text-sm leading-6 text-white">
-          <code>{block.code ?? block.content}</code>
-        </pre>
+        <div className="[&_.hljs]:!bg-transparent [&_pre]:!my-0 [&_pre]:!border-0 [&_pre]:!bg-transparent [&_pre]:!p-5 [&_pre]:text-sm [&_pre]:leading-6 [&_pre]:text-white">
+          <MarkdownContent content={markdown} />
+        </div>
       </div>
     </section>
   );

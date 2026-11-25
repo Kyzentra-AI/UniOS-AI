@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -10,6 +11,10 @@ interface SubjectTabsProps {
   activeSubject?: string | null;
 }
 
+function normalizeSubjectName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
 export default function SubjectTabs({
   subjects,
   selectedSubject = null,
@@ -18,12 +23,12 @@ export default function SubjectTabs({
   const selected = selectedSubject?.trim() || null;
 
   const totalMissions = subjects.reduce(
-    (sum, item) => sum + item.total_missions,
+    (sum, item) => sum + (item.total_missions ?? 0),
     0
   );
 
   const completedMissions = subjects.reduce(
-    (sum, item) => sum + item.completed_missions,
+    (sum, item) => sum + (item.completed_missions ?? 0),
     0
   );
 
@@ -43,9 +48,12 @@ export default function SubjectTabs({
     ...subjects.map((item) => ({
       name: item.name,
       href: `/roadmap?subject=${encodeURIComponent(item.name)}`,
-      isActive: selected === item.name,
-      total: item.total_missions,
-      progress: item.progress_percentage,
+      isActive:
+        selected !== null &&
+        normalizeSubjectName(selected) ===
+          normalizeSubjectName(item.name),
+      total: item.total_missions ?? 0,
+      progress: item.progress_percentage ?? 0,
     })),
   ];
 
@@ -59,6 +67,7 @@ export default function SubjectTabs({
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
             Subjects
           </h2>
+
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
             Track progress across all subjects or focus on one.
           </p>
@@ -88,6 +97,7 @@ export default function SubjectTabs({
           >
             <span className="flex items-center gap-2 text-sm font-semibold">
               {tab.name}
+
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] ${
                   tab.isActive
