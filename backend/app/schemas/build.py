@@ -253,6 +253,7 @@ class RecommendedProject(CamelModel):
     title: str
     description: Optional[str] = ""
     type: ProjectType
+    domain: Optional[str] = None
     skills: List[str] = Field(default_factory=list)
 
     @field_validator("type", mode="before")

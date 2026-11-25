@@ -107,7 +107,7 @@ async def get_current_roadmap(
         
     roadmap_id = selected_roadmap["id"]
     
-    # 4. Fetch associated missions for the selected roadmap
+    # 4. Fetch associated missions for the selected roadmap strictly ordered by (week, sequence)
     missions_res = (
         supabase_admin.table("missions")
         .select("*")
@@ -115,7 +115,10 @@ async def get_current_roadmap(
         .order("sequence")
         .execute()
     )
-    roadmap_missions = missions_res.data or []
+    roadmap_missions = sorted(
+        missions_res.data or [],
+        key=lambda m: (m.get("week") or 1, m.get("sequence") or 1),
+    )
     
     # 5. Compute available subjects across active roadmaps so tabs never disappear
     all_active_ids = [r["id"] for r in roadmaps_list]

@@ -27,6 +27,12 @@ class RoadmapMission(BaseModel):
     priority: str = "MEDIUM"
     estimated_minutes: int = 60
     subject: Optional[str] = None
+    chapter: Optional[str] = None
+    topic: Optional[str] = None
+    objectives: Optional[str] = None
+    core_concepts: Optional[str] = None
+    deliverables: Optional[str] = None
+    mastery_criteria: Optional[str] = None
     week: int
     sequence: int
 

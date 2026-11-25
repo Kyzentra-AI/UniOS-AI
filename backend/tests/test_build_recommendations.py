@@ -72,11 +72,16 @@ def test_get_recommendations_with_kie_wire_types():
 
     async def run():
         with patch("app.api.v1.endpoints.build._get_learner_id", return_value="learner-123"), \
+             patch("app.services.build.build_kie.ContextV2Assembler.assemble", new=AsyncMock(return_value={
+                 "education": {"degree_program": "B.Tech CS", "domain": "Computer Science"},
+                 "learner": {"primary_goal": "Backend Engineer"},
+                 "syllabus": {"subjects": [{"name": "Distributed Systems", "topics": ["Concurrency"]}]},
+             })), \
              patch("app.services.build.build_kie.httpx.AsyncClient") as mock_client_cls:
             mock_instance = AsyncMock()
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
-            mock_instance.get.return_value = mock_response
+            mock_instance.post.return_value = mock_response
             mock_client_cls.return_value = mock_instance
 
             result = await get_recommendations(current_user={"user_id": "user-123"})
@@ -90,17 +95,21 @@ def test_get_recommendations_fallback_on_network_error():
     # Mock network failure communicating with KIE
     async def run():
         with patch("app.api.v1.endpoints.build._get_learner_id", return_value="learner-123"), \
+             patch("app.services.build.build_kie.ContextV2Assembler.assemble", new=AsyncMock(return_value={
+                 "education": {"degree_program": "BBA", "domain": "Business Management"},
+                 "syllabus": {"subjects": [{"name": "Principles of Management", "topics": ["PODC"]}]},
+             })), \
              patch("app.services.build.build_kie.httpx.AsyncClient") as mock_client_cls:
             mock_instance = AsyncMock()
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
-            mock_instance.get.side_effect = Exception("Connection refused")
+            mock_instance.post.side_effect = Exception("Connection refused")
             mock_client_cls.return_value = mock_instance
 
             result = await get_recommendations(current_user={"user_id": "user-123"})
             assert len(result.recommendations) >= 3
-            for item in result.recommendations:
-                assert isinstance(item.type, ProjectType)
+            assert result.recommendations[0].type == ProjectType.BUSINESS
+            assert "Software Engineer" not in result.recommendations[0].title
 
     asyncio.run(run())
 
@@ -109,11 +118,12 @@ def test_get_recommendations_fallback_on_missing_learner_profile():
     from fastapi import HTTPException
     async def run():
         with patch("app.api.v1.endpoints.build._get_learner_id", side_effect=HTTPException(status_code=404, detail="Not found")), \
+             patch("app.services.build.build_kie.ContextV2Assembler.assemble", new=AsyncMock(return_value={})), \
              patch("app.services.build.build_kie.httpx.AsyncClient") as mock_client_cls:
             mock_instance = AsyncMock()
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
-            mock_instance.get.side_effect = Exception("Connection refused")
+            mock_instance.post.side_effect = Exception("Connection refused")
             mock_client_cls.return_value = mock_instance
 
             result = await get_recommendations(current_user={"user_id": "user-123"})

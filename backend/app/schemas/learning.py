@@ -41,6 +41,8 @@ class LearningSessionCreate(BaseModel):
     mission_id: Optional[UUID] = None
     topic: str
     lesson_id: str
+    subject: Optional[str] = None
+    syllabus_id: Optional[UUID] = None
 
 class LearningSessionUpdate(BaseModel):
     status: Optional[SessionStatus] = None
@@ -57,12 +59,16 @@ class LearningSessionResponse(BaseModel):
     mission_id: Optional[UUID] = None
     topic: str
     lesson_id: str
+    subject: Optional[str] = None
+    syllabus_id: Optional[UUID] = None
     status: SessionStatus | str
     checkpoint_block_id: Optional[str] = None
     completed_block_ids: Optional[List[str]] = Field(default_factory=list)
     progress_percentage: int
     lesson_data: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
+    next_step: Optional[str] = None
+    assessment_context: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
 
