@@ -152,18 +152,18 @@ def interpret_learner_intent(request: InterpretRequest) -> InterpretResponse:
         response = engine.interpret(request)
         print(f">>> [API POST /api/v1/kie/learn/interpret] Returning Strategy={response.pedagogical_strategy}, Gaps={len(response.knowledge_gaps_identified)}")
         return response
-    except HTTPException:
-        raise
     except Exception as err:
         print(f">>> [API POST /api/v1/kie/learn/interpret] Error ({err}), generating resilient fallback.")
-        topic_name = request.topic or "Foundational Concepts"
+        topic_name = (request.topic or "Foundational Concepts").strip()
+        archetype = classify_domain(subject=topic_name, topic=topic_name)
+        is_coding = (archetype == DomainArchetype.CODING_CS)
         return InterpretResponse(
             intent_category="CONCEPTUAL_EXPLANATION",
-            pedagogical_strategy="ANALOGY_THEN_CODE",
+            pedagogical_strategy="ANALOGY_THEN_CODE" if is_coding else "STEP_BY_STEP_DERIVATION",
             knowledge_gaps_identified=[f"Core principles of {topic_name}"],
             target_difficulty="INTERMEDIATE",
-            recommended_block_flow=["TEXT", "CODE", "INTERACTIVE", "QUIZ"],
-            key_concepts_to_cover=[f"Introduction to {topic_name}", f"Implementation of {topic_name}"],
+            recommended_block_flow=["TEXT", "CODE", "INTERACTIVE", "QUIZ"] if is_coding else ["TEXT", "INTERACTIVE", "QUIZ"],
+            key_concepts_to_cover=[f"Introduction to {topic_name}", f"Practical application of {topic_name}"],
             metadata={"scaffolding_level": "MEDIUM", "estimated_read_minutes": 10},
         )
 
@@ -269,24 +269,7 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                 topic=context.topic,
                 pedagogy_decision=pedagogy_decision,
             )
-        except (LLMProviderError, LLMParseError) as err:
-            if provider.__class__.__name__ == "MockLLMProvider":
-                raise HTTPException(status_code=getattr(err, "status_code", 502), detail=str(err))
-            print(f"    - Notice: Live LLM lesson generation encountered error ({err}); applying resilient fallback.")
-            from app.services.llm_provider import MockLLMProvider
-            fallback_provider = MockLLMProvider()
-            try:
-                lesson = fallback_provider.generate_lesson(
-                    prompt=lesson_prompt,
-                    context_id=context.context_id,
-                    topic=context.topic,
-                    pedagogy_decision=pedagogy_decision,
-                )
-            except (LLMProviderError, LLMParseError) as fb_err:
-                raise HTTPException(status_code=getattr(fb_err, "status_code", 502), detail=str(fb_err))
         except Exception as gen_err:
-            if provider.__class__.__name__ == "MockLLMProvider":
-                raise
             print(f"    - Notice: Live LLM lesson generation encountered error ({gen_err}); applying resilient fallback.")
             from app.services.llm_provider import MockLLMProvider
             fallback_provider = MockLLMProvider()
@@ -396,8 +379,6 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
             aligned_blocks = [b for b in aligned_blocks if str(b.type).upper() != "QUIZ"]
             lesson.blocks = aligned_blocks
 
-    except HTTPException:
-        raise
     except Exception as err:
         print(f">>> [API POST /api/v1/kie/lesson/generate] Unexpected error ({err}); generating resilient fallback.")
         from app.services.llm_provider import MockLLMProvider

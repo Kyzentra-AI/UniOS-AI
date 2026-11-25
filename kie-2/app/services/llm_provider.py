@@ -441,6 +441,7 @@ class MockLLMProvider(BaseLLMProvider):
         topic: str,
         pedagogy_decision: Optional[PedagogyDecision] = None,
     ) -> GeneratedLesson:
+        """Deterministic 5-section offline domain-adaptive lesson generator (100% reliable, zero network)."""
         if pedagogy_decision is None:
             pedagogy_decision = self.generate_pedagogy_decision(prompt)
 
@@ -451,131 +452,619 @@ class MockLLMProvider(BaseLLMProvider):
             academic_domain=prompt,
         )
 
-        system_instruction = (
-            "You are the senior pedagogical content architect for UniOS.\n"
-            "Your mission is to generate comprehensive, in-depth, university-grade learning modules (1,200 to 1,800 words).\n"
-            "DO NOT write brief, superficial summaries. Provide rich, textbook-grade educational material.\n\n"
-            f"DOMAIN ARCHETYPE: {archetype.value}\n"
-            "STRICT RULES FOR DOMAIN ARCHETYPES:\n"
-            "- If domain is NOT CODING_CS: You are STRICTLY FORBIDDEN from including programming code blocks (e.g. ```python, ```sql, ```java), "
-            "database schemas (CREATE TABLE), or system architecture topology diagrams. Instead, use real-world corporate case studies (Tata, Swiggy, Apple) for business/management, "
-            "step-by-step worked numerical journal/ledger problems for accounting/finance, and spreadsheet formula tutorials for applied office IT.\n"
-            "- Only if domain is CODING_CS: Provide production-quality runnable code walkthroughs and algorithmic analysis.\n\n"
-            "Generate EXACTLY 5 high-depth learning blocks in this sequence:\n"
-            "1. type: 'objective' (Learning Outcomes & Context)\n"
-            "   - title: Clear, motivating learning outcome title.\n"
-            "   - content: Multi-paragraph breakdown explaining core goals, prerequisites, and why this topic matters in the real world. Use ## and ### markdown only.\n\n"
-            "2. type: 'explanation' (Deep Concept Breakdown)\n"
-            "   - title: Conceptual masterclass.\n"
-            "   - content: Full, textbook-grade explanation broken into digestible sub-concepts, key definitions in callout blocks (> [!NOTE]), and clear comparisons. Use ## and ### only.\n\n"
-            "3. type: 'worked_example' (Real-World Applied Walkthrough)\n"
-            "   - title: Applied domain walkthrough.\n"
-            "   - content: Concrete corporate case study for business; worked numerical problems/tables for accounting; spreadsheet formulas for office IT; runnable code ONLY for coding_cs.\n"
-            "   - code: Optional, strictly omit unless domain is CODING_CS.\n"
-            "   - language: Optional, strictly omit unless domain is CODING_CS.\n\n"
-            "4. type: 'visual_spec' (Visual Framework & Mental Model)\n"
-            "   - title: Visual Framework & Diagram.\n"
-            "   - content: Valid fenced ```mermaid diagram (flowchart, cycle, or hierarchy) OR a structured markdown comparison table tailored to the topic. NEVER raw ASCII boxes or CS topology maps for non-CS domains.\n\n"
-            "5. type: 'practice_task' (Applied Scenario & Exam Takeaways)\n"
-            "   - title: Applied Challenge & Exam Preparation.\n"
-            "   - content: Domain-appropriate scenario prompt + high-yield exam review points + common mistakes to avoid. Use ## and ### only.\n\n"
-            "CRITICAL FORMAT RULES:\n"
-            "- DO NOT generate Section 6 Comprehension Check MCQ or quiz block. Assessment belongs exclusively to the assessment service.\n"
-            "- Markdown Hygiene: Ban #### headers (use ## and ### only) and NEVER emit triple single quotes. Always use standard triple backticks.\n"
-            "- Under NO circumstances output raw HTML, JSX, or React UI code.\n"
-            "- Output strictly valid JSON matching this schema:\n"
-            "{\n"
-            '  "blocks": [\n'
-            "    {\n"
-            '      "type": "objective" | "explanation" | "worked_example" | "visual_spec" | "practice_task",\n'
-            '      "title": "<block title>",\n'
-            '      "content": "<rich structured markdown content>",\n'
-            '      "code": "<optional code snippet for CODING_CS only>",\n'
-            '      "language": "<optional programming language for CODING_CS only>"\n'
-            "    }\n"
-            "  ]\n"
-            "}"
+        topic_clean = (topic or "Foundational Concepts").strip()
+        topic_lower = topic_clean.lower()
+        from app.schemas.lesson import AssessmentIntent, NextLearningAction
+
+        # Domain-specific block assembly
+        if archetype == DomainArchetype.CODING_CS:
+            is_algo = any(w in topic_lower for w in ["algorithm", "daa", "complexity", "asymptotic", "sorting", "divide", "greedy", "dynamic programming", "graph", "tree", "recurrence", "big-o"])
+            is_automata = any(w in topic_lower for w in ["theory of computation", "automata", "formal language", "chomsky", "turing", "dfa", "nfa", "grammar", "pda", "decidab"])
+            is_ai = any(w in topic_lower for w in ["artificial intelligence", "ai", "machine learning", "neural", "heuristic", "agent", "state-space"])
+
+            if is_algo:
+                obj_title = f"Learning Outcomes & Computational Complexity: {topic_clean}"
+                obj_content = (
+                    f"## 🎯 Learning Outcomes & Competencies\n"
+                    f"- Formulate and evaluate time and space asymptotic complexity ($O, \\Omega, \\Theta$) for algorithmic procedures.\n"
+                    f"- Master divide-and-conquer recurrence relations using the Master Theorem ($T(n) = aT(n/b) + f(n)$).\n"
+                    f"- Verify algorithmic state invariants and formal termination boundaries.\n\n"
+                    f"### 📚 Prerequisites & Readiness\n"
+                    f"- Basic procedural control flow, pointer manipulation, and recursive call frames.\n"
+                    f"- Mathematical intuition for logarithms ($O(\\log n)$) and geometric series.\n\n"
+                    f"### 💡 Why This Topic Matters\n"
+                    f"In production engineering, selecting an $O(n \\log n)$ algorithm over an $O(n^2)$ approach reduces computation time on a million records from days to seconds."
+                )
+                expl_title = f"Algorithmic Mechanics & Asymptotic Analysis: {topic_clean}"
+                expl_content = (
+                    f"## 🔬 Foundational Theory & Recurrence Relations\n"
+                    f"Algorithmic analysis quantifies resource consumption as input size $n$ scales toward infinity.\n\n"
+                    f"> [!NOTE]\n"
+                    f"> **The Divide-and-Conquer Paradigm**: Breaks a problem of size $n$ into $a$ subproblems of size $n/b$, solves them recursively, and combines solutions in $O(n^d)$ time.\n\n"
+                    f"### Asymptotic Growth Comparison Table\n\n"
+                    f"| Complexity Class | Formal Bound | Operations ($N = 10^4$) | Practical Feasibility |\n"
+                    f"| :--- | :--- | :--- | :--- |\n"
+                    f"| Constant | $O(1)$ | 1 | Instantaneous |\n"
+                    f"| Logarithmic | $O(\\log n)$ | ~14 | Instantaneous |\n"
+                    f"| Linear | $O(n)$ | $10^4$ | Real-time |\n"
+                    f"| Linearithmic | $O(n \\log n)$ | ~1.4 \\times 10^5 | Optimal for Comparison Sort |\n"
+                    f"| Quadratic | $O(n^2)$ | $10^8$ | Unscalable for Large Data |\n\n"
+                    f"### Core Invariants & Correctness Guarantees\n"
+                    f"- **Loop Invariant**: In partition and merge steps, sub-arrays maintain strictly sorted order.\n"
+                    f"- **Termination**: Every recursive step strictly decreases problem size ($n/2 < n$), guaranteeing base-case termination."
+                )
+                code_title = f"Verified Implementation: Divide-and-Conquer Merge Sort"
+                code_lang = "python"
+                code_snippet = (
+                    "def merge_sort(arr: list) -> list:\n"
+                    '    """Sorts an array using divide-and-conquer with O(n log n) runtime."""\n'
+                    "    if len(arr) <= 1:\n"
+                    "        return arr\n\n"
+                    "    mid = len(arr) // 2\n"
+                    "    left_sorted = merge_sort(arr[:mid])\n"
+                    "    right_sorted = merge_sort(arr[mid:])\n\n"
+                    "    # Linear two-pointer merge operation O(n)\n"
+                    "    merged = []\n"
+                    "    i = j = 0\n"
+                    "    while i < len(left_sorted) and j < len(right_sorted):\n"
+                    "        if left_sorted[i] <= right_sorted[j]:\n"
+                    "            merged.append(left_sorted[i])\n"
+                    "            i += 1\n"
+                    "        else:\n"
+                    "            merged.append(right_sorted[j])\n"
+                    "            j += 1\n"
+                    "    merged.extend(left_sorted[i:])\n"
+                    "    merged.extend(right_sorted[j:])\n"
+                    "    return merged\n\n"
+                    "# Verification assertions\n"
+                    "assert merge_sort([38, 27, 43, 3, 9, 82, 10]) == [3, 9, 10, 27, 38, 43, 82]\n"
+                    "assert merge_sort([]) == []\n"
+                    "assert merge_sort([42]) == [42]"
+                )
+                code_content = (
+                    f"## 🛠️ Step-by-Step Implementation Walkthrough\n"
+                    f"The implementation below demonstrates the canonical divide-and-conquer sort with verified correctness assertions:\n\n"
+                    f"```{code_lang}\n{code_snippet}\n```\n\n"
+                    f"### 🔍 Key Implementation Invariants\n"
+                    f"- **Midpoint Calculation**: Integer division `len(arr) // 2` isolates divide step in $O(1)$.\n"
+                    f"- **Stability**: `left_sorted[i] <= right_sorted[j]` preserves relative order of equal keys."
+                )
+                vis_title = f"Recursive Divide-and-Conquer Flowchart & Call Hierarchy"
+                vis_content = (
+                    f"## 📊 Recursive Call Hierarchy & Merging Flow\n\n"
+                    f"```mermaid\n"
+                    f"flowchart TD\n"
+                    f'    A["Array [38, 27, 43, 3, 9, 82, 10] (n)"] --> B["Left: [38, 27, 43, 3] (n/2)"]\n'
+                    f'    A --> C["Right: [9, 82, 10] (n/2)"]\n'
+                    f'    B --> D["Left-Left: [38, 27]"]\n'
+                    f'    B --> E["Left-Right: [43, 3]"]\n'
+                    f'    C --> F["Right-Left: [9]"]\n'
+                    f'    C --> G["Right-Right: [82, 10]"]\n'
+                    f'    D & E --> H["Merged Left: [3, 27, 38, 43] O(n/2)"]\n'
+                    f'    F & G --> I["Merged Right: [9, 10, 82] O(n/2)"]\n'
+                    f'    H & I --> J["Final Sorted Array: [3, 9, 10, 27, 38, 43, 82] O(n)"]\n'
+                    f"```\n\n"
+                    f"### 🔄 Tree Depth & Work Per Level\n"
+                    f"- **Tree Height**: Exactly $\\log_2 n$ levels of division.\n"
+                    f"- **Work Per Level**: Merging takes $c \\cdot n$ operations across all nodes at each level.\n"
+                    f"- **Total Time Complexity**: $\\log_2 n \\times c \\cdot n = O(n \\log n)$."
+                )
+                task_title = f"Applied Engineering Challenge & Exam Review: {topic_clean}"
+                task_content = (
+                    f"## 🎯 Applied Hands-On Challenge\n"
+                    f"**Problem**: Implement an in-place inversion counter that computes how many pairs $(i, j)$ satisfy $i < j$ and $arr[i] > arr[j]$ in $O(n \\log n)$ time.\n\n"
+                    f"### 📋 Input Constraints & Edge Cases\n"
+                    f"- Constraints: $1 \\le N \\le 10^5$, elements are integers (can be negative).\n"
+                    f"- Edge Cases: Already sorted array (0 inversions), strictly decreasing array ($n(n-1)/2$ inversions).\n\n"
+                    f"### 💡 High-Yield University Exam Takeaways\n"
+                    f"1. **Recurrence Solving**: Master the 3 cases of the Master Theorem.\n"
+                    f"2. **Stability**: Merge sort is inherently stable; quicksort is generally not.\n"
+                    f"3. **Auxiliary Space**: Standard merge sort requires $O(n)$ additional memory for temporary arrays.\n"
+                    f"4. **Common Pitfall**: Forgetting the base case `len(arr) <= 1` results in infinite recursion stack overflow."
+                )
+            elif is_automata:
+                obj_title = f"Learning Outcomes & Formal Language Foundations: {topic_clean}"
+                obj_content = (
+                    f"## 🎯 Learning Outcomes & Competencies\n"
+                    f"- Understand the formal mathematical definition of a 5-tuple Deterministic Finite Automaton $M = (Q, \\Sigma, \\delta, q_0, F)$.\n"
+                    f"- Formulate transition functions $\\delta: Q \\times \\Sigma \\to Q$ and trace acceptance states.\n"
+                    f"- Distinguish between regular languages and context-free languages in the Chomsky Hierarchy.\n\n"
+                    f"### 📚 Prerequisites & Readiness\n"
+                    f"- Set theory basics (Cartesian products, subsets, empty set $\\emptyset$).\n"
+                    f"- Discrete mathematics and formal alphabet definitions ($\\Sigma = \\{{0, 1\\}}$).\n\n"
+                    f"### 💡 Why This Topic Matters\n"
+                    f"Automata theory provides the theoretical foundation for compiler lexical analysis, regular expression engines, and state machine validation."
+                )
+                expl_title = f"Formal Automaton Architecture & State Transitions: {topic_clean}"
+                expl_content = (
+                    f"## 🔬 Mathematical Definition of a DFA\n"
+                    f"A Deterministic Finite Automaton (DFA) is formally defined as a 5-tuple:\n"
+                    f"$$M = (Q, \\Sigma, \\delta, q_0, F)$$\n\n"
+                    f"- $Q$: Finite set of internal states.\n"
+                    f"- $\\Sigma$: Finite set of input symbols (alphabet).\n"
+                    f"- $\\delta$: Transition function mapping $Q \\times \\Sigma \\to Q$.\n"
+                    f"- $q_0 \\in Q$: Initial start state.\n"
+                    f"- $F \\subseteq Q$: Set of accept/final states.\n\n"
+                    f"> [!NOTE]\n"
+                    f"> **Determinism Property**: For every state $q \\in Q$ and symbol $a \\in \\Sigma$, there is exactly ONE transition $\\delta(q, a)$ defined.\n\n"
+                    f"### The Chomsky Hierarchy Overview\n\n"
+                    f"| Level | Language Class | Recognizing Automaton | Production Rule Form |\n"
+                    f"| :--- | :--- | :--- | :--- |\n"
+                    f"| Type 3 | Regular | Finite Automaton (DFA/NFA) | $A \\to aB$ or $A \\to a$ |\n"
+                    f"| Type 2 | Context-Free | Pushdown Automaton (PDA) | $A \\to \\alpha$ |\n"
+                    f"| Type 1 | Context-Sensitive | Linear-Bounded Automaton | $\\alpha A \\beta \\to \\alpha \\gamma \\beta$ |\n"
+                    f"| Type 0 | Unrestricted / RE | Turing Machine | $\\gamma \\to \\alpha$ |"
+                )
+                code_title = f"Formal Automaton Simulation: DeterministicFiniteAutomaton"
+                code_lang = "python"
+                code_snippet = (
+                    "class DeterministicFiniteAutomaton:\n"
+                    '    """Simulates a 5-tuple DFA M = (Q, Sigma, delta, q0, F) recognizing binary strings ending in \\\'01\\\'."""\\n'
+                    "    def __init__(self):\n"
+                    '        self.states = {"q0", "q1", "q2"}\n'
+                    '        self.alphabet = {"0", "1"}\n'
+                    '        self.start_state = "q0"\n'
+                    '        self.accept_states = {"q2"}\n'
+                    "        self.transitions = {\n"
+                    '            ("q0", "0"): "q1", ("q0", "1"): "q0",\n'
+                    '            ("q1", "0"): "q1", ("q1", "1"): "q2",\n'
+                    '            ("q2", "0"): "q1", ("q2", "1"): "q0",\n'
+                    "        }\n\n"
+                    "    def accepts(self, input_string: str) -> bool:\n"
+                    "        curr = self.start_state\n"
+                    "        for symbol in input_string:\n"
+                    "            if symbol not in self.alphabet:\n"
+                    "                return False\n"
+                    "            curr = self.transitions[(curr, symbol)]\n"
+                    "        return curr in self.accept_states\n\n"
+                    "# Verified test suite\n"
+                    "dfa = DeterministicFiniteAutomaton()\n"
+                    'assert dfa.accepts("1001") is True\n'
+                    'assert dfa.accepts("1010") is False\n'
+                    'assert dfa.accepts("01") is True\n'
+                    'assert dfa.accepts("") is False'
+                )
+                code_content = (
+                    f"## 🛠️ Step-by-Step DFA Simulator\n"
+                    f"The verified Python class below models the transition delta function and validates string acceptance:\n\n"
+                    f"```{code_lang}\n{code_snippet}\n```\n\n"
+                    f"### 🔍 State Invariants\n"
+                    f"- State `q0`: Neutral state (last symbol was not '0', or initial).\n"
+                    f"- State `q1`: Holds memory of having just observed a '0'.\n"
+                    f"- State `q2`: Accepting state reached when '0' is immediately followed by '1'."
+                )
+                vis_title = f"DFA State Machine Transition Diagram"
+                vis_content = (
+                    f"## 📊 State Machine Transition Diagram\n\n"
+                    f"```mermaid\n"
+                    f"stateDiagram-v2\n"
+                    f"    [*] --> q0\n"
+                    f'    q0 --> q1: input "0"\n'
+                    f'    q0 --> q0: input "1"\n'
+                    f'    q1 --> q1: input "0"\n'
+                    f'    q1 --> q2: input "1"\n'
+                    f'    q2 --> q1: input "0"\n'
+                    f'    q2 --> q0: input "1"\n'
+                    f"```\n\n"
+                    f"### 🔄 Operational State Semantics\n"
+                    f"- **Start State**: Directed arrow from `[*]` entering `q0`.\n"
+                    f"- **Accepting State**: `q2` represents successful recognition of pattern ending in `01`."
+                )
+                task_title = f"Applied Automaton Design & Exam Preparation: {topic_clean}"
+                task_content = (
+                    f"## 🎯 Applied Automaton Challenge\n"
+                    f"**Problem**: Construct a minimal DFA over $\\Sigma = \\{{a, b\\}}$ that accepts all strings where the number of $a$'s is a multiple of 3.\n\n"
+                    f"### 📋 Requirements\n"
+                    f"- Specify $Q$, $\\Sigma$, $\\delta$, $q_0$, and $F$.\n"
+                    f"- Verify acceptance on strings: $\\varepsilon, aaa, baaab, aaba$.\n\n"
+                    f"### 💡 High-Yield University Exam Takeaways\n"
+                    f"1. **Pumping Lemma**: Used exclusively to prove a language is NOT regular, never that it is regular.\n"
+                    f"2. **DFA vs NFA**: Every NFA has an equivalent DFA via the subset construction algorithm ($2^{{|Q|}}$ states worst case).\n"
+                    f"3. **Closure Properties**: Regular languages are closed under union, intersection, complementation, and concatenation."
+                )
+            else:
+                obj_title = f"Learning Outcomes & Software Architecture: {topic_clean}"
+                obj_content = (
+                    f"## 🎯 Learning Outcomes & Competencies\n"
+                    f"- Design modular, maintainable, and type-safe systems implementing **{topic_clean}**.\n"
+                    f"- Understand state persistence, boundary validation, and separation of concerns.\n"
+                    f"- Implement robust error handling and automated unit tests.\n\n"
+                    f"### 📚 Prerequisites & Readiness\n"
+                    f"- Core programming foundations, object-oriented concepts, and API contract design."
+                )
+                expl_title = f"Conceptual Architecture & Design Patterns: {topic_clean}"
+                expl_content = (
+                    f"## 🔬 Structural Invariants & System Architecture\n"
+                    f"Modular software engineering requires isolating business logic from input/output gateways and persistence layers.\n\n"
+                    f"> [!NOTE]\n"
+                    f"> **Separation of Concerns**: Each component owns exactly one responsibility, minimizing cognitive load and coupling."
+                )
+                code_title = f"Verified Production Implementation: {topic_clean}"
+                code_lang = "python"
+                code_snippet = (
+                    f"# Production implementation for {topic_clean}\n"
+                    f"from typing import List, Optional\n\n"
+                    f"class {topic_clean.replace(' ', '').replace('-', '')}Manager:\n"
+                    f'    """Encapsulates business operations for {topic_clean}."""\n'
+                    f"    def __init__(self):\n"
+                    f"        self._records = []\n\n"
+                    f"    def process_item(self, item_name: str) -> bool:\n"
+                    f"        if not item_name or not item_name.strip():\n"
+                    f"            raise ValueError('Item name cannot be empty')\n"
+                    f"        self._records.append(item_name.strip())\n"
+                    f"        return True\n\n"
+                    f"manager = {topic_clean.replace(' ', '').replace('-', '')}Manager()\n"
+                    f"assert manager.process_item('Core Component') is True"
+                )
+                code_content = (
+                    f"## 🛠️ Step-by-Step Implementation\n\n"
+                    f"```{code_lang}\n{code_snippet}\n```"
+                )
+                vis_title = f"System Topology & Architecture Map"
+                vis_content = (
+                    f"## 📊 Architecture & Data Flow\n\n"
+                    f"```mermaid\n"
+                    f"flowchart TD\n"
+                    f'    A["Client Request"] --> B["Validation Gateway"]\n'
+                    f'    B --> C["Core Logic: {topic_clean}"]\n'
+                    f'    C --> D["Persistence Layer"]\n'
+                    f"```"
+                )
+                task_title = f"Hands-On Challenge & Exam Preparation: {topic_clean}"
+                task_content = (
+                    f"## 🎯 Applied Hands-On Challenge\n"
+                    f"Refactor the implementation above to support concurrent updates with thread safety.\n\n"
+                    f"### 💡 Key Exam Takeaways\n"
+                    f"- Always enforce boundary validations before mutating internal state.\n"
+                    f"- Separate pure logic from side-effects."
+                )
+
+            blocks = [
+                LessonBlock(type=LessonBlockType.OBJECTIVE, title=obj_title, content=obj_content),
+                LessonBlock(type=LessonBlockType.EXPLANATION, title=expl_title, content=expl_content),
+                LessonBlock(type=LessonBlockType.WORKED_EXAMPLE, title=code_title, content=code_content, code=code_snippet, language=code_lang),
+                LessonBlock(type=LessonBlockType.VISUAL_SPEC, title=vis_title, content=vis_content),
+                LessonBlock(type=LessonBlockType.PRACTICE_TASK, title=task_title, content=task_content),
+            ]
+
+        elif archetype == DomainArchetype.BUSINESS_MANAGEMENT:
+            obj_title = f"Learning Outcomes & Managerial Context: {topic_clean}"
+            obj_content = (
+                f"## 🎯 Learning Outcomes & Competencies\n"
+                f"- Understand core strategic and operational responsibilities across the 4 managerial functions: Planning, Organizing, Directing, and Controlling.\n"
+                f"- Analyze corporate leadership structures and organizational behavior in competitive enterprise environments.\n"
+                f"- Apply strategic audit frameworks (SWOT, PESTLE) to real-world corporate scenarios.\n\n"
+                f"### 📚 Prerequisites & Readiness\n"
+                f"- Basic understanding of business organizations, market competition, and commercial enterprises.\n"
+                f"- Familiarity with stakeholder perspectives (shareholders, customers, employees, community).\n\n"
+                f"### 💡 Why This Topic Matters\n"
+                f"Effective managerial leadership separates surviving enterprises from failing ones. Modern Indian and global corporate giants like the Tata Group, Reliance, Swiggy, and Infosys scale sustainably through rigorous planning, transparent delegation, and agile operational controls."
+            )
+            expl_title = f"Conceptual Masterclass: Principles & Theories of Management"
+            expl_content = (
+                f"## 🔬 Foundations of Management Thought\n"
+                f"Management is the art and science of coordinating collective human effort and material resources toward defined institutional goals.\n\n"
+                f"> [!NOTE]\n"
+                f"> **Henri Fayol's Administrative Theory**: Outlines 14 immutable principles including Division of Work, Authority & Responsibility, Unity of Command, and Remuneration.\n\n"
+                f"### Managerial Hierarchy & Functional Scope\n\n"
+                f"| Managerial Tier | Primary Roles | Key Deliverables | Time Horizon |\n"
+                f"| :--- | :--- | :--- | :--- |\n"
+                f"| **Top-Level (Executive)** | CEO, MD, Board of Directors | Vision, PESTLE Analysis, Capital Allocation | Long-Term (3-5 Years) |\n"
+                f"| **Middle-Level (Tactical)** | Regional Heads, Plant Managers | Resource Deployment, Departmental OKRs | Medium-Term (6-18 Months) |\n"
+                f"| **First-Line (Operational)** | Supervisors, Team Leads | Daily Scheduling, Quality Control, Safety | Short-Term (Daily / Weekly) |\n\n"
+                f"### Core Invariants of Effective Leadership\n"
+                f"- **Unity of Command**: An employee must receive orders from exactly one superior to prevent conflicting operational priorities.\n"
+                f"- **Span of Control**: The number of direct subordinates a manager can effectively oversee is bounded by task complexity and geographical dispersion.\n"
+                f"- **Scalar Chain**: Formal communication lines run unbroken from the highest executive to the front line, with provision for Fayol's *gangplank* during emergencies."
+            )
+            case_title = f"Applied Corporate Case Study: Tata Group Strategic Execution"
+            case_content = (
+                f"## 🏢 Case Study: Strategic Organizational Architecture at Tata Group\n\n"
+                f"### 1. Executive Situation & Context\n"
+                f"The Tata Group encompasses over 30 operating companies spanning 10 business verticals (automotive, steel, hospitality, digital services, consumer goods). The group sought to maintain aggressive multi-market growth while enforcing uncompromising ethical governance.\n\n"
+                f"### 2. The Core Strategic Challenge\n"
+                f"How can a diversified conglomerate decentralize operational P&L accountability to autonomous business unit leaders without diluting group brand equity or compromising the Tata Code of Conduct (TCoC)?\n\n"
+                f"### 3. Managerial Intervention & Implementation\n"
+                f"- **Decentralized Execution**: Tata Motors, TCS, and Tata Consumer operate with independent boards and dedicated operational leadership.\n"
+                f"- **Centralized Governance & TBEM**: Enforced the Tata Business Excellence Model (TBEM), standardizing operational audit metrics across all subsidiaries.\n"
+                f"- **Values-Driven Leadership**: Zero tolerance for ethics violations, audited directly by independent ethics counselors.\n\n"
+                f"### 4. Measurable Enterprise Results\n"
+                f"- Global brand valuation exceeding \\$24 billion.\n"
+                f"- Consistent top-tier corporate governance and credit ratings across all listed operating entities.\n"
+                f"- Seamless entry into cutting-edge sectors (semiconductors, EV batteries, super-apps)."
+            )
+            vis_title = f"Strategic Management Framework & Closed-Loop Control"
+            vis_content = (
+                f"## 📊 Closed-Loop Managerial Control Architecture\n\n"
+                f"```mermaid\n"
+                f"flowchart TD\n"
+                f'    A["Corporate Vision & Stakeholder Objectives"] --> B["Strategic Planning (PESTLE & SWOT Audit)"]\n'
+                f'    B --> C["Organizing: Structure, Staffing & Delegation"]\n'
+                f'    C --> D["Directing: Motivation, Communication & Leadership"]\n'
+                f'    D --> E["Controlling: KPI Performance Measurement"]\n'
+                f'    E -->|"Variance Analysis & Corrective Feedback"| B\n'
+                f"```\n\n"
+                f"### 🔄 Comparative Framework of Managerial Theories\n\n"
+                f"| School of Thought | Key Pioneers | Core Premise | Primary Focus |\n"
+                f"| :--- | :--- | :--- | :--- |\n"
+                f"| **Classical / Scientific** | F.W. Taylor, Henri Fayol, Max Weber | Workers are motivated economically; efficiency stems from job standardization. | Task optimization & formal hierarchy |\n"
+                f"| **Human Relations** | Elton Mayo (Hawthorne Studies) | Social relationships, informal groups, and recognition drive productivity. | Employee psychological well-being |\n"
+                f"| **Contingency / Modern** | Peter Drucker, Michael Porter | No single management method fits all organizations; actions depend on environment. | Situational adaptation & competitive advantage |"
+            )
+            task_title = f"Executive Reflection Challenge & University Exam Takeaways: {topic_clean}"
+            task_content = (
+                f"## 🎯 Applied Executive Scenario Challenge\n"
+                f"**Scenario**: You are appointed Chief Operating Officer of a fast-growing Indian retail chain scaling from 10 to 60 locations within 12 months. Store managers report severe inventory delays and burnout due to seeking headquarters approval for minor store expenses.\n\n"
+                f"### 📋 Strategic Assignment\n"
+                f"1. Design a delegation matrix defining the monetary spending threshold permitted for store managers.\n"
+                f"2. Formulate 3 internal control metrics to detect stock shrink and budget variances without micromanaging daily operations.\n\n"
+                f"### 💡 High-Yield University Exam Preparation\n"
+                f"1. **Taylor vs. Fayol**: Taylor concentrated on the shop-floor operational level (time & motion studies); Fayol analyzed overall administrative management from the top down.\n"
+                f"2. **Management by Objectives (MBO)**: First popularized by Peter Drucker, ensuring employee goals directly align with corporate mission.\n"
+                f"3. **Common Exam Mistake**: Do not confuse *delegation* (transfer of authority from superior to subordinate) with *decentralization* (systematic corporate-wide policy philosophy)."
+            )
+
+            blocks = [
+                LessonBlock(type=LessonBlockType.OBJECTIVE, title=obj_title, content=obj_content),
+                LessonBlock(type=LessonBlockType.EXPLANATION, title=expl_title, content=expl_content),
+                LessonBlock(type=LessonBlockType.WORKED_EXAMPLE, title=case_title, content=case_content),
+                LessonBlock(type=LessonBlockType.VISUAL_SPEC, title=vis_title, content=vis_content),
+                LessonBlock(type=LessonBlockType.PRACTICE_TASK, title=task_title, content=task_content),
+            ]
+
+        elif archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT:
+            obj_title = f"Learning Outcomes & Accounting Standards Framework: {topic_clean}"
+            obj_content = (
+                f"## 🎯 Learning Outcomes & Competencies\n"
+                f"- Master the fundamental Accounting Equation: $\\text{{Assets}} = \\text{{Liabilities}} + \\text{{Owner's Equity}}$.\n"
+                f"- Apply the Golden Rules of Debit and Credit across Personal, Real, and Nominal accounts under double-entry bookkeeping.\n"
+                f"- Record source transactions into chronological journal entries, post to ledger T-accounts, and extract a balanced Trial Balance.\n\n"
+                f"### 📚 Prerequisites & Readiness\n"
+                f"- Mathematical arithmetic, percentage calculations, and basic financial concepts (invoices, receipts, cash vs. credit).\n\n"
+                f"### 💡 Regulatory & Real-World Context\n"
+                f"Financial accounting governed by Ind-AS (Indian Accounting Standards) and IFRS ensures transparency and fiduciary integrity. Reliable financial records protect investors, enable bank lending, and determine statutory tax obligations."
+            )
+            expl_title = f"Double-Entry Principles, Account Types & Golden Rules"
+            expl_content = (
+                f"## 🔬 Foundations of Double-Entry Bookkeeping\n"
+                f"Every financial transaction impacts at least two accounts in opposing directions with equal monetary value, maintaining the balance of the accounting equation at all times.\n\n"
+                f"> [!NOTE]\n"
+                f"> **The Accounting Equation**: $\\text{{Assets}} = \\text{{Liabilities}} + \\text{{Capital}} + (\\text{{Revenues}} - \\text{{Expenses}})$.\n\n"
+                f"### The Golden Rules of Accounting\n\n"
+                f"| Account Classification | Nature of Account | Golden Rule (Debit) | Golden Rule (Credit) | Examples |\n"
+                f"| :--- | :--- | :--- | :--- | :--- |\n"
+                f"| **Personal Account** | Relates to persons, firms, or entities | **Debit the Receiver** | **Credit the Giver** | Suppliers, Customers, Bank A/c |\n"
+                f"| **Real Account** | Tangible and intangible assets/property | **Debit What Comes In** | **Credit What Goes Out** | Cash, Plant, Machinery, Patents |\n"
+                f"| **Nominal Account** | Revenues, expenses, gains, and losses | **Debit All Expenses & Losses** | **Credit All Incomes & Gains** | Rent, Wages, Sales, Interest Received |\n\n"
+                f"### Core Accounting Conventions\n"
+                f"- **Accrual Concept**: Revenues and expenses are recognized when earned or incurred, regardless of when cash is settled.\n"
+                f"- **Prudence / Conservatism**: Anticipate no profits, but provide for all foreseeable losses.\n"
+                f"- **Materiality**: Items of significant economic consequence to decision-makers must be disclosed explicitly."
+            )
+            num_title = f"Step-by-Step Practical Problem: Journal Entries to Trial Balance"
+            num_content = (
+                f"## 📝 Worked Practical Problem: Journalizing Commercial Transactions\n\n"
+                f"**Transaction Scenario**: An enterprise initiates commercial operations with the following chronological events:\n"
+                f"1. *April 1, 2026*: Proprietor introduces capital into business bank account: ₹5,00,000.\n"
+                f"2. *April 4, 2026*: Purchased inventory goods on credit from Alpha Supplies Ltd: ₹1,20,000.\n"
+                f"3. *April 10, 2026*: Sold goods on credit to Beta Enterprises: ₹1,80,000 (cost of goods ₹1,00,000).\n"
+                f"4. *April 20, 2026*: Paid office rent via bank transfer: ₹25,000.\n\n"
+                f"### General Journal Record (Original Entry)\n\n"
+                f"| Date (2026) | Particulars | L.F. | Debit Amount (₹) | Credit Amount (₹) |\n"
+                f"| :--- | :--- | :--- | :--- | :--- |\n"
+                f"| **Apr 01** | **Bank A/c ... Dr.** | 01 | 5,00,000 | |\n"
+                f"| | To Capital A/c | 02 | | 5,00,000 |\n"
+                f"| | *(Being capital introduced by proprietor into business)* | | | |\n"
+                f"| **Apr 04** | **Purchases / Inventory A/c ... Dr.** | 03 | 1,20,000 | |\n"
+                f"| | To Alpha Supplies Ltd A/c | 04 | | 1,20,000 |\n"
+                f"| | *(Being goods purchased on credit terms)* | | | |\n"
+                f"| **Apr 10** | **Beta Enterprises A/c ... Dr.** | 05 | 1,80,000 | |\n"
+                f"| | To Sales Revenue A/c | 06 | | 1,80,000 |\n"
+                f"| | *(Being goods sold on credit)* | | | |\n"
+                f"| **Apr 20** | **Rent Expense A/c ... Dr.** | 07 | 25,000 | |\n"
+                f"| | To Bank A/c | 01 | | 25,000 |\n"
+                f"| | *(Being office rent paid through bank)* | | | |\n\n"
+                f"### Trial Balance Verification at April 30, 2026\n\n"
+                f"| Ledger Account Title | Debit Balance (₹) | Credit Balance (₹) |\n"
+                f"| :--- | :--- | :--- |\n"
+                f"| Bank A/c (₹5,00,000 - ₹25,000) | 4,75,000 | - |\n"
+                f"| Capital A/c | - | 5,00,000 |\n"
+                f"| Purchases A/c | 1,20,000 | - |\n"
+                f"| Alpha Supplies Ltd (Creditor) | - | 1,20,000 |\n"
+                f"| Beta Enterprises (Debtor) | 1,80,000 | - |\n"
+                f"| Sales Revenue A/c | - | 1,80,000 |\n"
+                f"| Rent Expense A/c | 25,000 | - |\n"
+                f"| **TOTALS (ARITHMETICAL PROOF)** | **₹8,00,000** | **₹8,00,000** |"
+            )
+            vis_title = f"The End-to-End Accounting Cycle"
+            vis_content = (
+                f"## 📊 The Systematic Accounting Information Flow\n\n"
+                f"```mermaid\n"
+                f"flowchart LR\n"
+                f'    A["Source Documents (Invoices & Vouchers)"] --> B["Journalizing (Books of Original Entry)"]\n'
+                f'    B --> C["Ledger Accounts Posting (T-Accounts)"]\n'
+                f'    C --> D["Trial Balance Extraction (Arithmetical Audit)"]\n'
+                f'    D --> E["Adjustment Entries (Depreciation, Accruals)"]\n'
+                f'    E --> F["Final Financial Statements (P&L & Balance Sheet)"]\n'
+                f"```\n\n"
+                f"### 🔄 Key Distinction: Capital vs Revenue Expenditure\n\n"
+                f"| Dimension | Capital Expenditure | Revenue Expenditure |\n"
+                f"| :--- | :--- | :--- |\n"
+                f"| **Economic Life** | Benefits extend across multiple accounting periods (> 1 Year). | Consumed entirely within current accounting cycle (< 1 Year). |\n"
+                f"| **Balance Sheet Impact** | Capitalized as an Asset on the Balance Sheet. | Expensed directly to the Income / P&L Statement. |\n"
+                f"| **Earning Capacity** | Enhances future revenue-generating capacity. | Maintains existing operating efficiency and assets. |"
+            )
+            task_title = f"Applied Numerical Challenge & Exam Takeaways: {topic_clean}"
+            task_content = (
+                f"## 🎯 Applied Numerical Practice Problem\n"
+                f"**Scenario**: On March 31, 2026, an accountant discovers ₹15,000 in accrued but unpaid employee salaries and ₹8,000 in prepaid annual insurance.\n\n"
+                f"### 📋 Assignment\n"
+                f"1. Pass the adjusting journal entries required under the accrual basis of accounting.\n"
+                f"2. Explain the net impact on reported operating profit before and after adjustments.\n\n"
+                f"### 💡 High-Yield University Exam Takeaways\n"
+                f"1. **Trial Balance Agreement**: A balanced trial balance proves arithmetical accuracy but does NOT guarantee freedom from errors of omission or principle.\n"
+                f"2. **Bad Debts & Provisions**: Creation of a provision for doubtful debts is mandated by the Conservatism / Prudence convention.\n"
+                f"3. **Common Exam Mistake**: Never credit purchases account directly when inventory is purchased; only credit purchases during purchase returns or private proprietor drawings."
+            )
+
+            blocks = [
+                LessonBlock(type=LessonBlockType.OBJECTIVE, title=obj_title, content=obj_content),
+                LessonBlock(type=LessonBlockType.EXPLANATION, title=expl_title, content=expl_content),
+                LessonBlock(type=LessonBlockType.WORKED_EXAMPLE, title=num_title, content=num_content),
+                LessonBlock(type=LessonBlockType.VISUAL_SPEC, title=vis_title, content=vis_content),
+                LessonBlock(type=LessonBlockType.PRACTICE_TASK, title=task_title, content=task_content),
+            ]
+
+        elif archetype == DomainArchetype.APPLIED_OFFICE_IT:
+            obj_title = f"Learning Outcomes & Enterprise Office IT: {topic_clean}"
+            obj_content = (
+                f"## 🎯 Learning Outcomes & Competencies\n"
+                f"- Master spreadsheet modeling, automated formula evaluation, and tabular data integrity.\n"
+                f"- Implement advanced dynamic lookups (`XLOOKUP`, `INDEX/MATCH`) and conditional aggregations (`SUMIFS`).\n"
+                f"- Construct automated executive dashboards and enforce data validation audit rules.\n\n"
+                f"### 📚 Prerequisites & Readiness\n"
+                f"- Basic familiarity with office productivity software (spreadsheets, docs, cloud workbooks).\n\n"
+                f"### 💡 Enterprise Relevance\n"
+                f"Modern commercial businesses rely on automated spreadsheet workbooks for budgeting, financial analysis, sales reporting, and payroll calculation without requiring custom software engineering."
+            )
+            expl_title = f"Workbook Architecture & Advanced Formula Mechanics"
+            expl_content = (
+                f"## 🔬 Spreadsheet Data Modeling Principles\n"
+                f"Professional spreadsheets separate raw transactional data inputs from calculation engines and final presentation dashboards.\n\n"
+                f"> [!NOTE]\n"
+                f"> **Absolute vs Relative Referencing**: Prefixing a cell coordinate with `$` (e.g. `$B$4`) locks the row or column coordinate when dragging formulas across ranges.\n\n"
+                f"### Essential Business Lookup Functions\n\n"
+                f"| Function | Purpose | Syntax | Advantages Over Legacy VLOOKUP |\n"
+                f"| :--- | :--- | :--- | :--- |\n"
+                f"| **`XLOOKUP`** | Modern universal lookup | `=XLOOKUP(lookup_val, lookup_rng, return_rng, [if_not_found], [match_mode])` | Looks left and right; defaults to exact match; robust against column insertions. |\n"
+                f"| **`INDEX/MATCH`** | Two-dimensional matrix lookup | `=INDEX(return_rng, MATCH(lookup_val, lookup_rng, 0))` | High performance on huge datasets; dynamic row/column coordinates. |\n"
+                f"| **`SUMIFS`** | Multi-condition sum | `=SUMIFS(sum_rng, criteria_rng1, criteria1, criteria_rng2, criteria2)` | Aggregates sales or expenses across specific dates, regions, and categories. |"
+            )
+            office_title = f"Step-by-Step Business Modeling: Automated Sales Reporting Workbook"
+            office_content = (
+                f"## 📊 Step-by-Step Practical Spreadsheet Walkthrough\n\n"
+                f"### 1. Data Schema & Table Structure\n"
+                f"Consider an enterprise transactions table `SalesData` containing `OrderID`, `SalespersonID`, `Region`, `Date`, and `RevenueAmount`.\n\n"
+                f"### 2. Implementation Formulas\n"
+                f"- **Salesperson Name Dynamic Lookup**:\n"
+                f"  `=XLOOKUP(B2, StaffDirectory!$A$2:$A$100, StaffDirectory!$B$2:$B$100, 'Unknown ID', 0)`\n"
+                f"- **Regional Sales Q1 Aggregation**:\n"
+                f"  `=SUMIFS(SalesData!$E:$E, SalesData!$C:$C, 'North', SalesData!$D:$D, '>=' & DATE(2026,1,1), SalesData!$D:$D, '<=' & DATE(2026,3,31))`\n"
+                f"- **Tiered Commission Calculation**:\n"
+                f"  `=IFS(E2 >= 100000, E2 * 0.10, E2 >= 50000, E2 * 0.07, TRUE, E2 * 0.04)`\n\n"
+                f"### 3. Verification & Error Trapping\n"
+                f"Wrapping formulas with `=IFERROR(formula, alternative_value)` ensures dashboards display clean summaries rather than breaking with `#N/A` or `#DIV/0!`."
+            )
+            vis_title = f"Automated Reporting Pipeline Flowchart"
+            vis_content = (
+                f"## 📊 Automated Spreadsheet Data Pipeline\n\n"
+                f"```mermaid\n"
+                f"flowchart LR\n"
+                f'    A["Raw Transaction Export (.CSV / ERP)"] --> B["Data Validation & Cleansing Gateway"]\n'
+                f'    B --> C["Formula Calculation Engine (XLOOKUP / SUMIFS)"]\n'
+                f'    C --> D["Pivot Table Multi-Dimensional Cache"]\n'
+                f'    D --> E["Dynamic Executive KPI Dashboard"]\n'
+                f"```\n\n"
+                f"### 🔄 Data Validation Rules for Integrity\n"
+                f"- **Restricted Dropdown Lists**: Prevent typographical entry errors by binding inputs to named ranges.\n"
+                f"- **Numerical Boundary Checks**: Enforce positive quantities (`> 0`) on all unit orders."
+            )
+            task_title = f"Applied Office IT Challenge & Exam Review: {topic_clean}"
+            task_content = (
+                f"## 🎯 Applied Hands-On Challenge\n"
+                f"**Challenge**: Construct a dynamic monthly payroll workbook with 5 employee records calculating Gross Pay, Provident Fund deduction (12%), Income Tax deduction (10%), and Net Pay with dynamic formula propagation.\n\n"
+                f"### 💡 Key Exam Takeaways\n"
+                f"1. **Order of Evaluation (PEMDAS)**: Spreadsheets evaluate parentheses first, followed by exponents, multiplication/division, and addition/subtraction.\n"
+                f"2. **Circular Reference Error**: Occurs when a formula references its own cell coordinate directly or indirectly, preventing convergence.\n"
+                f"3. **VLOOKUP Vulnerability**: Hardcoded column index numbers break whenever new columns are inserted into the source data."
+            )
+
+            blocks = [
+                LessonBlock(type=LessonBlockType.OBJECTIVE, title=obj_title, content=obj_content),
+                LessonBlock(type=LessonBlockType.EXPLANATION, title=expl_title, content=expl_content),
+                LessonBlock(type=LessonBlockType.WORKED_EXAMPLE, title=office_title, content=office_content),
+                LessonBlock(type=LessonBlockType.VISUAL_SPEC, title=vis_title, content=vis_content),
+                LessonBlock(type=LessonBlockType.PRACTICE_TASK, title=task_title, content=task_content),
+            ]
+
+        else:
+            # DomainArchetype.GENERAL_HUMANITIES_SCIENCE
+            obj_title = f"Learning Outcomes & Academic Context: {topic_clean}"
+            obj_content = (
+                f"## 🎯 Learning Outcomes & Competencies\n"
+                f"- Establish a comprehensive foundation in the core concepts and historical development of **{topic_clean}**.\n"
+                f"- Evaluate theoretical frameworks and peer-reviewed methodologies in empirical inquiry.\n"
+                f"- Articulate reasoned arguments supported by multidisciplinary evidence.\n\n"
+                f"### 📚 Prerequisites & Readiness\n"
+                f"- Foundational critical thinking, scientific method inquiry, and analytical reading comprehension."
+            )
+            expl_title = f"Conceptual Analysis & Theoretical Framework: {topic_clean}"
+            expl_content = (
+                f"## 🔬 Foundations & Core Principles\n"
+                f"Investigation of **{topic_clean}** requires examining underlying assumptions, systemic relationships, and causal mechanisms.\n\n"
+                f"> [!NOTE]\n"
+                f"> **Methodological Grounding**: Academic inquiry demands empirical validation, reproducible observations, and balanced peer critique."
+            )
+            hum_title = f"Empirical Case Analysis & Applied Methodology: {topic_clean}"
+            hum_content = (
+                f"## 📖 Applied Case Analysis\n"
+                f"Detailed examination of real-world implementation demonstrating the principles of **{topic_clean}** in active societal and scientific contexts."
+            )
+            vis_title = f"Conceptual Framework & Relational Map"
+            vis_content = (
+                f"## 📊 Conceptual Framework\n\n"
+                f"```mermaid\n"
+                f"flowchart TD\n"
+                f'    A["Core Problem Formulation"] --> B["Empirical Inquiry & Evidence Collection"]\n'
+                f'    B --> C["Theoretical Framework Application"]\n'
+                f'    C --> D["Synthesis & Conclusions"]\n'
+                f"```"
+            )
+            task_title = f"Critical Reflection & University Exam Preparation: {topic_clean}"
+            task_content = (
+                f"## 🎯 Critical Reflection Challenge\n"
+                f"Analyze a contemporary case study illustrating **{topic_clean}** and structure a formal 500-word academic argument.\n\n"
+                f"### 💡 Key Exam Takeaways\n"
+                f"- Support assertions with recognized theoretical frameworks and peer evidence.\n"
+                f"- Clearly differentiate correlation from causation in analysis."
+            )
+
+            blocks = [
+                LessonBlock(type=LessonBlockType.OBJECTIVE, title=obj_title, content=obj_content),
+                LessonBlock(type=LessonBlockType.EXPLANATION, title=expl_title, content=expl_content),
+                LessonBlock(type=LessonBlockType.WORKED_EXAMPLE, title=hum_title, content=hum_content),
+                LessonBlock(type=LessonBlockType.VISUAL_SPEC, title=vis_title, content=vis_content),
+                LessonBlock(type=LessonBlockType.PRACTICE_TASK, title=task_title, content=task_content),
+            ]
+
+        assessment_intent = AssessmentIntent(
+            target_concepts=[topic_clean],
+            assessment_mode="diagnostic" if pedagogy_decision.remediation else "formative",
+            difficulty=pedagogy_decision.difficulty.value,
+            question_count=3,
+            evaluation_criteria=[f"Demonstrate comprehensive mastery of {topic_clean}"],
         )
 
-        try:
-            raw_content = self._safe_chat_completion(
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=3500,
-                temperature=settings.LLM_TEMPERATURE,
-            )
-            json_text = extract_json_payload(raw_content)
-            data = json.loads(json_text)
-            raw_blocks = None
-            if isinstance(data, dict):
-                raw_blocks = data.get("blocks") or data.get("lesson_blocks") or data.get("items") or data.get("content")
-            elif isinstance(data, list):
-                raw_blocks = data
+        next_action = NextLearningAction(
+            action_type="reassessment" if pedagogy_decision.remediation else "practice",
+            target_topic=topic_clean,
+            rationale=(
+                f"Complete formative reassessment for '{topic_clean}' to verify remediation success."
+                if pedagogy_decision.remediation
+                else f"Proceed with guided practice on '{topic_clean}' to build proficiency."
+            ),
+            urgency="immediate" if pedagogy_decision.remediation else "normal",
+        )
 
-            if not raw_blocks or not isinstance(raw_blocks, list):
-                raise ValueError("Payload did not contain a valid list of lesson blocks.")
-
-            normalized_blocks = []
-            for b in raw_blocks:
-                if isinstance(b, dict):
-                    if "type" in b and isinstance(b["type"], str):
-                        clean_type = b["type"].strip().lower().replace(" ", "_").replace("-", "_")
-                        valid_types = {t.value for t in LessonBlockType}
-                        if clean_type in valid_types:
-                            b["type"] = clean_type
-                    # If non-coding CS, strip code
-                    if archetype != DomainArchetype.CODING_CS:
-                        b["code"] = None
-                        b["language"] = None
-                    normalized_blocks.append(LessonBlock.model_validate(b))
-
-            # Exclude QUIZ block if LLM generated one
-            normalized_blocks = [b for b in normalized_blocks if b.type != LessonBlockType.QUIZ]
-
-            if len(normalized_blocks) < 3:
-                raise ValueError("Parsed fewer than 3 valid lesson blocks from response.")
-
-            from app.schemas.lesson import AssessmentIntent, NextLearningAction
-
-            assessment_intent = AssessmentIntent(
-                target_concepts=[topic],
-                assessment_mode="diagnostic" if pedagogy_decision.remediation else "formative",
-                difficulty=pedagogy_decision.difficulty.value,
-                question_count=3,
-                evaluation_criteria=[f"Demonstrate accurate comprehension of {topic}"],
-            )
-
-            next_action = NextLearningAction(
-                action_type="reassessment" if pedagogy_decision.remediation else "practice",
-                target_topic=topic,
-                rationale=(
-                    f"Complete formative reassessment for '{topic}' to verify remediation success."
-                    if pedagogy_decision.remediation
-                    else f"Proceed with guided practice on '{topic}' to build proficiency."
-                ),
-                urgency="immediate" if pedagogy_decision.remediation else "normal",
-            )
-
-            return GeneratedLesson(
-                context_id=context_id,
-                topic=topic,
-                pedagogy_decision=pedagogy_decision,
-                blocks=normalized_blocks,
-                prerequisites=[f"Prerequisite foundations of {topic}"],
-                assessment_intent=assessment_intent,
-                next_action=next_action,
-            )
-        except Exception as e:
-            # Fall back to MockLLMProvider which produces domain-adaptive 5-section lessons
-            mock_provider = MockLLMProvider()
-            return mock_provider.generate_lesson(
-                prompt=prompt,
-                context_id=context_id,
-                topic=topic,
-                pedagogy_decision=pedagogy_decision,
-            )
+        return GeneratedLesson(
+            context_id=context_id,
+            topic=topic_clean,
+            pedagogy_decision=pedagogy_decision,
+            blocks=blocks,
+            prerequisites=[f"Prerequisite foundations of {topic_clean}"],
+            assessment_intent=assessment_intent,
+            next_action=next_action,
+        )
 
 
     def analyze_learner_onboarding(
@@ -1512,20 +2001,21 @@ class GroqLLMProvider(BaseLLMProvider):
             '  "rationale": "<concise explanation of pedagogical reasoning>"\n'
             "}"
         )
-        raw_content = self._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=350,
-            temperature=settings.LLM_TEMPERATURE,
-        )
-        json_text = extract_json_payload(raw_content)
         try:
+            raw_content = self._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=350,
+                temperature=settings.LLM_TEMPERATURE,
+            )
+            json_text = extract_json_payload(raw_content)
             data = json.loads(json_text)
             return PedagogyDecision.model_validate(data)
         except Exception as e:
-            raise LLMParseError(f"Failed to parse pedagogy decision from LLM: {str(e)}", raw_content=raw_content)
+            print(f"[GroqLLMProvider.generate_pedagogy_decision] LLM call failed ({e}); falling back to MockLLMProvider.")
+            return MockLLMProvider().generate_pedagogy_decision(prompt)
 
     def generate_lesson(
         self,
@@ -1534,77 +2024,76 @@ class GroqLLMProvider(BaseLLMProvider):
         topic: str,
         pedagogy_decision: Optional[PedagogyDecision] = None,
     ) -> GeneratedLesson:
+        """Calls Groq LLM to generate 5-section domain-adaptive lesson; falls back gracefully to MockLLMProvider on any error/429."""
         if pedagogy_decision is None:
-            pedagogy_decision = self.generate_pedagogy_decision(prompt)
+            try:
+                pedagogy_decision = self.generate_pedagogy_decision(prompt)
+            except Exception:
+                pedagogy_decision = MockLLMProvider().generate_pedagogy_decision(prompt)
+
+        archetype = classify_domain(
+            subject=topic,
+            degree_program=None,
+            topic=topic,
+            academic_domain=prompt,
+        )
 
         system_instruction = (
-            "You are the senior pedagogical content architect for UniOS. "
-            "Your mission is to generate comprehensive, in-depth, university-grade learning modules.\n"
-            "DO NOT write brief, superficial summaries. Provide rich, rigorous, structured educational material.\n\n"
-            "Generate 5 or 6 structured learning blocks in this sequence:\n"
-            "1. type: 'objective'\n"
+            "You are the senior pedagogical content architect for UniOS.\n"
+            "Your mission is to generate comprehensive, in-depth, university-grade learning modules (1,200 to 1,800 words).\n"
+            "DO NOT write brief, superficial summaries. Provide rich, textbook-grade educational material.\n\n"
+            f"DOMAIN ARCHETYPE: {archetype.value}\n"
+            "STRICT RULES FOR DOMAIN ARCHETYPES:\n"
+            "- If domain is NOT CODING_CS: You are STRICTLY FORBIDDEN from including programming code blocks (e.g. ```python, ```sql, ```java), "
+            "database schemas (CREATE TABLE), or system architecture topology diagrams. Instead, use real-world corporate case studies (Tata, Swiggy, Apple) for business/management, "
+            "step-by-step worked numerical journal/ledger problems for accounting/finance, and spreadsheet formula tutorials for applied office IT.\n"
+            "- Only if domain is CODING_CS: Provide production-quality runnable code walkthroughs and algorithmic analysis.\n\n"
+            "Generate EXACTLY 5 high-depth learning blocks in this sequence:\n"
+            "1. type: 'objective' (Learning Outcomes & Context)\n"
             "   - title: Clear, motivating learning outcome title.\n"
-            "   - content: Multi-paragraph breakdown explaining the core goal, prerequisites, why this topic matters in industry/academics, and key competencies the student will master. Use markdown subheadings (###) and bullet points.\n\n"
-            "2. type: 'explanation'\n"
-            "   - title: In-depth conceptual masterclass.\n"
-            "   - content: Detailed deep-dive with structured sections. Include:\n"
-            "     ### 1. Foundational Theory & Intuition\n"
-            "     ### 2. Core Mechanics & Architecture\n"
-            "     ### 3. Key Invariants, Rules, & Constraints\n"
-            "     ### 4. Real-World Industry Application & Trade-offs\n"
-            "     Use bold technical terms (**keyword**), inline code (`syntax`), and formatted bullet lists (- item).\n\n"
-            "3. type: 'worked_example'\n"
-            "   - title: Complete step-by-step implementation walkthrough.\n"
-            "   - content: Rich walkthrough explaining the problem scenario, architectural breakdown, and commentary.\n"
-            "   - code: Production-quality, fully commented code or schema snippet (e.g. SQL, Python, TypeScript) illustrating the concept end-to-end.\n"
-            "   - language: Programming/query language (e.g. 'sql', 'python', 'typescript').\n\n"
-            "4. type: 'visual_spec'\n"
-            "   - title: Architectural & Visual Flow Diagram.\n"
-            "   - content: A clear visual representation using an ASCII box-drawing diagram, markdown table, or Mermaid chart (```mermaid ... ```), followed by a detailed structured analysis of components, relationships, and data flow.\n"
-            "     NEGATIVE CONSTRAINT: NEVER output meta-instructions describing how to draw (e.g. NEVER write 'Renderer Type: Diagram. Step 1: Draw a rectangle...'). You must directly render the ASCII/Mermaid/table diagram itself in the content block!\n\n"
-            "5. type: 'practice_task'\n"
-            "   - title: Applied Hands-On Challenge & Verification.\n"
-            "   - content: An active engineering challenge with:\n"
-            "     ### 🎯 Challenge Objective\n"
-            "     ### 📋 Requirements & Edge Cases\n"
-            "     ### 💻 Starter Template / Guidance\n"
-            "     ### 💡 Hints & Self-Check Criteria\n\n"
-            "6. type: 'quiz'\n"
-            "   - title: Concept Comprehension Check.\n"
-            "   - content: An insightful scenario-based question assessing understanding.\n"
-            "   - options: 4 distinct choices ['A) ...', 'B) ...', 'C) ...', 'D) ...'].\n"
-            "   - answer: Correct choice matching one of the options.\n"
-            "   - explanation: In-depth pedagogical justification of why the answer is correct and why other options are invalid.\n\n"
+            "   - content: Multi-paragraph breakdown explaining core goals, prerequisites, and why this topic matters in the real world. Use ## and ### markdown only.\n\n"
+            "2. type: 'explanation' (Deep Concept Breakdown)\n"
+            "   - title: Conceptual masterclass.\n"
+            "   - content: Full, textbook-grade explanation broken into digestible sub-concepts, key definitions in callout blocks (> [!NOTE]), and clear comparisons. Use ## and ### only.\n\n"
+            "3. type: 'worked_example' (Real-World Applied Walkthrough)\n"
+            "   - title: Applied domain walkthrough.\n"
+            "   - content: Concrete corporate case study for business; worked numerical problems/tables for accounting; spreadsheet formulas for office IT; runnable code ONLY for coding_cs.\n"
+            "   - code: Optional, strictly omit unless domain is CODING_CS.\n"
+            "   - language: Optional, strictly omit unless domain is CODING_CS.\n\n"
+            "4. type: 'visual_spec' (Visual Framework & Mental Model)\n"
+            "   - title: Visual Framework & Diagram.\n"
+            "   - content: Valid fenced ```mermaid diagram (flowchart, cycle, or hierarchy) OR a structured markdown comparison table tailored to the topic. NEVER raw ASCII boxes or CS topology maps for non-CS domains.\n\n"
+            "5. type: 'practice_task' (Applied Scenario & Exam Takeaways)\n"
+            "   - title: Applied Challenge & Exam Preparation.\n"
+            "   - content: Domain-appropriate scenario prompt + high-yield exam review points + common mistakes to avoid. Use ## and ### only.\n\n"
             "CRITICAL FORMAT RULES:\n"
-            "- Under NO circumstances should you output raw HTML, JSX, or React UI code.\n"
-            "- Always format text using standard markdown (headings '###', bold '**term**', code '`code`', lists '- item').\n"
+            "- DO NOT generate Section 6 Comprehension Check MCQ or quiz block. Assessment belongs exclusively to the assessment service.\n"
+            "- Markdown Hygiene: Ban #### headers (use ## and ### only) and NEVER emit triple single quotes. Always use standard triple backticks.\n"
+            "- Under NO circumstances output raw HTML, JSX, or React UI code.\n"
             "- Output strictly valid JSON matching this schema:\n"
             "{\n"
             '  "blocks": [\n'
             "    {\n"
-            '      "type": "objective" | "explanation" | "worked_example" | "visual_spec" | "practice_task" | "quiz",\n'
+            '      "type": "objective" | "explanation" | "worked_example" | "visual_spec" | "practice_task",\n'
             '      "title": "<block title>",\n'
             '      "content": "<rich structured markdown content>",\n'
-            '      "code": "<optional executable code snippet>",\n'
-            '      "language": "<optional programming language>",\n'
-            '      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],\n'
-            '      "answer": "<correct option>",\n'
-            '      "explanation": "<why correct>",\n'
-            '      "metadata": {}\n'
+            '      "code": "<optional code snippet for CODING_CS only>",\n'
+            '      "language": "<optional programming language for CODING_CS only>"\n'
             "    }\n"
             "  ]\n"
             "}"
         )
-        raw_content = self._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=2800,
-            temperature=settings.LLM_TEMPERATURE,
-        )
-        json_text = extract_json_payload(raw_content)
+
         try:
+            raw_content = self._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=3200,
+                temperature=settings.LLM_TEMPERATURE,
+            )
+            json_text = extract_json_payload(raw_content)
             data = json.loads(json_text)
             raw_blocks = None
             if isinstance(data, dict):
@@ -1618,20 +2107,23 @@ class GroqLLMProvider(BaseLLMProvider):
             normalized_blocks = []
             for b in raw_blocks:
                 if isinstance(b, dict):
-                    # Defensively repair block type casing/formatting
                     if "type" in b and isinstance(b["type"], str):
                         clean_type = b["type"].strip().lower().replace(" ", "_").replace("-", "_")
                         valid_types = {t.value for t in LessonBlockType}
                         if clean_type in valid_types:
                             b["type"] = clean_type
+                    # If non-coding CS, strip code
+                    if archetype != DomainArchetype.CODING_CS:
+                        b["code"] = None
+                        b["language"] = None
                     normalized_blocks.append(LessonBlock.model_validate(b))
 
-            if not normalized_blocks:
-                raise ValueError("Parsed zero valid lesson blocks from response.")
+            # Exclude QUIZ block if LLM generated one
+            normalized_blocks = [b for b in normalized_blocks if b.type != LessonBlockType.QUIZ]
 
-            # Deterministically populate Sprint-4 contract fields (A2-S4-02):
-            # prerequisites, assessment_intent, and next_action are always required
-            # and are derived from topic + pedagogy_decision, not from the LLM blocks.
+            if len(normalized_blocks) < 3:
+                raise ValueError("Parsed fewer than 3 valid lesson blocks from response.")
+
             from app.schemas.lesson import AssessmentIntent, NextLearningAction
 
             assessment_intent = AssessmentIntent(
@@ -1663,7 +2155,15 @@ class GroqLLMProvider(BaseLLMProvider):
                 next_action=next_action,
             )
         except Exception as e:
-            raise LLMParseError(f"Failed to parse lesson blocks from LLM: {str(e)}", raw_content=raw_content)
+            print(f"[GroqLLMProvider.generate_lesson] Live LLM inference failed ({e}); falling back to deterministic MockLLMProvider.")
+            mock_provider = MockLLMProvider()
+            return mock_provider.generate_lesson(
+                prompt=prompt,
+                context_id=context_id,
+                topic=topic,
+                pedagogy_decision=pedagogy_decision,
+            )
+
 
     def analyze_learner_onboarding(
         self, profile: OnboardingInputProfile, prompt: str
@@ -1678,39 +2178,22 @@ class GroqLLMProvider(BaseLLMProvider):
             "Output strictly valid JSON adhering to the LearnerIntelligenceReport schema. "
             "Target output under 850 tokens. Do NOT output HTML, JSX, or conversational text."
         )
-        # Safe completion token limit around 800-900 tokens (850 target)
-        raw_content = self._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=850,
-            temperature=settings.LLM_TEMPERATURE,
-        )
-
-        # 1. Defensively extract JSON substring
-        json_text = extract_json_payload(raw_content)
-
-        # 2. Parse JSON
         try:
-            parsed_data = json.loads(json_text)
-        except Exception as err:
-            raise LLMParseError(
-                f"LLM did not return valid JSON: {str(err)}",
-                raw_content=raw_content,
+            raw_content = self._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=850,
+                temperature=settings.LLM_TEMPERATURE,
             )
-
-        # 3. Defensively repair aliases and maintain learner ground truth
-        normalized_data = normalize_intelligence_dict(parsed_data, profile)
-
-        # 4. Strict Pydantic validation
-        try:
+            json_text = extract_json_payload(raw_content)
+            parsed_data = json.loads(json_text)
+            normalized_data = normalize_intelligence_dict(parsed_data, profile)
             return LearnerIntelligenceReport.model_validate(normalized_data)
         except Exception as err:
-            raise LLMParseError(
-                f"LearnerIntelligenceReport validation failed on repaired LLM output: {str(err)}",
-                raw_content=raw_content,
-            )
+            print(f"[GroqLLMProvider.analyze_learner_onboarding] LLM call failed ({err}); falling back to MockLLMProvider.")
+            return MockLLMProvider().analyze_learner_onboarding(profile, prompt)
 
 
     def generate_build_coaching(self, prompt: str) -> _Dict[str, Any]:
@@ -1722,16 +2205,16 @@ class GroqLLMProvider(BaseLLMProvider):
             "Do NOT output raw HTML, JSX, or React UI code. "
             "Target output under 700 tokens."
         )
-        raw_content = self._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=700,
-            temperature=settings.LLM_TEMPERATURE,
-        )
-        json_text = extract_json_payload(raw_content)
         try:
+            raw_content = self._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=700,
+                temperature=settings.LLM_TEMPERATURE,
+            )
+            json_text = extract_json_payload(raw_content)
             data = json.loads(json_text)
             if not isinstance(data, dict) or "coaching_blocks" not in data:
                 raise ValueError("Response missing required 'coaching_blocks' key.")
@@ -1739,10 +2222,8 @@ class GroqLLMProvider(BaseLLMProvider):
                 raise ValueError("'coaching_blocks' must be a non-empty list.")
             return data
         except Exception as e:
-            raise LLMParseError(
-                f"Failed to parse build coaching response from LLM: {str(e)}",
-                raw_content=raw_content,
-            )
+            print(f"[GroqLLMProvider.generate_build_coaching] LLM call failed ({e}); falling back to MockLLMProvider.")
+            return MockLLMProvider().generate_build_coaching(prompt)
 
     def generate_career_response(self, prompt: str) -> _Dict[str, Any]:
         """Calls Groq LLM to generate structured career response JSON."""
@@ -1751,25 +2232,23 @@ class GroqLLMProvider(BaseLLMProvider):
             "Output strictly valid JSON matching the schema specified in the user prompt. "
             "Do NOT output conversational preamble, markdown outside the JSON block, or HTML/JSX code."
         )
-        raw_content = self._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=950,
-            temperature=settings.LLM_TEMPERATURE,
-        )
-        json_text = extract_json_payload(raw_content)
         try:
+            raw_content = self._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=950,
+                temperature=settings.LLM_TEMPERATURE,
+            )
+            json_text = extract_json_payload(raw_content)
             data = json.loads(json_text)
             if not isinstance(data, dict):
                 raise ValueError("Parsed JSON response is not an object dictionary.")
             return data
         except Exception as e:
-            raise LLMParseError(
-                f"Failed to parse career response from LLM: {str(e)}",
-                raw_content=raw_content,
-            )
+            print(f"[GroqLLMProvider.generate_career_response] LLM call failed ({e}); falling back to MockLLMProvider.")
+            return MockLLMProvider().generate_career_response(prompt)
 
     def generate_assessment(self, prompt: str) -> _Dict[str, Any]:
         """Calls Groq LLM to generate structured assessment JSON with answer keys."""
@@ -1778,25 +2257,23 @@ class GroqLLMProvider(BaseLLMProvider):
             "Synthesize high-quality assessment questions with private answer keys and rubrics. "
             "Output strictly valid JSON matching the requested schema. No conversational preamble. Respond with valid JSON."
         )
-        raw_content = self._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=2200,
-            temperature=settings.LLM_TEMPERATURE,
-        )
-        json_text = extract_json_payload(raw_content)
         try:
+            raw_content = self._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=2200,
+                temperature=settings.LLM_TEMPERATURE,
+            )
+            json_text = extract_json_payload(raw_content)
             data = json.loads(json_text)
             if not isinstance(data, dict):
                 raise ValueError("Parsed JSON assessment is not an object dictionary.")
             return data
         except Exception as e:
-            raise LLMParseError(
-                f"Failed to parse assessment response from LLM: {str(e)}",
-                raw_content=raw_content,
-            )
+            print(f"[GroqLLMProvider.generate_assessment] LLM call failed ({e}); falling back to MockLLMProvider.")
+            return MockLLMProvider().generate_assessment(prompt)
 
     def evaluate_mastery_attempt(self, prompt: str) -> _Dict[str, Any]:
         """Calls Groq LLM to evaluate assessment attempt and compute mastery delta."""
@@ -1805,25 +2282,23 @@ class GroqLLMProvider(BaseLLMProvider):
             "Evaluate student answers, compute normalized score (0.0 to 1.0), and return hierarchical mastery updates. "
             "Output strictly valid JSON matching the requested schema. No conversational preamble. Respond with valid JSON."
         )
-        raw_content = self._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=1500,
-            temperature=settings.LLM_TEMPERATURE,
-        )
-        json_text = extract_json_payload(raw_content)
         try:
+            raw_content = self._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=1500,
+                temperature=settings.LLM_TEMPERATURE,
+            )
+            json_text = extract_json_payload(raw_content)
             data = json.loads(json_text)
             if not isinstance(data, dict):
                 raise ValueError("Parsed JSON evaluation is not an object dictionary.")
             return data
         except Exception as e:
-            raise LLMParseError(
-                f"Failed to parse mastery evaluation from LLM: {str(e)}",
-                raw_content=raw_content,
-            )
+            print(f"[GroqLLMProvider.evaluate_mastery_attempt] LLM call failed ({e}); falling back to MockLLMProvider.")
+            return MockLLMProvider().evaluate_mastery_attempt(prompt)
 
     def generate_mentor_reply(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """Calls Groq LLM to generate persona-driven mentor reply string."""
@@ -1831,16 +2306,20 @@ class GroqLLMProvider(BaseLLMProvider):
             "You are an expert AI Learning Mentor in the UniOS ecosystem. "
             "Provide concise, educational, inspiring markdown responses."
         )
-        raw_content = self._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": sys_msg},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=1800,
-            temperature=settings.LLM_TEMPERATURE,
-            json_mode=False,
-        )
-        return raw_content.strip()
+        try:
+            raw_content = self._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": sys_msg},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=1800,
+                temperature=settings.LLM_TEMPERATURE,
+                json_mode=False,
+            )
+            return raw_content.strip()
+        except Exception as e:
+            print(f"[GroqLLMProvider.generate_mentor_reply] LLM call failed ({e}); falling back to MockLLMProvider.")
+            return MockLLMProvider().generate_mentor_reply(prompt, system_prompt)
 
 
 def get_llm_provider(force_mock: bool = False) -> BaseLLMProvider:
