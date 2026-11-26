@@ -8,10 +8,8 @@ interface MermaidDiagramProps {
   chart: string;
 }
 
-export default function MermaidDiagram({
-  chart,
-}: MermaidDiagramProps) {
-  const reactId = useId().replace(/:/g, "");
+export default function MermaidDiagram({ chart }: MermaidDiagramProps) {
+  const reactId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const [svg, setSvg] = useState("");
   const [error, setError] = useState(false);
 
@@ -27,6 +25,10 @@ export default function MermaidDiagram({
           startOnLoad: false,
           securityLevel: "strict",
           theme: "neutral",
+          flowchart: {
+            useMaxWidth: false,
+            htmlLabels: true,
+          },
         });
 
         const result = await mermaid.render(
@@ -57,12 +59,12 @@ export default function MermaidDiagram({
 
   if (error) {
     return (
-      <div className="space-y-2 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-alt)] p-4">
+      <div className="min-w-0 space-y-2 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-alt)] p-4">
         <p className="text-xs font-semibold text-[var(--text-muted)]">
           Diagram preview unavailable — source shown below
         </p>
 
-        <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-[var(--text-secondary)]">
+        <pre className="max-w-full overflow-x-auto whitespace-pre text-xs leading-6 text-[var(--text-secondary)]">
           {chart}
         </pre>
       </div>
@@ -72,7 +74,7 @@ export default function MermaidDiagram({
   if (!svg) {
     return (
       <div
-        className="flex min-h-32 items-center justify-center rounded-xl bg-[var(--surface-alt)] text-sm text-[var(--text-muted)]"
+        className="flex min-h-32 w-full items-center justify-center rounded-xl bg-[var(--surface-alt)] text-sm text-[var(--text-muted)]"
         role="status"
       >
         Rendering diagram...
@@ -82,13 +84,22 @@ export default function MermaidDiagram({
 
   return (
     <div
-      className="overflow-x-auto rounded-xl border border-[var(--border)] bg-white p-4"
+      className="w-full min-w-0 max-w-full overflow-auto rounded-xl border border-[var(--border)] bg-white p-3 sm:p-4"
       aria-label="Mermaid diagram"
     >
       <div
-        className="mx-auto flex min-w-fit justify-center [&_svg]:h-auto [&_svg]:max-w-full"
+        className="mx-auto w-max min-w-full"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
+
+      <style jsx>{`
+        div :global(svg) {
+          display: block;
+          width: auto;
+          height: auto;
+          max-width: none;
+        }
+      `}</style>
     </div>
   );
 }

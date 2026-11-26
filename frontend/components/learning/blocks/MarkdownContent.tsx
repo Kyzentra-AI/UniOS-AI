@@ -2,6 +2,7 @@
 "use client";
 
 import ReactMarkdown, { type Components } from "react-markdown";
+import React from "react";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 
@@ -13,10 +14,13 @@ interface MarkdownContentProps {
 }
 
 function normalizeMarkdown(value: string): string {
-  let content = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  let content = value
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
 
-  // Recover a common malformed response containing an unclosed code fence.
-  const fenceCount = (content.match(/^[ \t]*```/gm) ?? []).length;
+  const fenceCount = (
+    content.match(/^[ \t]*```/gm) ?? []
+  ).length;
 
   if (fenceCount % 2 !== 0) {
     content = `${content}\n\`\`\``;
@@ -116,11 +120,19 @@ const components: Components = {
   ),
 
   code: ({ className, children, ...props }) => {
-    const language = /language-([\w-]+)/.exec(className ?? "")?.[1];
-    const value = String(children).replace(/\n$/, "");
+    const language = /language-([\w-]+)/.exec(
+      className ?? "",
+    )?.[1];
 
     if (language === "mermaid") {
-      return <MermaidDiagram chart={value} />;
+      // The parent <pre> handles Mermaid rendering.
+      // Keeping this as a code element lets it detect the
+      // Mermaid language without creating invalid nested markup.
+      return (
+        <code className="language-mermaid" {...props}>
+          {children}
+        </code>
+      );
     }
 
     if (!className) {
@@ -141,13 +153,35 @@ const components: Components = {
     );
   },
 
-  pre: ({ children }) => (
-    <div className="my-4 overflow-x-auto rounded-xl border border-[var(--border)] bg-[#18343A] p-4 text-sm leading-6 text-white [&_code]:font-mono [&_code]:text-white">
-      <pre className="whitespace-pre">
-        {children}
-      </pre>
-    </div>
-  ),
+  pre: ({ children }) => {
+    const child = React.Children.toArray(children)[0];
+
+    if (
+      React.isValidElement<{
+        className?: string;
+        children?: React.ReactNode;
+      }>(child) &&
+      /language-mermaid\b/.test(child.props.className ?? "")
+    ) {
+      const chart = String(child.props.children ?? "")
+        .replace(/\n$/, "")
+        .trim();
+
+      return (
+        <div className="my-4">
+          <MermaidDiagram chart={chart} />
+        </div>
+      );
+    }
+
+    return (
+      <div className="my-4 overflow-x-auto rounded-xl border border-[var(--border)] bg-[#18343A] p-4 text-sm leading-6 text-white [&_code]:font-mono [&_code]:text-white">
+        <pre className="whitespace-pre">
+          {children}
+        </pre>
+      </div>
+    );
+  },
 
   hr: () => (
     <hr className="my-5 border-[var(--border)]" />
@@ -172,7 +206,14 @@ export default function MarkdownContent({
     <div className={`space-y-3 ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
+        rehypePlugins={[
+          [
+            rehypeHighlight,
+            {
+              plainText: ["mermaid"],
+            },
+          ],
+        ]}
         components={components}
       >
         {normalized}
