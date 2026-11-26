@@ -90,6 +90,7 @@ class RequireRole:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Forbidden: Access requires one of the following roles: {self.allowed_roles}"
             )
+        return current_user
 from urllib.parse import urlparse
 
 def validate_redirect_url(redirect_to: str | None, default_path: str = "") -> str:

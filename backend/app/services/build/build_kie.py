@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 from fastapi import HTTPException
 from app.core.config import settings
 from app.core.context_v2_assembler import ContextV2Assembler
+from app.schemas.billing import CreditOperation
 from app.schemas.build import (
     ProjectRecommendationResponse,
     RecommendedProject,
@@ -13,6 +14,7 @@ from app.schemas.build import (
     CreateMilestoneInput,
     CreateTaskInput
 )
+from app.services.billing.billing_guard import billing_guard
 from app.services.build.build_workspace import build_workspace_service
 
 logger = logging.getLogger(__name__)
@@ -164,6 +166,12 @@ class BuildKIEClient:
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
+        ledger_id = billing_guard.authorize_and_consume(
+            learner_id=str(project.learner_id),
+            operation=CreditOperation.ADVANCED_PROJECT_GUIDANCE,
+            reference_id=project_id,
+        ) if getattr(project, "learner_id", None) else None
+
         payload = {
             "project_id": project_id,
             "title": project.title,
@@ -184,6 +192,7 @@ class BuildKIEClient:
                 response.raise_for_status()
                 plan_data = response.json()
             except Exception as exc:
+                billing_guard.refund(ledger_id)
                 logger.error(f"Failed to generate project plan: {exc}")
                 raise HTTPException(status_code=503, detail="Failed to generate plan from AI engine")
                 
@@ -217,6 +226,24 @@ class BuildKIEClient:
         project = build_workspace_service.get_project(project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+
+        is_debug = "debug" in (request.intent or "").lower()
+        learner_id = str(project.learner_id) if getattr(project, "learner_id", None) else None
+        ledger_id: Optional[str] = None
+        if learner_id:
+            if is_debug:
+                billing_guard.require_capability(learner_id, "debugging")
+                ledger_id = billing_guard.authorize_and_consume(
+                    learner_id=learner_id,
+                    operation=CreditOperation.ADVANCED_DEBUGGING,
+                    reference_id=project_id,
+                )
+            else:
+                ledger_id = billing_guard.authorize_and_consume(
+                    learner_id=learner_id,
+                    operation=CreditOperation.ADVANCED_PROJECT_GUIDANCE,
+                    reference_id=project_id,
+                )
             
         payload = request.model_dump()
         payload["project_context"] = {
@@ -237,6 +264,7 @@ class BuildKIEClient:
                 response.raise_for_status()
                 return BuildCoachResponse(**response.json())
             except Exception as exc:
+                billing_guard.refund(ledger_id)
                 logger.error(f"Failed to get guidance from coach: {exc}")
                 raise HTTPException(status_code=503, detail="Failed to communicate with AI coach")
 

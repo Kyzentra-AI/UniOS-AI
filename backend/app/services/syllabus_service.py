@@ -3,7 +3,9 @@ import httpx
 from app.core.supabase import supabase_admin
 from app.services.pdf_service import extract_text_from_pdf
 from app.services.kie_service import kie_service
+from app.schemas.billing import CreditOperation
 from app.schemas.syllabus import ParsedContent
+from app.services.billing.billing_guard import billing_guard
 from pydantic import ValidationError
 import logging
 
@@ -41,17 +43,22 @@ class SyllabusService:
                     logger.info(f"Reused cached parsed syllabus for hash {sha256_hash}")
                     return
 
-            # 1. Extract text from PDF in memory
-            text = extract_text_from_pdf(file_bytes)
-            
-            # 2. Call AI/ML for extraction
-            parsed_data = await kie_service.extract_syllabus(syllabus_id, text)
-            
-            if not parsed_data:
-                raise Exception("Failed to extract syllabus from AI/ML")
-                
-            # 3. Validate response
-            validated_content = ParsedContent(**parsed_data)
+            # 1. Charge LEARN credits on cache miss and extract text + call KIE
+            ledger_id = billing_guard.authorize_and_consume(
+                learner_id=learner_id,
+                operation=CreditOperation.SYLLABUS_ANALYSIS,
+                reference_id=syllabus_id,
+            ) if learner_id else None
+
+            try:
+                text = extract_text_from_pdf(file_bytes)
+                parsed_data = await kie_service.extract_syllabus(syllabus_id, text)
+                if not parsed_data:
+                    raise Exception("Failed to extract syllabus from AI/ML")
+                validated_content = ParsedContent(**parsed_data)
+            except Exception:
+                billing_guard.refund(ledger_id)
+                raise
             
             # 4. Save to DB with file_hash
             supabase_admin.table("syllabus_documents").update({

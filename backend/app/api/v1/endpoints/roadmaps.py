@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from app.core.deps import get_current_user
 from app.core.supabase import supabase_admin
+from app.schemas.billing import CreditOperation
 from app.schemas.roadmap import RoadmapRequest
+from app.services.billing.billing_guard import billing_guard
 from app.services.roadmap_service import roadmap_service
 from typing import Optional
 
@@ -32,15 +34,32 @@ async def generate_roadmap(
         
     if syl["status"] != "CONFIRMED":
         raise HTTPException(status_code=400, detail="Syllabus must be CONFIRMED before roadmap generation")
-        
-    # 3. Queue generation with optional subject
-    background_tasks.add_task(
-        roadmap_service.generate_roadmap_background, 
-        learner_id, 
-        request.scope.value, 
-        request.syllabus_id,
-        request.subject
+
+    # 3. Authorize & consume LEARN credits (refunded automatically if background generation fails)
+    ledger_id = billing_guard.authorize_and_consume(
+        learner_id=learner_id,
+        operation=CreditOperation.COMPLETE_ROADMAP_GENERATION,
+        reference_id=request.syllabus_id,
     )
+
+    # 4. Queue generation with optional subject
+    if ledger_id is not None:
+        background_tasks.add_task(
+            roadmap_service.generate_roadmap_background,
+            learner_id,
+            request.scope.value,
+            request.syllabus_id,
+            request.subject,
+            ledger_id,
+        )
+    else:
+        background_tasks.add_task(
+            roadmap_service.generate_roadmap_background,
+            learner_id,
+            request.scope.value,
+            request.syllabus_id,
+            request.subject,
+        )
     
     return {
         "message": "Roadmap generation started", 

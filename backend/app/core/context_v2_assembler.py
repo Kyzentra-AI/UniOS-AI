@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 from app.core.supabase import supabase_admin
+from app.services.billing.billing_guard import billing_guard
 from app.services.event_service import event_service
 from app.services.kie_service import kie_service
 
@@ -120,6 +121,7 @@ class ContextV2Assembler:
 
         return {
             "learner_id": learner_id,
+            "plan_tier": billing_guard.get_plan_tier(learner_id),
             "learner": learner_clean,
             "education": academic_clean,
             "preferences": preferences_clean,
