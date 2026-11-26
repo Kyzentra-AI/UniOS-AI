@@ -31,6 +31,9 @@ class InterpretEngine:
 
     def _interpret_via_llm(self, request: InterpretRequest) -> Optional[InterpretResponse]:
         provider = get_llm_provider()
+        if not hasattr(provider, "_safe_chat_completion"):
+            return None
+
         system_instruction = (
             "You are the UniOS Pedagogical Interpreter Engine (AI-1). "
             "Analyze the learner's intent, multi-dimensional ContextV2, and syllabus references. "
@@ -46,7 +49,7 @@ class InterpretEngine:
             '    "scaffolding_level": "HIGH" | "MEDIUM" | "LOW",\n'
             '    "estimated_read_minutes": 10,\n'
             '    "emphasis": "<key pedagogical focus>"\n'
-            "  }\n"
+            '  }\n'
             "}"
         )
 
@@ -65,29 +68,41 @@ LEARNER CONTEXT:
 - Academic: {education.get('degree_program', 'Undergraduate')} ({education.get('academic_status', 'BACHELOR')})
 - Memory Summary: {json.dumps(memory_summary)}
 """
-        raw_content = provider._safe_chat_completion(
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_prompt},
-            ],
-            max_tokens=650,
-            temperature=0.2,
-        )
-        json_text = extract_json_payload(raw_content)
-        data = json.loads(json_text)
-        return InterpretResponse.model_validate(data)
+        try:
+            raw_content = provider._safe_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=650,
+                temperature=0.2,
+            )
+            json_text = extract_json_payload(raw_content)
+            data = json.loads(json_text)
+            return InterpretResponse.model_validate(data)
+        except Exception:
+            return None
 
     def _interpret_deterministic(self, request: InterpretRequest) -> InterpretResponse:
+        from app.services.domain_classifier import classify_domain, DomainArchetype
+
         intent_lower = (request.user_intent or "").lower()
-        topic_lower = (request.topic or "General Concepts").lower()
+        topic_clean = (request.topic or "Foundational Concepts").strip()
+        topic_lower = topic_clean.lower()
         context = request.context or {}
         learner = (context.get("learner") if isinstance(context.get("learner"), dict) else {}) or {}
         education = (context.get("education") if isinstance(context.get("education"), dict) else {}) or {}
         memory_summary = (context.get("memory_summary") if isinstance(context.get("memory_summary"), dict) else {}) or {}
         inferred_context = (learner.get("inferred_context") if isinstance(learner.get("inferred_context"), dict) else {}) or {}
 
+        archetype = classify_domain(
+            subject=topic_clean,
+            degree_program=education.get("degree_program"),
+            topic=topic_clean,
+        )
+
         # 1. Intent Categorization
-        if any(w in intent_lower for w in ["code", "walkthrough", "syntax", "snippet", "implementation", "traversal"]):
+        if archetype == DomainArchetype.CODING_CS and any(w in intent_lower for w in ["code", "walkthrough", "syntax", "snippet", "implementation", "traversal"]):
             intent_category = IntentCategory.CODE_WALKTHROUGH.value
         elif any(w in intent_lower for w in ["exam", "test", "gate", "interview", "prep"]):
             intent_category = IntentCategory.EXAM_PREP.value
@@ -99,7 +114,7 @@ LEARNER CONTEXT:
             intent_category = IntentCategory.CONCEPTUAL_EXPLANATION.value
 
         # 2. Pedagogical Strategy
-        if intent_category == IntentCategory.CODE_WALKTHROUGH.value or any(w in intent_lower for w in ["analogy", "visual", "analogies"]):
+        if archetype == DomainArchetype.CODING_CS and (intent_category == IntentCategory.CODE_WALKTHROUGH.value or any(w in intent_lower for w in ["analogy", "visual", "analogies"])):
             strategy = PedagogicalStrategy.ANALOGY_THEN_CODE.value
         elif any(w in intent_lower for w in ["socratic", "question", "why"]):
             strategy = PedagogicalStrategy.SOCRATIC_INQUIRY.value
@@ -119,14 +134,21 @@ LEARNER CONTEXT:
                     knowledge_gaps.append(clean_gap)
 
         if not knowledge_gaps:
-            if "tree" in topic_lower:
+            if archetype == DomainArchetype.BUSINESS_MANAGEMENT:
+                knowledge_gaps = ["strategic_planning_fundamentals", "organizational_structure_design", "operational_control_metrics"]
+            elif archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT:
+                knowledge_gaps = ["double_entry_recording_rules", "trial_balance_reconciliation", "financial_statement_impact"]
+            elif archetype == DomainArchetype.APPLIED_OFFICE_IT:
+                knowledge_gaps = ["spreadsheet_formula_syntax", "data_validation_integrity", "automated_report_design"]
+            elif "tree" in topic_lower:
                 knowledge_gaps = ["recursion_call_stack_frames", "tree_pointer_mutation"]
             elif "graph" in topic_lower:
                 knowledge_gaps = ["visited_set_tracking", "queue_stack_choice"]
             elif "dynamic" in topic_lower or "dp" in topic_lower:
                 knowledge_gaps = ["overlapping_subproblem_identification", "state_transition_formulation"]
             else:
-                knowledge_gaps = [f"{request.topic.lower().replace(' ', '_')}_prerequisites"]
+                topic_slug = topic_lower.replace(" ", "_").replace("-", "_")
+                knowledge_gaps = [f"{topic_slug}_prerequisites"]
 
         # 4. Target Difficulty
         academic_status = str(education.get("academic_status") or "BACHELOR").upper()
@@ -137,11 +159,11 @@ LEARNER CONTEXT:
         else:
             difficulty = "INTERMEDIATE"
 
-        # 5. Recommended Block Flow
-        if any(w in intent_lower for w in ["video", "animation"]):
-            block_flow = ["TEXT", "CODE", "INTERACTIVE", "QUIZ", "VIDEO"]
-        else:
+        # 5. Recommended Block Flow (Code block strictly forbidden unless CODING_CS)
+        if archetype == DomainArchetype.CODING_CS:
             block_flow = ["TEXT", "CODE", "INTERACTIVE", "QUIZ"]
+        else:
+            block_flow = ["TEXT", "INTERACTIVE", "QUIZ"]
 
         # 6. Key Concepts to Cover
         key_concepts: List[str] = []
@@ -153,7 +175,25 @@ LEARNER CONTEXT:
                         key_concepts.append(h)
 
         if not key_concepts:
-            if "tree" in topic_lower:
+            if archetype == DomainArchetype.BUSINESS_MANAGEMENT:
+                key_concepts = [
+                    f"Core principles and frameworks of {topic_clean}",
+                    f"Real-world organizational implementation and case studies",
+                    f"Managerial decision-making and operational controls",
+                ]
+            elif archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT:
+                key_concepts = [
+                    f"Fundamental accounting standards and principles of {topic_clean}",
+                    f"Recording, classification, and ledger balancing",
+                    f"Reporting accuracy and financial statement impact",
+                ]
+            elif archetype == DomainArchetype.APPLIED_OFFICE_IT:
+                key_concepts = [
+                    f"Core workbook architecture of {topic_clean}",
+                    f"Lookup and aggregation formula mechanics",
+                    f"Dynamic business reporting and data hygiene",
+                ]
+            elif "tree" in topic_lower:
                 key_concepts = [
                     "BST ordering invariant (Left < Node < Right)",
                     "In-order DFS traversal yields sorted output",
@@ -161,9 +201,9 @@ LEARNER CONTEXT:
                 ]
             else:
                 key_concepts = [
-                    f"Core principles of {request.topic}",
-                    f"Implementation mechanics and edge cases",
-                    f"Time and space complexity trade-offs",
+                    f"Core theoretical foundations of {topic_clean}",
+                    f"Practical application and domain mechanics",
+                    f"Key analysis, invariants, and best practices",
                 ]
 
         # 7. Metadata
