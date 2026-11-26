@@ -9,6 +9,8 @@ from fastapi import HTTPException, status
 from app.core.config import settings
 from app.core.supabase import supabase_admin
 from app.schemas.mentor import MentorChatRequest, MentorChatResponse, MentorMode
+from app.schemas.billing import CreditOperation
+from app.services.billing.billing_guard import billing_guard
 from app.services.billing.billing_service import billing_service
 
 logger = logging.getLogger(__name__)
@@ -195,33 +197,20 @@ class MentorService:
         Orchestrates mentor chat: enforces quotas for tutor mode,
         manages conversation lifecycle, invokes AI mentor, and persists messages.
         """
-        # 1. Quota enforcement for tutor mode
+        # 1. Quota & credit enforcement for tutor / study coach modes
+        ledger_id: Optional[str] = None
         if chat_request.mode in (MentorMode.TUTOR.value, "tutor"):
-            try:
-                usage = billing_service.get_or_create_usage(learner_id)
-                tutor_quota = usage.quotas.get("aiTutorRequests")
-                if tutor_quota and tutor_quota.remaining <= 0:
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="Daily AI tutor request quota reached. Please upgrade your plan or wait for the daily reset at 00:00 IST.",
-                    )
-
-                # Increment used quota
-                q_res = (
-                    supabase_admin.table("billing_usage_quotas")
-                    .select("ai_tutor_requests")
-                    .eq("learner_id", learner_id)
-                    .execute()
-                )
-                current_used = q_res.data[0]["ai_tutor_requests"] if q_res.data else 0
-                supabase_admin.table("billing_usage_quotas").update({
-                    "ai_tutor_requests": current_used + 1,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }).eq("learner_id", learner_id).execute()
-            except HTTPException:
-                raise
-            except Exception as e:
-                logger.warning(f"Quota check skipped or unconfigured: {e}")
+            msg_len = len((chat_request.message or "").strip())
+            op = (
+                CreditOperation.DETAILED_EXPLANATION
+                if msg_len > 180 or "explain" in (chat_request.message or "").lower()
+                else CreditOperation.SIMPLE_AI_QUESTION
+            )
+            ledger_id = billing_guard.authorize_and_consume(
+                learner_id=learner_id,
+                operation=op,
+                reference_id=chat_request.conversation_id,
+            )
 
         # 2. Conversation lifecycle
         now_dt = datetime.now(timezone.utc)

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from app.core.context_v2_assembler import ContextV2Assembler
 from app.core.supabase import supabase_admin
 from app.schemas.roadmap import AIMLRoadmapResponse, MissionType, RoadmapMission
+from app.services.billing.billing_guard import billing_guard
 from app.services.event_service import event_service
 from app.services.kie_service import kie_service
 
@@ -130,6 +131,7 @@ class RoadmapService:
         scope: str,
         syllabus_id: str,
         target_subject: Optional[str] = None,
+        ledger_id: Optional[str] = None,
     ):
         try:
             # Fetch confirmed syllabus subjects for per-subject orchestration & coverage validation
@@ -324,8 +326,10 @@ class RoadmapService:
             logger.info(f"Successfully generated roadmap {new_roadmap_id} for subject '{target_subject or 'ALL'}'")
 
         except ValidationError as ve:
+            billing_guard.refund(ledger_id)
             logger.error(f"Validation error for roadmap generation for {learner_id}: {ve}", exc_info=True)
         except Exception as e:
+            billing_guard.refund(ledger_id)
             logger.error(f"Error generating roadmap for {learner_id}: {e}", exc_info=True)
 
 roadmap_service = RoadmapService()

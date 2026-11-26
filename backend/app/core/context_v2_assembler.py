@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 from app.core.supabase import supabase_admin
+from app.services.billing.billing_guard import billing_guard
 from app.services.event_service import event_service
 from app.services.kie_service import kie_service
 
@@ -92,11 +93,31 @@ class ContextV2Assembler:
                     )
                     active_roadmap = any_rm_res.data[0] if any_rm_res.data else {}
 
-        # Fetch recent events
-        recent_events = event_service.get_recent_events(learner_id, limit=20)
+        # Check user AI personalization privacy preference (defaults to True)
+        ai_personalization_enabled = True
+        try:
+            u_id = learner.get("user_id")
+            if u_id:
+                us_res = (
+                    supabase_admin.table("user_settings")
+                    .select("ai_personalization_enabled")
+                    .eq("user_id", u_id)
+                    .execute()
+                )
+                if us_res and isinstance(us_res.data, list) and us_res.data:
+                    val = us_res.data[0].get("ai_personalization_enabled")
+                    if isinstance(val, bool):
+                        ai_personalization_enabled = val
+        except Exception:
+            pass
 
-        # Get Memory Summary from AI/ML-2
-        memory_summary = await kie_service.get_memory_summary(recent_events)
+        # Fetch recent events & memory summary only when AI personalization is enabled
+        if ai_personalization_enabled:
+            recent_events = event_service.get_recent_events(learner_id, limit=20)
+            memory_summary = await kie_service.get_memory_summary(recent_events)
+        else:
+            recent_events = []
+            memory_summary = {}
 
         learner_clean = {k: v for k, v in learner.items() if k not in [
             "id", "user_id", "onboarding_status", "onboarding_version", 
@@ -120,6 +141,7 @@ class ContextV2Assembler:
 
         return {
             "learner_id": learner_id,
+            "plan_tier": billing_guard.get_plan_tier(learner_id),
             "learner": learner_clean,
             "education": academic_clean,
             "preferences": preferences_clean,

@@ -16,6 +16,8 @@ from app.schemas.assessment import (
     AssessmentQuestion,
     MasteryStatus,
 )
+from app.schemas.billing import CreditOperation
+from app.services.billing.billing_guard import billing_guard
 from app.services.event_service import event_service
 from app.services.content_reference_service import content_reference_service
 from app.schemas.learning import ContentReferenceQuery
@@ -295,15 +297,26 @@ class AssessmentService:
             except Exception as e:
                 logger.warning(f"Could not extract excluded questions: {e}")
 
-        # 4. Generate new assessment with grounding & deduplication
-        questions, answer_keys, asmt_type = await AssessmentService._generate_with_kie(
-            topic=topic,
-            session_data=session_data,
+        # 4. Enforce LEARN credits + monthly mock test cap on new generation (not cached unsubmitted)
+        ledger_id = billing_guard.authorize_and_consume(
             learner_id=learner_id,
-            subject_name=subject_name,
-            grounding_references=grounding_references,
-            excluded_questions=excluded_questions if excluded_questions else None,
+            operation=CreditOperation.ASSESSMENT_GENERATION,
+            reference_id=session_id,
         )
+
+        # Generate new assessment with grounding & deduplication
+        try:
+            questions, answer_keys, asmt_type = await AssessmentService._generate_with_kie(
+                topic=topic,
+                session_data=session_data,
+                learner_id=learner_id,
+                subject_name=subject_name,
+                grounding_references=grounding_references,
+                excluded_questions=excluded_questions if excluded_questions else None,
+            )
+        except Exception:
+            billing_guard.refund(ledger_id)
+            raise
 
         assessment_id = f"assessment_{uuid.uuid4().hex[:12]}"
         now_iso = datetime.now(timezone.utc).isoformat()

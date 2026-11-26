@@ -530,3 +530,246 @@ def test_secret_is_never_in_responses(mock_get_current_user):
 
         resp2 = client.get("/api/v1/billing/me")
         assert secret_value not in resp2.text
+
+
+# ==============================================================================
+# 8. Subscription V1: Multi-Cycle Catalog, Proration, Guards, Reset & Admin RBAC
+# ==============================================================================
+
+def test_plans_include_cycles_and_updated_caps():
+    response = client.get("/api/v1/billing/plans")
+    assert response.status_code == status.HTTP_200_OK
+    plans = {p["planCode"]: p for p in response.json()["plans"]}
+
+    assert plans["FREE"]["gstIncluded"] is True
+    assert plans["FREE"]["quotas"]["atsChecks"] == 1
+    assert plans["FREE"]["quotas"]["mockTests"] == 1
+    assert plans["FREE"]["quotas"]["monthlyCredits"] == 30
+    assert "AI Mock Interviews" in plans["FREE"]["comingSoonFeatures"]
+
+    basic_cycles = {c["billingCycle"]: c for c in plans["BASIC"]["cycles"]}
+    assert basic_cycles["WEEKLY"]["price"] == 49.0
+    assert basic_cycles["WEEKLY"]["durationDays"] == 7
+    assert basic_cycles["WEEKLY"]["totalCredits"] == 117
+    assert basic_cycles["MONTHLY"]["price"] == 149.0
+    assert basic_cycles["SEMESTER"]["price"] == 599.0
+    assert basic_cycles["SEMESTER"]["durationDays"] == 150
+    assert plans["BASIC"]["quotas"]["atsChecks"] == 5
+    assert plans["BASIC"]["quotas"]["mockTests"] == 5
+
+    pro_cycles = {c["billingCycle"]: c for c in plans["PRO"]["cycles"]}
+    assert pro_cycles["WEEKLY"]["price"] == 99.0
+    assert pro_cycles["WEEKLY"]["totalCredits"] == 350
+    assert pro_cycles["MONTHLY"]["price"] == 299.0
+    assert pro_cycles["SEMESTER"]["price"] == 1199.0
+    assert plans["PRO"]["quotas"]["atsChecks"] == 20
+    assert plans["PRO"]["quotas"]["mockTests"] == 20
+
+
+def test_proration_formula_matches_spec():
+    from app.services.billing.billing_service import billing_service
+
+    now = datetime(2026, 11, 26, 12, 0, 0, tzinfo=timezone.utc)
+    # Example: ₹273 7-day pass with 3 remaining days -> ₹117 credit
+    credit, rem_days = billing_service.compute_proration_credit(
+        paid_amount=273.0,
+        paid_duration_days=7,
+        period_end=now + timedelta(days=3, hours=2),
+        now_utc=now,
+    )
+    assert rem_days == 3
+    assert credit == 117.0
+
+    # Trial/Free/Promo (paid_amount=0) -> ₹0 credit
+    zero_credit, _ = billing_service.compute_proration_credit(
+        paid_amount=0.0,
+        paid_duration_days=7,
+        period_end=now + timedelta(days=3),
+        now_utc=now,
+    )
+    assert zero_credit == 0.0
+
+
+def test_checkout_preview_upgrade_and_downgrade_block(mock_get_current_user):
+    now = datetime.now(timezone.utc)
+    with patch("app.api.v1.endpoints.billing._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.billing.billing_service.supabase_admin") as mock_db:
+
+        # Learner has active BASIC WEEKLY (paid 49, 7 days, 3 days left -> ₹21 credit)
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{
+                "learner_id": TEST_LEARNER_ID,
+                "current_plan": "BASIC",
+                "billing_cycle": "WEEKLY",
+                "status": "ACTIVE",
+                "source": "PAYMENT",
+                "paid_amount": 49.0,
+                "paid_duration_days": 7,
+                "current_period_start": (now - timedelta(days=4)).isoformat(),
+                "current_period_end": (now + timedelta(days=3, hours=1)).isoformat(),
+            }]
+        )
+
+        resp = client.get("/api/v1/billing/checkout/preview?plan_code=PRO&billing_cycle=MONTHLY")
+        assert resp.status_code == status.HTTP_200_OK
+        preview = resp.json()
+        assert preview["actionType"] == "UPGRADE"
+        assert preview["skuPrice"] == 299.0
+        assert preview["proratedCredit"] == 21.0
+        assert preview["payableAmount"] == 278.0
+        assert preview["gstIncluded"] is True
+        assert preview["allowed"] is True
+
+        # Active PRO cannot downgrade to BASIC while active
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{
+                "learner_id": TEST_LEARNER_ID,
+                "current_plan": "PRO",
+                "billing_cycle": "MONTHLY",
+                "status": "ACTIVE",
+                "source": "PAYMENT",
+                "paid_amount": 299.0,
+                "paid_duration_days": 30,
+                "current_period_start": now.isoformat(),
+                "current_period_end": (now + timedelta(days=20)).isoformat(),
+            }]
+        )
+        downgrade_resp = client.post(
+            "/api/v1/billing/checkout",
+            json={"planCode": "BASIC", "billingCycle": "MONTHLY"},
+        )
+        assert downgrade_resp.status_code == status.HTTP_409_CONFLICT
+
+
+def test_checkout_rejects_untrusted_return_url(mock_get_current_user):
+    with patch("app.api.v1.endpoints.billing._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.billing.billing_service.supabase_admin") as mock_db:
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        resp = client.post(
+            "/api/v1/billing/checkout",
+            json={
+                "planCode": "BASIC",
+                "billingCycle": "WEEKLY",
+                "returnUrl": "https://evil-phish.example.com/steal",
+            },
+        )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Untrusted redirect URL" in resp.json()["detail"]
+
+
+def test_semester_30_day_credit_refresh_and_billing_guard():
+    from app.schemas.billing import BillingCycle, CreditOperation, EntitlementResponse, EntitlementStatus, RenewalPolicy, SubscriptionSource
+    from app.services.billing.billing_service import billing_service
+    from app.services.billing.billing_guard import billing_guard
+    from fastapi import HTTPException
+
+    now = datetime.now(timezone.utc)
+    ent = EntitlementResponse(
+        learner_id=TEST_LEARNER_ID,
+        current_plan=PlanTier.PRO,
+        billing_cycle=BillingCycle.SEMESTER,
+        status=EntitlementStatus.ACTIVE,
+        source=SubscriptionSource.PAYMENT,
+        trial_used=True,
+        current_period_start=now - timedelta(days=31),
+        current_period_end=now + timedelta(days=119),
+        is_active=True,
+        is_trial=False,
+        days_remaining=119,
+        paid_amount=1199.0,
+        renewal_policy=RenewalPolicy.ONE_TIME,
+        credit_cycle_index=1,
+    )
+    stale_usage = {
+        "learner_id": TEST_LEARNER_ID,
+        "daily_reset_at": (now - timedelta(hours=1)).isoformat(),
+        "cycle_start": (now - timedelta(days=31)).isoformat(),
+        "cycle_end": (now - timedelta(days=1)).isoformat(),
+        "credit_cycle_index": 1,
+        "learn_credits_used": 450,
+        "build_credits_used": 100,
+        "launch_credits_used": 50,
+        "mock_tests_used": 12,
+        "ats_checks": 8,
+        "ai_tutor_requests": 20,
+    }
+    with patch("app.services.billing.billing_service.supabase_admin") as mock_db:
+        mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        reset_row = billing_service._apply_lazy_resets(TEST_LEARNER_ID, stale_usage, ent, now)
+        assert reset_row["credit_cycle_index"] == 2
+        assert reset_row["learn_credits_used"] == 0
+        assert reset_row["mock_tests_used"] == 0
+        assert reset_row["ai_tutor_requests"] == 0
+
+    # BillingGuard blocks Free debugging and exhausted credits
+    free_ent = EntitlementResponse(
+        learner_id=TEST_LEARNER_ID,
+        current_plan=PlanTier.FREE,
+        billing_cycle=BillingCycle.MONTHLY,
+        status=EntitlementStatus.ACTIVE,
+        source=SubscriptionSource.FREE_DEFAULT,
+        trial_used=False,
+        is_active=True,
+        is_trial=False,
+    )
+    with patch("app.services.billing.billing_guard.billing_service.get_or_create_entitlement", return_value=free_ent):
+        with pytest.raises(HTTPException) as exc:
+            billing_guard.require_capability(TEST_LEARNER_ID, "debugging")
+        assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+        assert exc.value.detail["code"] == "FEATURE_LOCKED"
+
+
+def test_admin_assign_subscription_requires_admin_role(mock_get_current_user):
+    # Regular learner is rejected with 403
+    resp_forbidden = client.post(
+        "/api/v1/billing/admin/assign",
+        json={
+            "learnerId": TEST_LEARNER_ID,
+            "planCode": "PRO",
+            "billingCycle": "MONTHLY",
+            "durationDays": 30,
+            "grantType": "ADMIN_PROMO",
+            "note": "Campus ambassador promo",
+        },
+    )
+    assert resp_forbidden.status_code == status.HTTP_403_FORBIDDEN
+
+    # Admin user succeeds
+    app.dependency_overrides[get_current_user] = lambda: {
+        "user_id": "admin-1",
+        "email": "admin@unios.ai",
+        "role": "admin",
+        "payload": {},
+    }
+    with patch("app.services.billing.billing_service.supabase_admin") as mock_db:
+        mock_db.table.return_value.upsert.return_value.execute.return_value = MagicMock(data=[{}])
+        mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[{}])
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{
+                "learner_id": TEST_LEARNER_ID,
+                "current_plan": "PRO",
+                "billing_cycle": "MONTHLY",
+                "status": "ACTIVE",
+                "source": "ADMIN_PROMO",
+                "trial_used": False,
+                "paid_amount": 0.0,
+                "paid_duration_days": 0,
+                "current_period_start": datetime.now(timezone.utc).isoformat(),
+                "current_period_end": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+            }]
+        )
+        resp_ok = client.post(
+            "/api/v1/billing/admin/assign",
+            json={
+                "learnerId": TEST_LEARNER_ID,
+                "planCode": "PRO",
+                "billingCycle": "MONTHLY",
+                "durationDays": 30,
+                "grantType": "ADMIN_PROMO",
+                "note": "Campus ambassador promo",
+            },
+        )
+        assert resp_ok.status_code == status.HTTP_200_OK
+        assert resp_ok.json()["success"] is True
+        assert resp_ok.json()["entitlement"]["currentPlan"] == "PRO"
+        assert resp_ok.json()["entitlement"]["source"] == "ADMIN_PROMO"

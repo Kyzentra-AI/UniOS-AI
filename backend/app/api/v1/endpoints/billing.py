@@ -4,14 +4,20 @@ import logging
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 
-from app.core.deps import get_current_user
+from app.core.deps import RequireRole, get_current_user
 from app.core.supabase import supabase_admin
 from app.schemas.billing import (
+    AdminAssignSubscriptionRequest,
+    AdminAssignSubscriptionResponse,
+    BillingCycle,
+    CheckoutPreviewResponse,
     CheckoutRequest,
     CheckoutResponse,
+    CreditLedgerResponse,
     EntitlementResponse,
     OrderHistoryResponse,
     PaymentStatusResponse,
+    PlanTier,
     PlansResponse,
     TrialActivationResponse,
     UsageResponse,
@@ -100,11 +106,30 @@ async def activate_trial(
 # 4. Checkout & Renew
 # ------------------------------------------------------------------------------
 
+@router.get(
+    "/api/v1/billing/checkout/preview",
+    response_model=CheckoutPreviewResponse,
+    summary="Preview checkout or prorated upgrade",
+    description="Calculates action type (NEW/RENEW/UPGRADE), monetary proration credit, and final payable amount (GST included).",
+)
+async def preview_checkout(
+    plan_code: PlanTier,
+    billing_cycle: BillingCycle = BillingCycle.MONTHLY,
+    current_user: dict = Depends(get_current_user),
+) -> CheckoutPreviewResponse:
+    learner_id = _get_learner_id(current_user["user_id"])
+    return billing_service.preview_checkout(
+        learner_id=learner_id,
+        plan_code=plan_code,
+        billing_cycle=billing_cycle,
+    )
+
+
 @router.post(
     "/api/v1/billing/checkout",
     response_model=CheckoutResponse,
     summary="Create checkout order",
-    description="Initiates a prepaid 30-day plan order and returns Cashfree payment session info.",
+    description="Initiates a Weekly/Monthly/Semester plan order and returns Cashfree payment session info.",
 )
 async def create_checkout(
     payload: CheckoutRequest,
@@ -116,6 +141,7 @@ async def create_checkout(
         learner_id=learner_id,
         user_email=user_email,
         plan_code=payload.plan_code,
+        billing_cycle=payload.billing_cycle,
         custom_return_url=payload.return_url,
     )
 
@@ -124,7 +150,7 @@ async def create_checkout(
     "/api/v1/billing/renew",
     response_model=CheckoutResponse,
     summary="Explicitly renew prepaid subscription",
-    description="Creates a new checkout order to explicitly renew or extend the prepaid subscription.",
+    description="Creates a new checkout order to manually renew or extend the prepaid subscription.",
 )
 async def renew_subscription(
     payload: CheckoutRequest,
@@ -136,6 +162,7 @@ async def renew_subscription(
         learner_id=learner_id,
         user_email=user_email,
         plan_code=payload.plan_code,
+        billing_cycle=payload.billing_cycle,
         custom_return_url=payload.return_url,
     )
 
@@ -169,6 +196,36 @@ async def get_billing_history(
 ) -> OrderHistoryResponse:
     learner_id = _get_learner_id(current_user["user_id"])
     return billing_service.get_order_history(learner_id)
+
+
+@router.get(
+    "/api/v1/billing/ledger",
+    response_model=CreditLedgerResponse,
+    summary="Get AI credit ledger history",
+    description="Returns recent AI credit deductions and refunds for the authenticated learner.",
+)
+async def get_credit_ledger(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user),
+) -> CreditLedgerResponse:
+    learner_id = _get_learner_id(current_user["user_id"])
+    return billing_service.get_credit_ledger(learner_id, limit=min(max(1, limit), 100))
+
+
+@router.post(
+    "/api/v1/billing/admin/assign",
+    response_model=AdminAssignSubscriptionResponse,
+    summary="Admin assign promotional or institutional subscription",
+    description="Allows administrators to assign Basic or Pro plans for promotional or institutional accounts.",
+)
+async def admin_assign_subscription(
+    payload: AdminAssignSubscriptionRequest,
+    current_user: dict = Depends(RequireRole(["admin"])),
+) -> AdminAssignSubscriptionResponse:
+    return billing_service.admin_assign_subscription(
+        admin_user_id=current_user["user_id"],
+        payload=payload,
+    )
 
 
 # ------------------------------------------------------------------------------

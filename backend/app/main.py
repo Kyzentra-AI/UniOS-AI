@@ -20,6 +20,7 @@ from app.api.v1.endpoints import (
     launch,
     billing,
     mentor,
+    settings as settings_router,
 )
 from app.schemas.launch import APIError
 
@@ -203,6 +204,7 @@ app.include_router(build.router)
 app.include_router(launch.router)
 app.include_router(billing.router)
 app.include_router(mentor.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/")

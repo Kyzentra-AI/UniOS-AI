@@ -9,7 +9,9 @@ from app.core.supabase import supabase_admin
 from app.core.context_v2_assembler import ContextV2Assembler
 from app.services.content_reference_service import content_reference_service
 from app.services.learning_session_service import learning_session_service
+from app.schemas.billing import CreditOperation
 from app.schemas.learning import Lesson, ContentReferenceQuery, LearningSessionCreate, LearningSessionUpdate
+from app.services.billing.billing_guard import billing_guard
 
 logger = logging.getLogger(__name__)
 
@@ -171,112 +173,126 @@ class KIEGatewayService:
             except Exception:
                 pass
 
+        # Enforce LEARN AI credits for uncached lesson generation (refunded if KIE fails)
+        ledger_id = billing_guard.authorize_and_consume(
+            learner_id=learner_id,
+            operation=CreditOperation.AI_NOTES_GENERATION,
+            reference_id=session_id,
+        )
+
         # Resolve syllabus_id and subject from session / roadmap / mission / confirmed syllabus
         syllabus_id, subject = KIEGatewayService._resolve_session_metadata(learner_id, session, payload)
 
         # Assemble context with target_subject and syllabus
-        context = await ContextV2Assembler.assemble(
-            learner_id,
-            syllabus_id=syllabus_id,
-            target_subject=subject,
-        )
-        education = context.get("education") or {}
-        degree_program = payload.get("degree_program") or education.get("degree_program")
-        academic_domain = payload.get("academic_domain") or payload.get("domain") or education.get("domain")
-
-        # Grounding references
-        references: List[Dict[str, Any]] = []
-        if syllabus_id:
-            query = ContentReferenceQuery(
+        try:
+            context = await ContextV2Assembler.assemble(
+                learner_id,
                 syllabus_id=syllabus_id,
-                topic=session.get("topic", ""),
-                keywords=payload.get("keywords", [])
+                target_subject=subject,
             )
-            ref_resp = content_reference_service.get_references(query)
-            references = ref_resp.references
-        
-        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
-            # Step 1: Call AI-1 Interpret
-            interpret_payload = {
-                "request_id": request_id,
-                "learner_id": learner_id,
-                "context": context,
-                "topic": session.get("topic"),
-                "subject": subject,
-                "degree_program": degree_program,
-                "academic_domain": academic_domain,
-                "references": references,
-                "user_intent": payload.get("user_intent", "")
-            }
-            interpret_resp = await KIEGatewayService._request_with_retry(
-                client,
-                f"{settings.KIE_BASE_URL}/api/v1/kie/learn/interpret",
-                interpret_payload
-            )
-            
-            # Step 2: Call AI-2 Generate
-            generate_payload = {
-                "request_id": request_id,
-                "learner_id": learner_id,
-                "interpreted_data": interpret_resp,
-                "context": context,
-                "references": references,
-                "topic": session.get("topic"),
-                "subject": subject,
-                "degree_program": degree_program,
-                "academic_domain": academic_domain,
-                "lesson_id": session.get("lesson_id")
-            }
-            ai2_base_url = settings.KIE_AI2_BASE_URL or settings.KIE_BASE_URL
-            generate_resp = await KIEGatewayService._request_with_retry(
-                client,
-                f"{ai2_base_url}/api/v1/kie/lesson/generate",
-                generate_payload
-            )
+            education = context.get("education") or {}
+            degree_program = payload.get("degree_program") or education.get("degree_program")
+            academic_domain = payload.get("academic_domain") or payload.get("domain") or education.get("domain")
+            plan_tier = context.get("plan_tier") or billing_guard.get_plan_tier(learner_id)
 
-            # Pre-Persist Domain Guard: retry once with strict domain constraints if non-CS leaked CS/code
-            violation = _violates_non_cs_guard(generate_resp, subject, degree_program, academic_domain)
-            if violation:
-                logger.warning(
-                    f"Non-CS domain guard triggered for session={session_id}, subject='{subject}', "
-                    f"reason={violation}. Retrying lesson generation with strict domain constraints."
+            # Grounding references
+            references: List[Dict[str, Any]] = []
+            if syllabus_id:
+                query = ContentReferenceQuery(
+                    syllabus_id=syllabus_id,
+                    topic=session.get("topic", ""),
+                    keywords=payload.get("keywords", [])
                 )
-                retry_payload = dict(generate_payload)
-                retry_payload["strict_domain_constraints"] = True
-                retry_payload["forbid_code_blocks"] = True
-                retry_payload["user_intent"] = (
-                    f"{payload.get('user_intent', '')} "
-                    f"[STRICT DOMAIN GUARD: Subject '{subject or session.get('topic')}' is in '{degree_program or academic_domain or 'Non-CS'}'. "
-                    "Do NOT emit code blocks, Python classes, database schemas, or software engineering templates.]"
-                ).strip()
+                ref_resp = content_reference_service.get_references(query)
+                references = ref_resp.references
+            
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
+                # Step 1: Call AI-1 Interpret
+                interpret_payload = {
+                    "request_id": request_id,
+                    "learner_id": learner_id,
+                    "context": context,
+                    "plan_tier": plan_tier,
+                    "topic": session.get("topic"),
+                    "subject": subject,
+                    "degree_program": degree_program,
+                    "academic_domain": academic_domain,
+                    "references": references,
+                    "user_intent": payload.get("user_intent", "")
+                }
+                interpret_resp = await KIEGatewayService._request_with_retry(
+                    client,
+                    f"{settings.KIE_BASE_URL}/api/v1/kie/learn/interpret",
+                    interpret_payload
+                )
+                
+                # Step 2: Call AI-2 Generate
+                generate_payload = {
+                    "request_id": request_id,
+                    "learner_id": learner_id,
+                    "interpreted_data": interpret_resp,
+                    "context": context,
+                    "plan_tier": plan_tier,
+                    "references": references,
+                    "topic": session.get("topic"),
+                    "subject": subject,
+                    "degree_program": degree_program,
+                    "academic_domain": academic_domain,
+                    "lesson_id": session.get("lesson_id")
+                }
+                ai2_base_url = settings.KIE_AI2_BASE_URL or settings.KIE_BASE_URL
                 generate_resp = await KIEGatewayService._request_with_retry(
                     client,
                     f"{ai2_base_url}/api/v1/kie/lesson/generate",
-                    retry_payload
+                    generate_payload
                 )
-            
-            # Step 3: Validate against Pydantic model (preserving raw Markdown & Mermaid verbatim)
-            try:
-                lesson = Lesson(**generate_resp)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Invalid lesson format returned from KIE: {str(e)}")
-            
-            # Persist lesson in session - Web BUG-04: Default to Step 1 (blocks[0]), never the last block
-            first_block_id = lesson.blocks[0].id if lesson.blocks else None
-            existing_cp = session.get("checkpoint_block_id")
-            valid_block_ids = {b.id for b in lesson.blocks} if lesson.blocks else set()
-            checkpoint_id = existing_cp if (existing_cp and existing_cp in valid_block_ids) else first_block_id
 
-            learning_session_service.update_checkpoint(
-                session_id, 
-                learner_id, 
-                LearningSessionUpdate(
-                    checkpoint_block_id=checkpoint_id,
-                    progress_percentage=0 if not existing_cp else session.get("progress_percentage", 0),
-                    lesson_data=lesson.model_dump()
-                )
+                # Pre-Persist Domain Guard: retry once with strict domain constraints if non-CS leaked CS/code
+                violation = _violates_non_cs_guard(generate_resp, subject, degree_program, academic_domain)
+                if violation:
+                    logger.warning(
+                        f"Non-CS domain guard triggered for session={session_id}, subject='{subject}', "
+                        f"reason={violation}. Retrying lesson generation with strict domain constraints."
+                    )
+                    retry_payload = dict(generate_payload)
+                    retry_payload["strict_domain_constraints"] = True
+                    retry_payload["forbid_code_blocks"] = True
+                    retry_payload["user_intent"] = (
+                        f"{payload.get('user_intent', '')} "
+                        f"[STRICT DOMAIN GUARD: Subject '{subject or session.get('topic')}' is in '{degree_program or academic_domain or 'Non-CS'}'. "
+                        "Do NOT emit code blocks, Python classes, database schemas, or software engineering templates.]"
+                    ).strip()
+                    generate_resp = await KIEGatewayService._request_with_retry(
+                        client,
+                        f"{ai2_base_url}/api/v1/kie/lesson/generate",
+                        retry_payload
+                    )
+                
+                # Step 3: Validate against Pydantic model (preserving raw Markdown & Mermaid verbatim)
+                try:
+                    lesson = Lesson(**generate_resp)
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Invalid lesson format returned from KIE: {str(e)}")
+        except Exception:
+            billing_guard.refund(ledger_id)
+            raise
+
+        # Persist lesson in session - Web BUG-04: Default to Step 1 (blocks[0]), never the last block
+        first_block_id = lesson.blocks[0].id if lesson.blocks else None
+        existing_cp = session.get("checkpoint_block_id")
+        valid_block_ids = {b.id for b in lesson.blocks} if lesson.blocks else set()
+        checkpoint_id = existing_cp if (existing_cp and existing_cp in valid_block_ids) else first_block_id
+
+        learning_session_service.update_checkpoint(
+            session_id,
+            learner_id,
+            LearningSessionUpdate(
+                checkpoint_block_id=checkpoint_id,
+                progress_percentage=0 if not existing_cp else session.get("progress_percentage", 0),
+                lesson_data=lesson.model_dump()
             )
-            
-            return lesson
+        )
+
+        return lesson
 
 kie_gateway_service = KIEGatewayService()

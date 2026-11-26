@@ -22,6 +22,8 @@ from fastapi.responses import StreamingResponse
 
 from app.core.deps import get_current_user
 from app.core.supabase import supabase_admin
+from app.schemas.billing import CreditOperation
+from app.services.billing.billing_guard import billing_guard
 from app.schemas.launch import (
     APIError,
     ATSAnalysisHistoryResponse,
@@ -121,7 +123,21 @@ async def generate_resume(
     """
     learner_id = _get_learner_id(current_user["user_id"])
     request_id = x_request_id or str(uuid.uuid4())
-    return await resume_service.generate_resume(learner_id, request, request_id)
+    template_tier = None
+    if getattr(request, "preferences", None) and isinstance(request.preferences, dict):
+        template_tier = request.preferences.get("templateTier") or request.preferences.get("template_tier")
+    if template_tier:
+        billing_guard.require_capability(learner_id, "resume_template", str(template_tier))
+    ledger_id = billing_guard.authorize_and_consume(
+        learner_id=learner_id,
+        operation=CreditOperation.RESUME_OPTIMIZATION,
+        reference_id=request_id,
+    )
+    try:
+        return await resume_service.generate_resume(learner_id, request, request_id)
+    except Exception:
+        billing_guard.refund(ledger_id)
+        raise
 
 
 @router.post("/resumes/{resume_id}/export")
@@ -161,7 +177,16 @@ async def analyze_resume(
     """
     learner_id = _get_learner_id(current_user["user_id"])
     request_id = x_request_id or str(uuid.uuid4())
-    return await ats_service.analyze_resume(learner_id, file, request_id)
+    ledger_id = billing_guard.authorize_and_consume(
+        learner_id=learner_id,
+        operation=CreditOperation.ATS_SCAN,
+        reference_id=request_id,
+    )
+    try:
+        return await ats_service.analyze_resume(learner_id, file, request_id)
+    except Exception:
+        billing_guard.refund(ledger_id)
+        raise
 
 
 @router.get("/ats/analyses/{analysis_id}", response_model=ATSAnalysisResponse)
