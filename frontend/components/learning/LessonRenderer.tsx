@@ -1,20 +1,21 @@
-'use client';
 
-import type { Lesson, LessonBlock } from '@/types/learning';
+"use client";
 
-import TextBlock from './blocks/TextBlock';
-import CodeBlock from './blocks/CodeBlock';
-import QuestionBlock from './blocks/QuestionBlock';
-import PracticeBlock from './blocks/PracticeBlock';
-import VideoBlock from './blocks/VideoBlock';
-import DiagramBlock from './blocks/DiagramBlock';
+import type { Lesson, LessonBlock } from "@/types/learning";
+
+import TextBlock from "./blocks/TextBlock";
+import CodeBlock from "./blocks/CodeBlock";
+import QuestionBlock from "./blocks/QuestionBlock";
+import PracticeBlock from "./blocks/PracticeBlock";
+import VideoBlock from "./blocks/VideoBlock";
+import DiagramBlock from "./blocks/DiagramBlock";
 
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   Lock,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface LessonRendererProps {
   lesson: Lesson;
@@ -28,21 +29,86 @@ interface LessonRendererProps {
   onFinishLesson: () => void;
 }
 
-function isDiagramBlock(block: LessonBlock): boolean {
-  const typeUpper = String(block.type ?? '').toUpperCase();
-  if (typeUpper === 'DIAGRAM') return true;
+function cleanDiagramContent(content: string): string {
+  return content
+    .replace(
+      /^\s*Renderer\s*Type\s*:\s*Diagram\s*\.?\s*/i,
+      "",
+    )
+    .trim();
+}
 
-  if (typeof block.content === 'string') {
-    const trimmed = block.content.trim();
+function isMermaidContent(content: string): boolean {
+  const cleaned = cleanDiagramContent(content);
+
+  if (/^\s*```mermaid\b/i.test(cleaned)) {
+    return true;
+  }
+
+  const source = cleaned
+    .replace(/^\s*```[^\n]*\n?/, "")
+    .replace(/\n?```\s*$/, "")
+    .trim();
+
+  return /^(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|gantt|pie|journey|gitGraph|mindmap|timeline|quadrantChart|requirementDiagram|C4Context|sankey-beta)\b/i.test(
+    source,
+  );
+}
+
+function isAsciiDiagram(content: string): boolean {
+  return (
+    content.includes("+--") ||
+    content.includes("+==") ||
+    content.includes("|  ") ||
+    content.includes("│") ||
+    content.includes("┌") ||
+    content.includes("└") ||
+    content.includes("├") ||
+    content.includes("┬") ||
+    content.includes("┴") ||
+    content.includes("┐") ||
+    content.includes("┘") ||
+    content.includes("-->") ||
+    content.includes("<--") ||
+    content.includes("==>") ||
+    content.includes("<-")
+  );
+}
+
+function isDiagramBlock(block: LessonBlock): boolean {
+  const typeUpper = String(block.type ?? "").toUpperCase();
+
+  // Explicit diagram blocks always use DiagramBlock.
+  if (typeUpper === "DIAGRAM") {
+    return true;
+  }
+
+  // Image-based diagrams.
+  if (block.url && typeUpper === "DIAGRAM") {
+    return true;
+  }
+
+  // Check both possible text/code fields.
+  const sources = [
+    block.content,
+    block.code,
+  ].filter(
+    (value): value is string =>
+      typeof value === "string" && value.trim().length > 0,
+  );
+
+  for (const source of sources) {
+    const trimmed = source.trim();
+
     if (
-      trimmed.includes('Renderer Type: Diagram') ||
-      trimmed.startsWith('```mermaid') ||
-      trimmed.startsWith('graph ') ||
-      trimmed.startsWith('flowchart ')
+      /Renderer\s*Type\s*:\s*Diagram/i.test(trimmed) ||
+      isMermaidContent(trimmed) ||
+      isAsciiDiagram(trimmed)
     ) {
       return true;
     }
   }
+
   return false;
 }
 
@@ -51,22 +117,24 @@ function renderBlock(block: LessonBlock) {
     return <DiagramBlock block={block} />;
   }
 
-  const typeUpper = String(block.type ?? '').toUpperCase();
+  const typeUpper = String(block.type ?? "").toUpperCase();
+
   switch (typeUpper) {
-    case 'TEXT':
+    case "TEXT":
       return <TextBlock block={block} />;
 
-    case 'VIDEO':
+    case "VIDEO":
       return <VideoBlock block={block} />;
 
-    case 'CODE':
+    case "CODE":
       return <CodeBlock block={block} />;
 
-    case 'QUIZ':
+    case "QUIZ":
       return <QuestionBlock block={block} />;
 
-    case 'INTERACTIVE':
+    case "INTERACTIVE":
       return <PracticeBlock block={block} />;
+
     default:
       return (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
@@ -147,7 +215,7 @@ export default function LessonRenderer({
             </p>
 
             <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              {lesson.prerequisites.join(' · ')}
+              {lesson.prerequisites.join(" · ")}
             </p>
           </div>
         ) : null}
@@ -196,13 +264,13 @@ export default function LessonRenderer({
             return (
               <span
                 key={block.id}
-                title={`Section ${index + 1}${done ? ': completed' : current ? ': current' : ': locked'}`}
+                title={`Section ${index + 1}${done ? ": completed" : current ? ": current" : ": locked"}`}
                 className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-semibold ${
                   done
-                    ? 'bg-emerald-500/10 text-emerald-700'
+                    ? "bg-emerald-500/10 text-emerald-700"
                     : current
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'bg-[var(--surface-alt)] text-[var(--text-muted)]'
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-[var(--surface-alt)] text-[var(--text-muted)]"
                 }`}
               >
                 {done ? (

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -424,11 +425,11 @@ export default function LearningWorkspace({
           id="panel-lesson"
           aria-labelledby="tab-lesson"
           hidden={activePanel !== 'lesson'}
-          className="h-full min-h-0"
+          className="min-h-0 lg:h-full"
         >
-          <div className="grid min-h-full grid-cols-1 gap-4 p-3 sm:gap-5 sm:p-5 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-5 lg:p-5">
+          <div className="grid grid-cols-1 gap-4 p-3 sm:gap-5 sm:p-5 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-5 lg:p-5">
             {/* Left: Lesson reader */}
-            <section className="flex min-h-[650px] min-w-0 flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_28px_rgba(24,52,58,0.04)] lg:min-h-0">
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_8px_28px_rgba(24,52,58,0.04)] lg:h-full">
               {/* Lesson progress header */}
               <div className="shrink-0 border-b border-[var(--border)] px-4 py-3 sm:px-5">
                 <div className="flex items-center gap-3">
@@ -465,8 +466,9 @@ export default function LearningWorkspace({
                 </div>
               </div>
 
-              {/* Independently scrollable lesson content */}
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5 sm:py-5">
+              {/* Mobile: natural page scroll.
+                  Desktop: independent lesson scroll. */}
+              <div className="min-h-0 px-3 py-4 sm:px-5 sm:py-5 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
                 <LessonRenderer
                   lesson={lesson}
                   completedBlockIds={completedBlockIds}
@@ -557,8 +559,8 @@ export default function LearningWorkspace({
               </footer>
             </section>
 
-            {/* Right: Full-height AI Mentor */}
-            <aside className="flex min-h-[650px] min-w-0 flex-col lg:h-full lg:min-h-0">
+            {/* Right: AI Mentor */}
+            <aside className="flex h-[650px] min-h-[650px] min-w-0 flex-col lg:h-full lg:min-h-0">
               <MentorPanel
                 lesson={lesson}
                 roadmapId={roadmapId}
@@ -576,7 +578,7 @@ export default function LearningWorkspace({
           id="panel-assessment"
           aria-labelledby="tab-assessment"
           hidden={activePanel !== 'assessment'}
-          className="h-full min-h-0 overflow-y-auto p-3 sm:p-5"
+          className="min-h-0 overflow-visible p-3 sm:p-5 lg:h-full lg:overflow-y-auto"
         >
           <div className="mx-auto w-full max-w-5xl">
             <AssessmentPanel
