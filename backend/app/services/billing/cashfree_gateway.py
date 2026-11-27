@@ -27,12 +27,14 @@ class CashfreeGateway:
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
         api_version: Optional[str] = None,
+        webhook_url: Optional[str] = None,
     ):
         self.env = env or settings.CASHFREE_ENV
         self.base_url = (base_url or settings.CASHFREE_PG_BASE_URL).rstrip("/")
         self.client_id = client_id or settings.CASHFREE_CLIENT_ID
         self.client_secret = client_secret or settings.CASHFREE_CLIENT_SECRET
         self.api_version = api_version or settings.CASHFREE_API_VERSION
+        self.webhook_url = webhook_url if webhook_url is not None else settings.CASHFREE_WEBHOOK_URL
 
     def _get_headers(self) -> Dict[str, str]:
         """Headers required for authenticating with Cashfree PG APIs."""
@@ -51,6 +53,7 @@ class CashfreeGateway:
         customer_details: Dict[str, str],
         return_url: str,
         order_note: Optional[str] = None,
+        notify_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Creates a new payment order with Cashfree.
@@ -63,6 +66,13 @@ class CashfreeGateway:
         if not phone or len(phone) < 10:
             phone = "9999999999"
 
+        order_meta: Dict[str, Any] = {
+            "return_url": return_url,
+        }
+        effective_notify = notify_url if notify_url is not None else self.webhook_url
+        if effective_notify and effective_notify.startswith("https://"):
+            order_meta["notify_url"] = effective_notify
+
         payload = {
             "order_id": order_id,
             "order_amount": round(float(amount), 2),
@@ -73,9 +83,7 @@ class CashfreeGateway:
                 "customer_phone": phone,
                 "customer_name": customer_details.get("customer_name", "UniOS Learner"),
             },
-            "order_meta": {
-                "return_url": return_url,
-            },
+            "order_meta": order_meta,
         }
         if order_note:
             payload["order_note"] = order_note
