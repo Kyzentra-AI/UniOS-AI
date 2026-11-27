@@ -12,13 +12,19 @@ import {
   createBillingCheckout,
   getBillingHistory,
   getBillingPlans,
+  getCheckoutPreview,
+  getCreditLedger,
   getMyEntitlement,
   getMyUsage,
   renewBillingSubscription,
   verifyBillingPayment,
 } from '@/services/billingServices';
 
-import type { CheckoutRequest } from '@/types/billing';
+import type {
+  BillingCycle,
+  CheckoutRequest,
+  PlanTier,
+} from '@/types/billing';
 
 export function useBilling() {
   const queryClient = useQueryClient();
@@ -44,6 +50,11 @@ export function useBilling() {
     queryFn: getBillingHistory,
   });
 
+  const ledgerQuery = useQuery({
+    queryKey: ['billing', 'ledger'],
+    queryFn: () => getCreditLedger(50),
+  });
+
   const refreshBilling = async () => {
     await Promise.all([
       queryClient.invalidateQueries({
@@ -55,14 +66,15 @@ export function useBilling() {
       queryClient.invalidateQueries({
         queryKey: ['billing', 'history'],
       }),
+      queryClient.invalidateQueries({
+        queryKey: ['billing', 'ledger'],
+      }),
     ]);
   };
 
   const trialMutation = useMutation({
     mutationFn: activateBillingTrial,
-    onSuccess: async () => {
-      await refreshBilling();
-    },
+    onSuccess: refreshBilling,
   });
 
   const checkoutMutation = useMutation({
@@ -89,6 +101,7 @@ export function useBilling() {
     entitlement: entitlementQuery.data,
     usage: usageQuery.data,
     history: historyQuery.data,
+    ledger: ledgerQuery.data,
 
     isLoading:
       plansQuery.isLoading ||
@@ -99,11 +112,13 @@ export function useBilling() {
     entitlementError: entitlementQuery.error,
     usageError: usageQuery.error,
     historyError: historyQuery.error,
+    ledgerError: ledgerQuery.error,
 
     refetchPlans: plansQuery.refetch,
     refetchEntitlement: entitlementQuery.refetch,
     refetchUsage: usageQuery.refetch,
     refetchHistory: historyQuery.refetch,
+    refetchLedger: ledgerQuery.refetch,
 
     activateTrial: trialMutation.mutateAsync,
     isActivatingTrial: trialMutation.isPending,
@@ -123,4 +138,23 @@ export function useBilling() {
 
     refreshBilling,
   };
+}
+
+export function useCheckoutPreview(
+  planCode: PlanTier | null,
+  billingCycle: BillingCycle
+) {
+  return useQuery({
+    queryKey: [
+      'billing',
+      'checkout-preview',
+      planCode,
+      billingCycle,
+    ],
+    queryFn: () =>
+      getCheckoutPreview(planCode!, billingCycle),
+    enabled: planCode !== null && planCode !== 'FREE',
+    staleTime: 0,
+    retry: 1,
+  });
 }
