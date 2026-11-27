@@ -458,6 +458,20 @@ class MockLLMProvider(BaseLLMProvider):
 
         # Domain-specific block assembly
         if archetype == DomainArchetype.CODING_CS:
+            from app.services.daa_curriculum_service import get_daa_lesson
+            daa_lesson = get_daa_lesson(topic_clean, context_id)
+            if daa_lesson:
+                if pedagogy_decision:
+                    daa_lesson.pedagogy_decision = pedagogy_decision
+                return daa_lesson
+
+            if any(w in topic_lower for w in ["neural network", "neural networks", "artificial neural network", "artificial neural networks", "deep learning", "perceptron", "ann"]):
+                from app.services.neural_networks_curriculum import build_neural_networks_lesson
+                nn_lesson = build_neural_networks_lesson(topic_clean, context_id)
+                if pedagogy_decision:
+                    nn_lesson.pedagogy_decision = pedagogy_decision
+                return nn_lesson
+
             is_algo = any(w in topic_lower for w in ["algorithm", "daa", "complexity", "asymptotic", "sorting", "divide", "greedy", "dynamic programming", "graph", "tree", "recurrence", "big-o"])
             is_automata = any(w in topic_lower for w in ["theory of computation", "automata", "formal language", "chomsky", "turing", "dfa", "nfa", "grammar", "pda", "decidab"])
             is_ai = any(w in topic_lower for w in ["artificial intelligence", "ai", "machine learning", "neural", "heuristic", "agent", "state-space"])
@@ -2041,23 +2055,27 @@ class GroqLLMProvider(BaseLLMProvider):
         system_instruction = (
             "You are the senior pedagogical content architect for UniOS.\n"
             "Your mission is to generate comprehensive, in-depth, university-grade learning modules (1,200 to 1,800 words).\n"
-            "DO NOT write brief, superficial summaries. Provide rich, textbook-grade educational material.\n\n"
+            "Pedagogical Blueprint: Learning must be SIMPLIFIED, INTUITIVE, and RESOURCEFUL.\n"
+            "- Always open with familiar, everyday analogies (e.g. recipe for making tea, searching contacts in a phonebook, comparing items in a list, playing cards, desk workspace).\n"
+            "- Break complex topics into smaller, digestible steps using plain, clear language.\n"
+            "- Ban robotic, dense academic jargon (e.g. 'establish a rigorous theoretical mastery over its core invariants').\n"
+            "- Provide step-by-step state tracking tables for all worked examples (showing line executed, variable states, and explanations).\n\n"
             f"DOMAIN ARCHETYPE: {archetype.value}\n"
             "STRICT RULES FOR DOMAIN ARCHETYPES:\n"
             "- If domain is NOT CODING_CS: You are STRICTLY FORBIDDEN from including programming code blocks (e.g. ```python, ```sql, ```java), "
             "database schemas (CREATE TABLE), or system architecture topology diagrams. Instead, use real-world corporate case studies (Tata, Swiggy, Apple) for business/management, "
             "step-by-step worked numerical journal/ledger problems for accounting/finance, and spreadsheet formula tutorials for applied office IT.\n"
-            "- Only if domain is CODING_CS: Provide production-quality runnable code walkthroughs and algorithmic analysis.\n\n"
+            "- Only if domain is CODING_CS: Provide clean, verified runnable code walkthroughs with variable state trace tables.\n\n"
             "Generate EXACTLY 5 high-depth learning blocks in this sequence:\n"
             "1. type: 'objective' (Learning Outcomes & Context)\n"
             "   - title: Clear, motivating learning outcome title.\n"
             "   - content: Multi-paragraph breakdown explaining core goals, prerequisites, and why this topic matters in the real world. Use ## and ### markdown only.\n\n"
             "2. type: 'explanation' (Deep Concept Breakdown)\n"
             "   - title: Conceptual masterclass.\n"
-            "   - content: Full, textbook-grade explanation broken into digestible sub-concepts, key definitions in callout blocks (> [!NOTE]), and clear comparisons. Use ## and ### only.\n\n"
+            "   - content: Start with a relatable everyday analogy. Break down the concept into bite-sized sub-concepts, key definitions in callout blocks (> [!NOTE]), and clear comparison tables. Use ## and ### only.\n\n"
             "3. type: 'worked_example' (Real-World Applied Walkthrough)\n"
             "   - title: Applied domain walkthrough.\n"
-            "   - content: Concrete corporate case study for business; worked numerical problems/tables for accounting; spreadsheet formulas for office IT; runnable code ONLY for coding_cs.\n"
+            "   - content: Concrete corporate case study for business; worked numerical problems/tables for accounting; spreadsheet formulas for office IT; runnable code with step-by-step state trace table ONLY for coding_cs.\n"
             "   - code: Optional, strictly omit unless domain is CODING_CS.\n"
             "   - language: Optional, strictly omit unless domain is CODING_CS.\n\n"
             "4. type: 'visual_spec' (Visual Framework & Mental Model)\n"
@@ -2065,7 +2083,7 @@ class GroqLLMProvider(BaseLLMProvider):
             "   - content: Valid fenced ```mermaid diagram (flowchart, cycle, or hierarchy) OR a structured markdown comparison table tailored to the topic. NEVER raw ASCII boxes or CS topology maps for non-CS domains.\n\n"
             "5. type: 'practice_task' (Applied Scenario & Exam Takeaways)\n"
             "   - title: Applied Challenge & Exam Preparation.\n"
-            "   - content: Domain-appropriate scenario prompt + high-yield exam review points + common mistakes to avoid. Use ## and ### only.\n\n"
+            "   - content: Scaffolded practice challenge with hints + high-yield university exam review takeaways + 2-3 common misconceptions/exam traps to avoid. Use ## and ### only.\n\n"
             "CRITICAL FORMAT RULES:\n"
             "- DO NOT generate Section 6 Comprehension Check MCQ or quiz block. Assessment belongs exclusively to the assessment service.\n"
             "- Markdown Hygiene: Ban #### headers (use ## and ### only) and NEVER emit triple single quotes. Always use standard triple backticks.\n"

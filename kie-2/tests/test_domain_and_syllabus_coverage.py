@@ -58,6 +58,39 @@ class TestDomainAndSyllabusCoverage(unittest.TestCase):
             f"Expected DFA or DeterministicFiniteAutomaton in content, got: {content_all[:300]}",
         )
 
+    def test_neural_networks_lesson_generates_pytorch_and_neuron_math(self):
+        """Verify Neural Networks demonstration topic follows the Section 5 Teaching Blueprint."""
+        payload = {
+            "topic": "Artificial Neural Networks",
+            "objective": "Explain neuron mechanics, calculate weighted sum, and implement PyTorch classifier",
+            "learner_state": {"learner_id": "u1", "stage": "bachelor", "confidence": "medium"},
+            "lesson_id": "les-nn",
+            "interpreted_data": {
+                "intent_category": "CODE_WALKTHROUGH",
+                "pedagogical_strategy": "ANALOGY_THEN_CODE",
+                "knowledge_gaps_identified": ["artificial neuron", "backpropagation"],
+            },
+        }
+        resp = self.client.post("/api/v1/kie/lesson/generate", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        blocks = resp.json()["blocks"]
+
+        content_all = " ".join((b.get("content") or "") for b in blocks)
+        self.assertNotIn("CREATE TABLE", content_all)
+        self.assertNotIn("Tata Group", content_all)
+        self.assertNotIn("Principles & Theories of Management", content_all)
+        self.assertIn("torch", content_all.lower())
+        self.assertIn("linear", content_all.lower())
+        self.assertIn("sigmoid", content_all.lower())
+
+        # Also verify offline blueprint contains exact Section 5 reference calculations and remediation
+        from app.services.llm_provider import MockLLMProvider
+        mock_lesson = MockLLMProvider().generate_lesson(prompt="", context_id="mock-nn", topic="Artificial Neural Networks")
+        mock_content = " ".join((b.content or "") for b in mock_lesson.blocks)
+        self.assertIn("0.973", mock_content)
+        self.assertIn("784", mock_content)
+        self.assertIn("Misconception", mock_content)
+
     def test_multisubject_full_syllabus_coverage(self):
         """Issue 1: Ensure 8 subjects each receive at least 2 progressive missions covering full syllabus."""
         subjects = [

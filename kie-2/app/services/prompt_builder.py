@@ -222,15 +222,18 @@ TOPIC & OBJECTIVE:
    - Clear bulleted objectives, why this topic matters in the real world, and prerequisite concepts.
    - Absolutely NO robotic 'establish a rigorous theoretical mastery over its core invariants' phrasing.
 2. Section 2 — Deep Concept Breakdown (type: 'explanation'):
-   - Full, textbook-grade explanation broken into digestible sub-concepts.
-   - Key definitions in callout blocks (> [!NOTE]) and clear comparisons (e.g., Top vs Middle vs First-Line Management, Taylor vs Fayol).
+   - Start with a familiar, intuitive, everyday analogy (e.g. recipe for tea, phonebook search, playing cards, desk workspace).
+   - Full, textbook-grade explanation broken into small, digestible sub-concepts in plain language.
+   - Key definitions in callout blocks (> [!NOTE]) and clear comparison tables (e.g., Top vs Middle vs First-Line Management, Taylor vs Fayol).
 3. Section 3 — Real-World Applied Walkthrough (type: 'worked_example'):
    - {domain_specific_walkthrough_rule}
+   - For CODING_CS: Include a step-by-step variable state trace table tracking data line-by-line.
 4. Section 4 — Visual Framework & Mental Model (type: 'visual_spec'):
    - Output a valid fenced ```mermaid diagram (flowchart, hierarchy, mindmap, or cycle) or a structured GFM Markdown comparison table tailored to the topic.
    - NEVER output a raw ASCII box, drawing instructions, or CS topology map.
 5. Section 5 — Applied Scenario & Exam Takeaways (type: 'practice_task'):
-   - A domain-appropriate mini-scenario/reflection prompt + concise exam-ready summary points and common mistakes.
+   - A domain-appropriate mini-scenario/reflection prompt or guided practice challenge with hints.
+   - High-yield university exam review takeaways + 2-3 common misconceptions or exam traps to avoid.
 
 CRITICAL CONSTRAINTS:
 - {code_rule}

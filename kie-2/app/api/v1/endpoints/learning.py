@@ -394,6 +394,7 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
         lesson.id = context.lesson_id or lesson.id or context.context_id
         lesson.title = f"Mastering {context.topic}"
         lesson.request_id = req_id
+        lesson.blocks = [b for b in lesson.blocks if str(b.type).upper() != "QUIZ"]
 
     print(f">>> [API POST /api/v1/kie/lesson/generate] Returning {len(lesson.blocks)} blocks to caller.\n")
     return lesson
