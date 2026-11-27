@@ -153,6 +153,286 @@ function InfoRow({
   );
 }
 
+function formatContextLabel(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function isContextRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function ContextValue({
+  value,
+  depth = 0,
+}: {
+  value: unknown;
+  depth?: number;
+}) {
+  if (value === null || value === undefined || value === '') {
+    return (
+      <p className="text-sm text-[var(--muted-foreground)]">
+        Not available
+      </p>
+    );
+  }
+
+  if (typeof value === 'boolean') {
+    return (
+      <span className="text-sm font-medium text-[var(--foreground)]">
+        {value ? 'Enabled' : 'Disabled'}
+      </span>
+    );
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date =
+      typeof value === 'string' &&
+      /^\d{4}-\d{2}-\d{2}T/.test(value)
+        ? formatDate(value)
+        : String(value);
+
+    return (
+      <span className="break-words text-sm text-[var(--foreground)]">
+        {date}
+      </span>
+    );
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return (
+        <p className="text-sm text-[var(--muted-foreground)]">
+          No information available
+        </p>
+      );
+    }
+
+    const primitiveItems = value.every(
+      (item) =>
+        typeof item === 'string' ||
+        typeof item === 'number'
+    );
+
+    if (primitiveItems) {
+      return (
+        <div className="flex flex-wrap gap-2">
+          {value.map((item, index) => (
+            <span
+              key={`${String(item)}-${index}`}
+              className="rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)]"
+            >
+              {String(item)}
+            </span>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {value.map((item, index) => (
+          <div
+            key={index}
+            className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3"
+          >
+            <ContextValue value={item} depth={depth + 1} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (isContextRecord(value)) {
+    const entries = Object.entries(value).filter(
+      ([, item]) =>
+        item !== null &&
+        item !== undefined &&
+        item !== ''
+    );
+
+    if (entries.length === 0) {
+      return (
+        <p className="text-sm text-[var(--muted-foreground)]">
+          No information available
+        </p>
+      );
+    }
+
+    return (
+      <div
+        className={
+          depth === 0
+            ? 'grid gap-4 sm:grid-cols-2'
+            : 'space-y-4'
+        }
+      >
+        {entries.map(([key, item]) => (
+          <div key={key} className="min-w-0">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+              {formatContextLabel(key)}
+            </p>
+            <ContextValue value={item} depth={depth + 1} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <p className="text-sm text-[var(--muted-foreground)]">
+      Not available
+    </p>
+  );
+}
+
+function ActiveSyllabusCard({
+  value,
+}: {
+  value: unknown;
+}) {
+  if (!isContextRecord(value)) {
+    return (
+      <p className="text-sm text-[var(--muted-foreground)]">
+        No active syllabus available.
+      </p>
+    );
+  }
+
+  const fileName =
+    typeof value.fileName === 'string'
+      ? value.fileName
+      : 'Uploaded syllabus';
+
+  const confirmedAt =
+    typeof value.confirmedAt === 'string'
+      ? value.confirmedAt
+      : null;
+
+  const subjectNames = Array.isArray(value.subjectNames)
+    ? value.subjectNames.filter(
+        (item): item is string => typeof item === 'string'
+      )
+    : [];
+
+  const subjectsCount =
+    typeof value.subjectsCount === 'number'
+      ? value.subjectsCount
+      : subjectNames.length;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--background)] text-[var(--primary)]">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              className="h-6 w-6"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 3.75h7l5 5v11.5H7a2 2 0 0 1-2-2v-12.5a2 2 0 0 1 2-2Z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M14 3.75v5h5M9 13h6M9 16.5h6"
+              />
+            </svg>
+          </div>
+
+          <div className="min-w-0">
+            <p className="break-words font-semibold text-[var(--foreground)]">
+              {fileName}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              Active syllabus
+            </p>
+          </div>
+        </div>
+
+        <span className="w-fit shrink-0 rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-600">
+          Confirmed
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-[var(--background)] p-4">
+          <p className="text-xs font-medium text-[var(--muted-foreground)]">
+            Total subjects
+          </p>
+          <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+            {subjectsCount}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-[var(--background)] p-4">
+          <p className="text-xs font-medium text-[var(--muted-foreground)]">
+            Confirmed on
+          </p>
+          <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+            {confirmedAt ? formatDate(confirmedAt) : '—'}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="mb-3 text-sm font-semibold text-[var(--foreground)]">
+          Subjects included
+        </h4>
+
+        {subjectNames.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {subjectNames.map((subject, index) => (
+              <span
+                key={`${subject}-${index}`}
+                className="rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-xs font-medium text-[var(--foreground)]"
+              >
+                {subject}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--muted-foreground)]">
+            Subject details are not available.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ContextCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] p-5">
+      <h3 className="mb-4 text-base font-semibold text-[var(--foreground)]">
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
 export default function Settings() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -833,31 +1113,36 @@ export default function Settings() {
                   </div>
 
                   {contextQuery.data.aiPersonalizationEnabled ? (
-                    <div className="space-y-4">
-                      {(
-                        [
-                          'activeSyllabus',
-                          'activeRoadmap',
-                          'memorySummary',
-                        ] as const
-                      ).map((key) => (
-                        <div
-                          key={key}
-                          className="rounded-xl border border-[var(--border)] p-4"
-                        >
-                          <h3 className="mb-3 font-semibold capitalize text-[var(--foreground)]">
-                            {key.replace(/([A-Z])/g, ' $1')}
-                          </h3>
+                    <div className="space-y-5">
+                      <ContextCard title="Active Syllabus">
+                        <ActiveSyllabusCard
+                          value={contextQuery.data.activeSyllabus}
+                        />
+                      </ContextCard>
 
-                          <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-[var(--muted-foreground)]">
-                            {JSON.stringify(
-                              contextQuery.data[key] ?? {},
-                              null,
-                              2
-                            )}
-                          </pre>
-                        </div>
-                      ))}
+                      <ContextCard title="Active Roadmap">
+                        {contextQuery.data.activeRoadmap ? (
+                          <ContextValue
+                            value={contextQuery.data.activeRoadmap}
+                          />
+                        ) : (
+                          <p className="text-sm text-[var(--muted-foreground)]">
+                            No active roadmap available.
+                          </p>
+                        )}
+                      </ContextCard>
+
+                      <ContextCard title="Memory Summary">
+                        {contextQuery.data.memorySummary ? (
+                          <ContextValue
+                            value={contextQuery.data.memorySummary}
+                          />
+                        ) : (
+                          <p className="text-sm text-[var(--muted-foreground)]">
+                            No memory summary available.
+                          </p>
+                        )}
+                      </ContextCard>
                     </div>
                   ) : (
                     <p className="rounded-xl bg-[var(--background)] p-4 text-sm text-[var(--muted-foreground)]">
