@@ -3,7 +3,9 @@ import { apiRequest } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 
 import {
+  checkoutPreviewResponseSchema,
   checkoutResponseSchema,
+  creditLedgerResponseSchema,
   entitlementResponseSchema,
   orderHistoryResponseSchema,
   paymentStatusResponseSchema,
@@ -13,14 +15,18 @@ import {
 } from '@/app/validations/billing';
 
 import type {
+  CheckoutPreviewResponse,
   CheckoutRequest,
   CheckoutResponse,
+  CreditLedgerResponse,
   EntitlementResponse,
   OrderHistoryResponse,
   PaymentStatusResponse,
   PlansResponse,
   TrialActivationResponse,
   UsageResponse,
+  PlanTier,
+  BillingCycle,
 } from '@/types/billing';
 
 function getAuthHeaders(): HeadersInit {
@@ -41,9 +47,7 @@ function getAuthHeaders(): HeadersInit {
 export async function getBillingPlans(): Promise<PlansResponse> {
   const response = await apiRequest<PlansResponse>(
     '/api/v1/billing/plans',
-    {
-      method: 'GET',
-    }
+    { method: 'GET' }
   );
 
   return plansResponseSchema.parse(response);
@@ -83,6 +87,26 @@ export async function activateBillingTrial(): Promise<TrialActivationResponse> {
   );
 
   return trialActivationResponseSchema.parse(response);
+}
+
+export async function getCheckoutPreview(
+  planCode: PlanTier,
+  billingCycle: BillingCycle
+): Promise<CheckoutPreviewResponse> {
+  const params = new URLSearchParams({
+    plan_code: planCode,
+    billing_cycle: billingCycle,
+  });
+
+  const response = await apiRequest<CheckoutPreviewResponse>(
+    `/api/v1/billing/checkout/preview?${params.toString()}`,
+    {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return checkoutPreviewResponseSchema.parse(response);
 }
 
 export async function createBillingCheckout(
@@ -139,4 +163,18 @@ export async function getBillingHistory(): Promise<OrderHistoryResponse> {
   );
 
   return orderHistoryResponseSchema.parse(response);
+}
+
+export async function getCreditLedger(
+  limit = 50
+): Promise<CreditLedgerResponse> {
+  const response = await apiRequest<CreditLedgerResponse>(
+    `/api/v1/billing/ledger?limit=${limit}`,
+    {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return creditLedgerResponseSchema.parse(response);
 }

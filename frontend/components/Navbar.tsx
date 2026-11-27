@@ -353,7 +353,7 @@ export default function Navbar() {
           {isLoggedIn ? (
             <>
               <Link
-                href="/memory"
+                href="/settings"
                 aria-label="Open profile"
                 title="Profile"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--primary-soft)] text-sm font-semibold text-[var(--primary)] transition hover:border-[var(--primary)]"
@@ -514,7 +514,7 @@ export default function Navbar() {
             {isLoggedIn ? (
               <>
                 <Link
-                  href="/memory"
+                  href="/settings"
                   onClick={closeMenus}
                   className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--primary-soft)]"
                 >
