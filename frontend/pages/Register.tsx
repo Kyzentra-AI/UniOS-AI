@@ -153,43 +153,32 @@ export default function Register() {
             </h2>
           </div>
 
-          {/* Social Login */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-            {(['google', 'facebook', 'github'] as const).map(
-              (provider) => (
-                <button
-                  key={provider}
-                  type="button"
-                  onClick={() => handleSocialLogin(provider)}
-                  disabled={
-                    provider !== 'google' ||
-                    isSocialLoading ||
-                    isLoading
-                  }
-                  className="flex justify-center items-center gap-2 py-2.5 border border-[var(--border)] rounded-xl hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <img
-                    src={
-                      provider === 'google'
-                        ? 'https://www.svgrepo.com/show/475656/google-color.svg'
-                        : provider === 'facebook'
-                          ? 'https://www.svgrepo.com/show/475647/facebook-color.svg'
-                          : 'https://www.svgrepo.com/show/512317/github-142.svg'
-                    }
-                    alt={provider}
-                    className="w-5 h-5"
-                  />
+          
+{/* Social Login */}
+<div className="w-full mb-6">
+  <button
+    type="button"
+    onClick={() => handleSocialLogin('google')}
+    disabled={
+      socialLoading !== null ||
+      isLoading
+    }
+    className="w-full flex justify-center items-center gap-2.5 py-2.5 px-4 border border-[var(--border)] rounded-xl hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+  >
+    <img
+      src="https://www.svgrepo.com/show/475656/google-color.svg"
+      alt="Google"
+      className="w-5 h-5"
+    />
 
-                  <span className="text-sm font-semibold text-[var(--text-label)]">
-                    {socialLoading === provider
-                      ? 'Connecting...'
-                      : provider.charAt(0).toUpperCase() +
-                        provider.slice(1)}
-                  </span>
-                </button>
-              )
-            )}
-          </div>
+    <span className="text-sm font-semibold text-[var(--text-label)]">
+      {socialLoading === 'google'
+        ? 'Connecting...'
+        : 'Google'}
+    </span>
+  </button>
+</div>
+
 
           {/* Divider */}
           <div className="relative flex items-center py-2 mb-6">

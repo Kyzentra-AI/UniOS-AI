@@ -27,7 +27,6 @@ const AUTH_LINKS = [
   { label: 'Roadmap', href: '/roadmap' },
   { label: 'Build', href: '/build' },
   { label: 'Launch', href: '/launch' },
-  {label: 'Compete', href:'/compete'},
   {label: 'Pricing', href:'/billing'},
 ];
 
