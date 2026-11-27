@@ -773,3 +773,78 @@ def test_admin_assign_subscription_requires_admin_role(mock_get_current_user):
         assert resp_ok.json()["success"] is True
         assert resp_ok.json()["entitlement"]["currentPlan"] == "PRO"
         assert resp_ok.json()["entitlement"]["source"] == "ADMIN_PROMO"
+
+
+@pytest.mark.asyncio
+async def test_cashfree_gateway_includes_https_notify_url_only():
+    from app.services.billing.cashfree_gateway import CashfreeGateway
+
+    captured_payloads = []
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"payment_session_id": "sess_123"}
+
+    async def fake_post(url, json, headers):
+        captured_payloads.append(json)
+        return mock_resp
+
+    with patch("app.services.billing.cashfree_gateway.httpx.AsyncClient") as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.side_effect = fake_post
+        mock_client_cls.return_value = mock_client
+
+        # HTTPS webhook_url -> included in order_meta.notify_url
+        gw_https = CashfreeGateway(webhook_url="https://unios-ai.onrender.com/api/v1/webhooks/cashfree")
+        await gw_https.create_order(
+            order_id="ord_1",
+            amount=149.0,
+            customer_details={"customer_id": "l1", "customer_email": "a@b.com"},
+            return_url="https://unios-ai.onrender.com/billing/return?order_id=ord_1",
+        )
+        assert captured_payloads[-1]["order_meta"]["notify_url"] == "https://unios-ai.onrender.com/api/v1/webhooks/cashfree"
+
+        # HTTP localhost webhook_url -> omitted from order_meta
+        gw_http = CashfreeGateway(webhook_url="http://localhost:8000/api/v1/webhooks/cashfree")
+        await gw_http.create_order(
+            order_id="ord_2",
+            amount=149.0,
+            customer_details={"customer_id": "l1", "customer_email": "a@b.com"},
+            return_url="http://localhost:3000/billing/return?order_id=ord_2",
+        )
+        assert "notify_url" not in captured_payloads[-1]["order_meta"]
+
+
+def test_checkout_return_url_placeholder_and_no_duplicate_order_id(mock_get_current_user):
+    captured_return_urls = []
+
+    async def fake_create_order(*, order_id, amount, customer_details, return_url, order_note=None, notify_url=None):
+        captured_return_urls.append((order_id, return_url))
+        return {"payment_session_id": "sess_abc", "order_id": order_id}
+
+    with patch("app.api.v1.endpoints.billing._get_learner_id", return_value=TEST_LEARNER_ID), \
+         patch("app.services.billing.billing_service.supabase_admin") as mock_db, \
+         patch("app.services.billing.billing_service.cashfree_gateway.create_order", side_effect=fake_create_order):
+        mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[{}])
+        mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(data=[{}])
+
+        # 1. {order_id} placeholder replaced cleanly
+        r1 = client.post(
+            "/api/v1/billing/checkout",
+            json={"planCode": "BASIC", "billingCycle": "MONTHLY", "returnUrl": "http://localhost:3000/billing/return?order_id={order_id}"},
+        )
+        assert r1.status_code == status.HTTP_200_OK
+        oid1, url1 = captured_return_urls[-1]
+        assert url1 == f"http://localhost:3000/billing/return?order_id={oid1}"
+        assert url1.count("order_id=") == 1
+
+        # 2. Existing query param -> appends &order_id=
+        r2 = client.post(
+            "/api/v1/billing/checkout",
+            json={"planCode": "BASIC", "billingCycle": "WEEKLY", "returnUrl": "http://localhost:3000/billing/return?src=web"},
+        )
+        assert r2.status_code == status.HTTP_200_OK
+        oid2, url2 = captured_return_urls[-1]
+        assert url2 == f"http://localhost:3000/billing/return?src=web&order_id={oid2}"

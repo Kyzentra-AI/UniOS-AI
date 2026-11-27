@@ -942,8 +942,13 @@ class BillingService:
 
         supabase_admin.table("billing_orders").insert(order_record).execute()
 
-        separator = "&" if "?" in validated_base_return else "?"
-        return_url = f"{validated_base_return}{separator}order_id={order_id}"
+        if "{order_id}" in validated_base_return:
+            return_url = validated_base_return.replace("{order_id}", order_id)
+        elif "order_id=" in validated_base_return:
+            return_url = validated_base_return
+        else:
+            separator = "&" if "?" in validated_base_return else "?"
+            return_url = f"{validated_base_return}{separator}order_id={order_id}"
 
         customer_details = {
             "customer_id": learner_id,
