@@ -495,10 +495,13 @@ export default function Syllabus() {
                 Syllabus
               </h2>
 
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                Note: Upload your syllabus as a PDF with text only (not images). Any other versions are not supported.
-              </p>
-
+              <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-3">
+  <p className="text-sm leading-5 text-[var(--text-primary)]">
+    <span className="font-semibold text-amber-600">Note:</span>{' '}
+    Upload your syllabus as a PDF with text only (not images).
+    Any other versions are not supported.
+  </p>
+</div>
               <label
                 htmlFor="syllabus-upload"
                 className="group mt-5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] px-6 py-10 text-center transition duration-200 hover:border-[var(--primary)] hover:bg-[var(--primary-soft)] focus-within:border-[var(--primary)] focus-within:shadow-[0_0_0_4px_var(--primary-soft)]"
