@@ -4,8 +4,9 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 export default function SyllabusPage() {
 
   return (
-      <ProtectedRoute>
+     <ProtectedRoute>
         <Syllabus />
       </ProtectedRoute>
+      
     );
   }

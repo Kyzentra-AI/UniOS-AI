@@ -496,7 +496,7 @@ export default function Syllabus() {
               </h2>
 
               <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                Upload your syllabus as a PDF.
+                Note: Upload your syllabus as a PDF with text only (not images). Any other versions are not supported.
               </p>
 
               <label
@@ -517,7 +517,7 @@ export default function Syllabus() {
                 </p>
 
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                  PDF files are supported
+                  Only PDF files are supported
                 </p>
 
                 <input
