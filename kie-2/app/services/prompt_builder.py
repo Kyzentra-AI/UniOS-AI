@@ -183,8 +183,11 @@ def build_lesson_prompt(
         )
     elif archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE:
         domain_specific_walkthrough_rule = (
-            "FOR GENERAL_HUMANITIES_SCIENCE: Provide critical textual analysis, scientific empirical methodology, or "
-            "historical/ethical framework analysis. DO NOT write software engineering code."
+            "FOR GENERAL_HUMANITIES_SCIENCE: "
+            "For Medical & Life Sciences (Zoology, Botany, Anatomy, Medicine): Provide anatomical/cellular structure breakdowns, physiological mechanics, clinical symptom analysis, or empirical biological observation. "
+            "For Physical Sciences (Physics, Chemistry): Provide step-by-step worked numerical problem walkthroughs with clean units in plain text (e.g. 20 m/s, -5 m/s²). "
+            "For Humanities & Law: Provide critical textual analysis, ethical frameworks, or legal precedent studies. "
+            "DO NOT write software engineering code or OOP classes."
         )
     else:
         domain_specific_walkthrough_rule = (
@@ -237,6 +240,7 @@ TOPIC & OBJECTIVE:
 
 CRITICAL CONSTRAINTS:
 - {code_rule}
+- SCIENTIFIC & MATHEMATICAL NOTATION: DO NOT use \\text{{...}} inside LaTeX math formulas. Write physical units in plain text outside the math delimiters (e.g., 'Initial velocity ($u$) = 20 m/s', 'Acceleration ($a$) = -5 m/s²', '$v = u + at$'). NEVER output '$u = 20 , \\text{{m/s}}$'. Use clean Unicode superscripts for units ('m/s²', 'm/s³', 'cm²').
 - REMOVE SECTION 6: Do NOT generate an inline Comprehension Check MCQ or quiz block. Assessment belongs exclusively to the assessment service.
 - MARKDOWN HYGIENE: Ban #### headers (use ## and ### only) and NEVER emit triple single quotes ('''python). Always use standard triple backticks (```).
 - Under NO circumstances output raw HTML, JSX, or React UI tags.

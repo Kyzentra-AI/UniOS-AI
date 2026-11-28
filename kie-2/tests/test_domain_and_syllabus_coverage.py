@@ -127,6 +127,90 @@ class TestDomainAndSyllabusCoverage(unittest.TestCase):
         for subj in subjects:
             self.assertIn(subj["name"].lower(), track_names)
 
+    def test_zoology_lesson_has_zero_software_leakage(self):
+        """Verify Medical/Zoology topic generates zero CS strings, zero code, and is classified as GENERAL_HUMANITIES_SCIENCE."""
+        payload = {
+            "topic": "Foundations of Life and Zoological Scope",
+            "objective": "Understand biological diversity, animal kingdom taxonomy, and ecological scope",
+            "academic_domain": "Life Sciences",
+            "learner_state": {
+                "learner_id": "u_med_01",
+                "stage": "bachelor",
+                "confidence": "medium",
+                "academic_program": "B.Sc Zoology",
+                "career_goal": "Zoological Researcher",
+            },
+            "lesson_id": "les-zoology-01",
+        }
+        resp = self.client.post("/api/v1/kie/lesson/generate", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        blocks = resp.json()["blocks"]
+        self.assertEqual(len(blocks), 5)
+
+        for b in blocks:
+            self.assertIsNone(b.get("code"), f"Code block found in Zoology topic: {b.get('title')}")
+            content = (b.get("content") or "").lower()
+            for bad_str in ["modular, maintainable", "type-safe", "separation of concerns", "software architecture", "persistence layers", "api contract"]:
+                self.assertNotIn(bad_str, content, f"Found leaked CS string '{bad_str}' in Zoology block '{b.get('title')}'")
+
+    def test_physics_kinematics_math_sanitization(self):
+        """Verify Physics Kinematics lesson does not contain raw unrendered \\text{} macros in math."""
+        from app.services.content_sanitizer import sanitize_math_and_latex
+
+        raw_math = """
+• $u = 20 , \\text{m/s}$
+• $a = -5 , \\text{m/s}^2$
+• $v = 0 , \\text{m/s}$ (because it stops)
+• $t = ?$
+• $s = ?$
+$$v = u + at$$
+"""
+        cleaned = sanitize_math_and_latex(raw_math)
+        self.assertNotIn(r"\text{", cleaned)
+        self.assertIn("20 m/s", cleaned)
+        self.assertIn("-5 m/s²", cleaned)
+        self.assertIn("v = 0 m/s", cleaned)
+        self.assertIn("t = ?", cleaned)
+        self.assertIn("$$v = u + at$$", cleaned)
+
+    def test_medical_context_questions_have_no_programming(self):
+        """Verify ContextService does not ask programming questions to medical/life sciences learners."""
+        from app.services.context_service import ContextService
+        cs = ContextService()
+        med_ctx = {
+            "learner": {"learner_id": "student_med_01"},
+            "education": {"degree_program": "B.Sc Zoology", "domain": "Life Sciences", "academic_status": "BACHELOR"},
+        }
+        questions = cs._generate_questions_deterministic(med_ctx)
+        self.assertEqual(len(questions), 4)
+        for q in questions:
+            self.assertNotIn("programming", q.text.lower())
+            for opt in q.options:
+                self.assertNotIn("python", opt.lower())
+                self.assertNotIn("javascript", opt.lower())
+
+    def test_medical_roadmap_has_no_software_engineer_goal(self):
+        """Verify roadmap generation for medical/zoology syllabus does not default to Software Engineer."""
+        subjects = [
+            {"name": "Animal Diversity & Systematics", "topics": ["Invertebrates", "Vertebrates", "Comparative Anatomy"]},
+            {"name": "Cell Biology & Genetics", "topics": ["Cell Structure", "Mendelian Genetics", "DNA Replication"]},
+        ]
+        req = AnalyzeContextRequest(
+            learner_id="00000000-0000-0000-0000-000000000002",
+            user_id="user-auth-uuid-456",
+            syllabus={"subjects": subjects},
+            education={"degree_program": "B.Sc Zoology", "domain": "Life Sciences"},
+            scope="BOTH",
+        )
+        res = self.roadmap_service._generate_multi_subject_deterministic(req, "BOTH")
+        self.assertIsNotNone(res.career)
+        career_goals_str = " ".join(res.career.goals).lower()
+        self.assertNotIn("software engineer", career_goals_str)
+        self.assertNotIn("production architecture", career_goals_str)
+        for m in res.missions:
+            desc = m.description.lower()
+            self.assertNotIn("production-grade implementation with comprehensive unit and boundary test", desc)
+
 
 if __name__ == "__main__":
     unittest.main()

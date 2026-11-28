@@ -88,8 +88,8 @@ class RoadmapService:
             f"- Every single mission MUST have 'subject': '{target_subject}'.\n"
             "- For EVERY mission, the 'description' MUST be comprehensive and structured into 4 distinct sections:\n"
             "  🎯 Objectives: <Clear learning goals and competencies>\n"
-            "  📚 Core Concepts: <Key theoretical foundations, invariants, and algorithms to master>\n"
-            "  💻 Deliverables: <Concrete implementation, project code, or benchmark analysis required>\n"
+            "  📚 Core Concepts: <Key theoretical foundations, principles, and domain methods to master>\n"
+            "  💻 Deliverables: <Domain-appropriate artifact: clinical/lab case notes for medical/sciences, corporate analysis/business plan for business, worked ledgers for accounting, runnable code ONLY for coding_cs>\n"
             "  ✅ Mastery Criteria: <Specific evaluation metrics to verify topic proficiency>\n"
             "DO NOT write brief 1-sentence descriptions. Maximize depth and actionable guidance.\n"
             "Output strictly valid JSON matching this schema:\n"
@@ -423,8 +423,8 @@ Every single mission MUST have subject: "{target_subject}".
             "- Total missions must scale with the number of subjects (typically 3 to 4 missions per subject; for 6-8 subjects, generate 20 to 32 total missions).\n"
             "- For EVERY mission, the 'description' MUST be comprehensive and structured into 4 distinct sections:\n"
             "  🎯 Objectives: <Clear learning goals and competencies>\n"
-            "  📚 Core Concepts: <Key theoretical foundations, invariants, and algorithms to master>\n"
-            "  💻 Deliverables: <Concrete implementation, project code, or benchmark analysis required>\n"
+            "  📚 Core Concepts: <Key theoretical foundations, principles, and domain methods to master>\n"
+            "  💻 Deliverables: <Domain-appropriate artifact: clinical/lab case notes for medical/sciences, corporate analysis/business plan for business, worked ledgers for accounting, runnable code ONLY for coding_cs>\n"
             "  ✅ Mastery Criteria: <Specific evaluation metrics to verify topic proficiency>\n"
             "DO NOT write brief 1-sentence descriptions. Maximize depth and actionable guidance.\n"
             "Output strictly valid JSON matching this schema:\n"
@@ -457,12 +457,31 @@ Every single mission MUST have subject: "{target_subject}".
         )
 
         subject_summary = [{"name": s.name, "topics": s.topics[:6]} for s in parsed_subjects]
+        first_subject = parsed_subjects[0].name if parsed_subjects else ""
+        deg_prog = education.get("degree_program") or (first_subject if first_subject else "Undergraduate Academics")
+        archetype = classify_domain(subject=first_subject, degree_program=deg_prog)
+        default_goal = (
+            "Medical / Healthcare Practitioner or Biological Researcher"
+            if archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE
+            else (
+                "Business Executive / Management Consultant"
+                if archetype == DomainArchetype.BUSINESS_MANAGEMENT
+                else (
+                    "Financial Analyst / Professional Accountant"
+                    if archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT
+                    else "Software Engineer / Technical Specialist"
+                )
+            )
+        )
+        primary_goal = learner.get("primary_goal") or default_goal
+
         user_prompt = f"""CONTEXT V2:
 Scope: {scope}
-Learner Goal: {learner.get('primary_goal', 'Software Engineer')}
+Learner Goal: {primary_goal}
 Skills: {learner.get('skills', [])}
 Target Skills: {learner.get('target_skills', [])}
-Academic: {education.get('degree_program', 'Computer Science')} ({education.get('academic_status', 'BACHELOR')})
+Academic: {deg_prog} ({education.get('academic_status', 'BACHELOR')})
+Domain: {archetype.value}
 Syllabus Subjects: {json.dumps(subject_summary)}
 Generate an interleaved multi-subject schedule ensuring balanced study load across all subjects.
 """
@@ -499,7 +518,22 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
         # Career
         career = None
         if scope in {"CAREER", "BOTH"}:
-            career = RoadmapCareer(goals=[primary_goal, "Production Architecture & Portfolio Capstone"])
+            first_subject = parsed_subjects[0].name if parsed_subjects else ""
+            archetype = classify_domain(subject=first_subject, degree_program=degree)
+            career_capstone = (
+                "Applied Clinical / Research Portfolio Capstone"
+                if archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE
+                else (
+                    "Business Plan & Strategic Portfolio Capstone"
+                    if archetype == DomainArchetype.BUSINESS_MANAGEMENT
+                    else (
+                        "Financial Model & Ledger Portfolio Capstone"
+                        if archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT
+                        else "Applied Domain Mastery & Comprehensive Portfolio Capstone"
+                    )
+                )
+            )
+            career = RoadmapCareer(goals=[primary_goal, career_capstone])
 
         goals = [
             f"Achieve topic mastery across all {len(parsed_subjects)} core syllabus subjects",
@@ -847,12 +881,12 @@ Generate an interleaved multi-subject schedule ensuring balanced study load acro
         if not parsed_subjects:
             parsed_subjects = [
                 RoadmapSubject(
-                    name="Data Structures & Algorithms",
-                    topics=["Arrays & Lists", "Trees & Graphs", "Dynamic Programming", "Sorting & Searching"],
+                    name="Foundations of Academic Curriculum",
+                    topics=["Core Principles & Theory", "Methodological Frameworks", "Applied Inquiry", "Review & Synthesis"],
                 ),
                 RoadmapSubject(
-                    name="System Design & Architecture",
-                    topics=["REST APIs", "Microservices", "Caching & Queues", "Relational Databases"],
+                    name="Applied Subject Analysis",
+                    topics=["Case Analysis & Problem Solving", "Analytical Workflows", "Empirical Evaluation", "Capstone Integration"],
                 ),
             ]
         return parsed_subjects

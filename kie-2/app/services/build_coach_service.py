@@ -692,6 +692,20 @@ class BuildCoachService:
                 prerequisite_topics=[],
             )
         elif archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE:
+            domain_lower = domain.lower()
+            if any(w in domain_lower for w in ["zoolog", "biolog", "medic", "health", "life", "anatom", "physiolog", "pharmac"]):
+                return ProjectRecommendation(
+                    recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
+                    title="Biological Taxonomy & Comparative Anatomical Study",
+                    type=ArtifactType.RESEARCH.value,
+                    difficulty=difficulty,
+                    academic_domain=domain,
+                    description="Conduct a structured empirical comparative study of organism structures, evolutionary adaptations, and physiological systems.",
+                    rationale="Grounds empirical scientific observation and taxonomy methodology in real-world specimen data.",
+                    skills=["Scientific Methodology", "Biological Analysis", "Comparative Anatomy"],
+                    estimated_effort_hours=12.0,
+                    prerequisite_topics=[],
+                )
             return ProjectRecommendation(
                 recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
                 title="Environmental Sustainability Impact Study",
@@ -704,17 +718,30 @@ class BuildCoachService:
                 estimated_effort_hours=12.0,
                 prerequisite_topics=[],
             )
-        else:
+        elif archetype == DomainArchetype.CODING_CS:
             return ProjectRecommendation(
                 recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
                 title="End-to-End Implementation Project",
                 type=ArtifactType.CODE_PROJECT.value,
                 difficulty=difficulty,
                 academic_domain=domain,
-                description="Design and implement a modular software solution demonstrating test coverage and clean architecture.",
-                rationale="Targeted at building core software development and architectural competency.",
-                skills=["Software Engineering", "System Design", "Testing"],
+                description="Design and implement a modular programming solution demonstrating test coverage and clean logic.",
+                rationale="Targeted at building core programmatic implementation competency.",
+                skills=["Programming", "Problem Solving", "Unit Testing"],
                 estimated_effort_hours=15.0,
+                prerequisite_topics=[],
+            )
+        else:
+            return ProjectRecommendation(
+                recommendation_id=f"rec_{uuid.uuid4().hex[:6]}",
+                title="Applied Academic Capstone Portfolio",
+                type=ArtifactType.RESEARCH.value,
+                difficulty=difficulty,
+                academic_domain=domain,
+                description="Synthesize course learnings into a structured multidisciplinary portfolio artifact.",
+                rationale="Consolidates semester learning into an evidence-based academic deliverable.",
+                skills=["Academic Research", "Analytical Synthesis", "Critical Evaluation"],
+                estimated_effort_hours=12.0,
                 prerequisite_topics=[],
             )
 

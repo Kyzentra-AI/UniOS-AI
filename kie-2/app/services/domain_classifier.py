@@ -195,9 +195,14 @@ _CODING_CS_KEYWORDS = [
 ]
 
 _HUMANITIES_SCIENCE_KEYWORDS = [
+    # Environmental & Earth Sciences
     "environmental studies",
     "environmental science",
     "climate change",
+    "earth science",
+    "geology",
+    "astronomy",
+    # Humanities, Social Sciences & Law
     "history",
     "political science",
     "sociology",
@@ -205,22 +210,117 @@ _HUMANITIES_SCIENCE_KEYWORDS = [
     "philosophy",
     "english",
     "literature",
+    "linguistics",
+    "anthropology",
+    "geography",
+    "journalism",
+    "mass communication",
+    "public administration",
     "law",
     "legal",
     "constitution",
     "jurisprudence",
-    "physics",
-    "chemistry",
-    "biology",
-    "biotechnology",
     "llb",
     "llm",
     "ba",
     "ma",
+    # Physical Sciences
+    "physics",
+    "kinematics",
+    "mechanics",
+    "thermodynamics",
+    "electromagnetism",
+    "optics",
+    "quantum mechanics",
+    "chemistry",
+    "organic chemistry",
+    "inorganic chemistry",
+    "physical chemistry",
+    # Life Sciences, Zoology & Botany
+    "zoology",
+    "zoological",
+    "foundations of life",
+    "animal diversity",
+    "plant diversity",
+    "botany",
+    "botanical",
+    "life science",
+    "life sciences",
+    "cell biology",
+    "molecular biology",
+    "ecology",
+    "evolution",
+    "genetics",
+    "invertebrate",
+    "invertebrates",
+    "vertebrate",
+    "vertebrates",
+    "chordate",
+    "chordates",
+    "non-chordate",
+    "non-chordates",
+    "developmental biology",
+    "entomology",
+    "taxonomy",
+    "morphology",
+    "histology",
+    "embryology",
+    "parasitology",
+    "diversity and classification",
+    "animal",
+    "plant",
+    "biology",
+    "biotechnology",
     "b.sc",
     "bsc",
     "m.sc",
     "msc",
+    # Medical, Healthcare & Pharmacy
+    "medical",
+    "medicine",
+    "mbbs",
+    "bds",
+    "bams",
+    "bhms",
+    "nursing",
+    "pharmacy",
+    "b.pharm",
+    "bpharm",
+    "m.pharm",
+    "mpharm",
+    "pharmacology",
+    "pharmacognosy",
+    "pharmaceutics",
+    "pathology",
+    "human anatomy",
+    "anatomy",
+    "human physiology",
+    "physiology",
+    "microbiology",
+    "biochemistry",
+    "clinical",
+    "clinical medicine",
+    "health",
+    "healthcare",
+    "health sciences",
+    "pediatrics",
+    "surgery",
+    "obstetrics",
+    "gynecology",
+    "forensic medicine",
+    "dermatology",
+    "radiology",
+    "cardiology",
+    "neurology",
+    "epidemiology",
+    "public health",
+    "immunology",
+    "virology",
+    "hematology",
+    "oncology",
+    "physiotherapy",
+    "bpt",
+    "dental",
 ]
 
 
@@ -277,11 +377,22 @@ def classify_domain(
     deg_lower = (degree_program or "").lower()
     if any(d in deg_lower for d in ["bba", "mba", "management"]):
         return DomainArchetype.BUSINESS_MANAGEMENT
-    if any(d in deg_lower for d in ["b.com", "bcom", "m.com", "mcom", "finance"]):
+    if any(d in deg_lower for d in ["b.com", "bcom", "m.com", "mcom", "finance", "accounting"]):
         return DomainArchetype.ACCOUNTING_FINANCE_QUANT
-    if any(d in deg_lower for d in ["b.tech", "btech", "bca", "mca", "computer"]):
+    if any(d in deg_lower for d in ["b.tech", "btech", "bca", "mca", "computer", "cse", "it"]):
         return DomainArchetype.CODING_CS
-    if any(d in deg_lower for d in ["ba", "ma", "law", "llb", "bsc", "msc"]):
+    if any(d in deg_lower for d in [
+        "ba", "ma", "law", "llb", "llm", "bsc", "msc", "b.sc", "m.sc",
+        "mbbs", "bds", "bams", "bhms", "nursing", "pharmacy", "b.pharm", "m.pharm", "bpt",
+        "medical", "medicine", "zoology", "botany", "biology", "life science"
+    ]):
+        return DomainArchetype.GENERAL_HUMANITIES_SCIENCE
+
+    # Contextual life / health / science safety check before generic fallback
+    if any(w in text_corpus for w in [
+        "life", "health", "patient", "clinical", "organism", "cell", "living",
+        "animal", "plant", "species", "specimen", "organ", "disease", "diagnosis"
+    ]):
         return DomainArchetype.GENERAL_HUMANITIES_SCIENCE
 
     # Default general archetype

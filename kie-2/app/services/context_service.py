@@ -10,6 +10,7 @@ from app.schemas.context_v2 import (
     WebhookResolvedPayload,
 )
 from app.services.llm_provider import extract_json_payload, get_llm_provider
+from app.services.domain_classifier import classify_domain, DomainArchetype
 
 logger = logging.getLogger(__name__)
 
@@ -42,27 +43,49 @@ class ContextService:
         learner = context_data.get("learner") or {}
         education = context_data.get("education") or {}
 
+        domain = education.get("domain") or education.get("academic_domain") or "General Academics"
+        degree = education.get("degree_program") or "Undergraduate Degree"
+        archetype = classify_domain(subject=degree, degree_program=degree, academic_domain=domain)
+
+        default_goal = (
+            "Medical / Healthcare Practitioner or Biological Researcher"
+            if archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE
+            else (
+                "Business Executive / Management Consultant"
+                if archetype == DomainArchetype.BUSINESS_MANAGEMENT
+                else (
+                    "Financial Analyst / Professional Accountant"
+                    if archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT
+                    else "Technical Mastery & Software Engineering"
+                )
+            )
+        )
+
         system_instruction = (
             "You are the UniOS Learner Context Engine. "
-            "Analyze the learner's profile and generate 2 to 4 clarifying multiple-choice questions "
-            "to assess their primary programming skills, experience tier, and learning objectives. "
+            "Analyze the learner's profile, academic degree, and discipline. "
+            "Generate 2 to 4 domain-adaptive clarifying multiple-choice questions "
+            "to assess their primary subject focus, practical/experimental experience tier, and learning objectives. "
+            "CRITICAL: Tailor questions strictly to their academic field (e.g., biological/clinical topics for medical/sciences, "
+            "managerial/analytical topics for business, financial tools for accounting). "
+            "NEVER ask programming questions unless the learner is explicitly in Computer Science or Software Engineering. "
             "Output strictly valid JSON matching this schema:\n"
             "[\n"
             "  {\n"
             '    "question_id": "q_001",\n'
-            '    "text": "What are your primary programming languages?",\n'
-            '    "type": "multi_select",\n'
-            '    "options": ["Python", "Java", "Go", "C++", "JavaScript", "Rust"]\n'
+            '    "text": "<domain-appropriate question>",\n'
+            '    "type": "multi_select" | "single_select",\n'
+            '    "options": ["<opt 1>", "<opt 2>", "<opt 3>", "<opt 4>"]\n'
             "  }\n"
             "]"
         )
 
         user_prompt = f"""LEARNER PROFILE:
-Goal: {learner.get('primary_goal', 'Software Engineer')}
+Goal: {learner.get('primary_goal') or default_goal}
 Current Skills: {learner.get('skills', [])}
 Target Skills: {learner.get('target_skills', [])}
-Academic: {education.get('degree_program', 'Computer Science')} ({education.get('academic_status', 'BACHELOR')})
-Domain: {education.get('domain', 'Technology')}
+Academic: {degree} ({education.get('academic_status', 'BACHELOR')})
+Domain: {domain} (Archetype: {archetype.value})
 """
         raw = provider._safe_chat_completion(
             messages=[
@@ -82,61 +105,228 @@ Domain: {education.get('domain', 'Technology')}
 
     def _generate_questions_deterministic(self, context_data: Dict[str, Any]) -> List[ContextQuestion]:
         learner = context_data.get("learner") or {}
+        education = context_data.get("education") or {}
         skills = learner.get("skills") or learner.get("target_skills") or []
         experience = learner.get("experience")
 
+        domain = education.get("domain") or education.get("academic_domain") or "General Academics"
+        degree = education.get("degree_program") or "Undergraduate Degree"
+        archetype = classify_domain(subject=degree, degree_program=degree, academic_domain=domain)
+
         questions: List[ContextQuestion] = []
 
-        # Q1: Primary Languages (multi_select)
-        if not skills or len(skills) < 2:
+        if archetype == DomainArchetype.GENERAL_HUMANITIES_SCIENCE:
+            # Q1: Medical, Life Sciences, or Scientific Focus Areas
             questions.append(
                 ContextQuestion(
                     question_id="q_001",
-                    text="Which programming languages or core technical tools do you primarily work with?",
+                    text="Which core scientific, biological, or clinical disciplines are you primarily focusing on?",
                     type="multi_select",
-                    options=["Python", "JavaScript", "TypeScript", "Java", "Go", "C++", "Rust", "SQL"],
+                    options=[
+                        "Anatomical & Physiological Systems",
+                        "Cellular & Molecular Biology",
+                        "Zoological Scope & Animal Diversity",
+                        "Clinical Diagnosis & Patient Care",
+                        "Pharmacology, Therapeutics & Pathology",
+                        "Physical Sciences & Laboratory Research",
+                    ],
                 )
             )
-
-        # Q2: Experience level (single_select)
-        if not experience or str(experience).strip().lower() in ["", "none", "null"]:
+            # Q2: Laboratory, Clinical, or Research Tier
             questions.append(
                 ContextQuestion(
                     question_id="q_002",
-                    text="How many years of programming experience do you have?",
+                    text="What is your current level of practical laboratory, clinical, or field research experience?",
                     type="single_select",
-                    options=["< 1 year (Beginner)", "1-2 years (Developing)", "3-5 years (Intermediate)", "5+ years (Advanced)"],
+                    options=[
+                        "< 1 year (Foundational/Coursework)",
+                        "1-2 years (Developing Lab/Clinical Experience)",
+                        "3-5 years (Intermediate Field/Hospital Practice)",
+                        "5+ years (Advanced Clinical/Research Fellow)",
+                    ],
+                )
+            )
+            # Q3: Career Goal
+            questions.append(
+                ContextQuestion(
+                    question_id="q_003",
+                    text="What is your primary learning and career objective for this academic curriculum?",
+                    type="single_select",
+                    options=[
+                        "Medical Practice, Clinical Healthcare & Hospital Care",
+                        "Scientific Research, Laboratory Investigation & Publishing",
+                        "University Examination Excellence & Full Syllabus Mastery",
+                        "Public Health, Epidemiology & Healthcare Policy",
+                    ],
+                )
+            )
+            # Q4: Learning Style
+            questions.append(
+                ContextQuestion(
+                    question_id="q_004",
+                    text="What is your preferred learning cadence and pedagogical format?",
+                    type="single_select",
+                    options=[
+                        "Visual anatomical and cellular models with structured takeaways",
+                        "Standard pacing with real-world clinical and empirical case studies",
+                        "Deep foundational derivations with academic research literature",
+                    ],
                 )
             )
 
-        # Q3: Target Career Objective (single_select)
-        questions.append(
-            ContextQuestion(
-                question_id="q_003",
-                text="What is your primary learning and career goal for this roadmap?",
-                type="single_select",
-                options=[
-                    "Crack technical interviews at top engineering companies",
-                    "Build hands-on production-ready portfolio projects",
-                    "Achieve high academic grades and syllabus mastery",
-                    "Transition into AI / Machine Learning and Data Engineering",
-                ],
+        elif archetype == DomainArchetype.BUSINESS_MANAGEMENT:
+            questions.append(
+                ContextQuestion(
+                    question_id="q_001",
+                    text="Which primary business and managerial functional areas are you targeting?",
+                    type="multi_select",
+                    options=[
+                        "Marketing & Brand Management",
+                        "Human Resource & Organizational Behavior",
+                        "Operations & Supply Chain Management",
+                        "Strategic Management & Business Environment",
+                    ],
+                )
             )
-        )
+            questions.append(
+                ContextQuestion(
+                    question_id="q_002",
+                    text="What is your practical experience level in business operations or project management?",
+                    type="single_select",
+                    options=[
+                        "< 1 year (Entry-Level)",
+                        "1-2 years (Associate / Analyst)",
+                        "3-5 years (Mid-Management)",
+                        "5+ years (Senior Executive)",
+                    ],
+                )
+            )
+            questions.append(
+                ContextQuestion(
+                    question_id="q_003",
+                    text="What is your primary career goal for this roadmap?",
+                    type="single_select",
+                    options=[
+                        "Corporate Management & Executive Leadership",
+                        "Management Consulting & Strategic Advisory",
+                        "Entrepreneurship & Small Venture Launch",
+                        "University Examination Distinction & Academic Mastery",
+                    ],
+                )
+            )
+            questions.append(
+                ContextQuestion(
+                    question_id="q_004",
+                    text="What is your preferred learning format?",
+                    type="single_select",
+                    options=[
+                        "Corporate case study walkthroughs (e.g. Tata, Zomato, Apple)",
+                        "Structured executive frameworks and visual flowcharts",
+                        "Interactive managerial problem-solving scenarios",
+                    ],
+                )
+            )
 
-        # Q4: Preferred Learning Pace (single_select)
-        questions.append(
-            ContextQuestion(
-                question_id="q_004",
-                text="What is your preferred learning pace and feedback cadence?",
-                type="single_select",
-                options=[
-                    "Fast-paced with frequent coding challenges",
-                    "Standard balanced pacing with worked examples",
-                    "Deep foundational pacing with visual concept walkthroughs",
-                ],
+        elif archetype == DomainArchetype.ACCOUNTING_FINANCE_QUANT:
+            questions.append(
+                ContextQuestion(
+                    question_id="q_001",
+                    text="Which accounting, financial, or quantitative areas are you primarily mastering?",
+                    type="multi_select",
+                    options=[
+                        "Financial Accounting & Journal Entries",
+                        "Cost & Management Accounting",
+                        "Corporate Finance & Capital Budgeting",
+                        "Business Statistics & Quantitative Analysis",
+                    ],
+                )
             )
-        )
+            questions.append(
+                ContextQuestion(
+                    question_id="q_002",
+                    text="What is your numerical and financial problem-solving experience level?",
+                    type="single_select",
+                    options=[
+                        "< 1 year (Foundational)",
+                        "1-2 years (Developing Ledger/Tax Skills)",
+                        "3-5 years (Intermediate Financial Analyst)",
+                        "5+ years (Advanced / Audit Readiness)",
+                    ],
+                )
+            )
+            questions.append(
+                ContextQuestion(
+                    question_id="q_003",
+                    text="What is your primary career goal for this roadmap?",
+                    type="single_select",
+                    options=[
+                        "Chartered Accounting (CA) / CPA Certification",
+                        "Corporate Financial Planning & Analysis (FP&A)",
+                        "Investment Banking & Financial Modeling",
+                        "University Examination Distinction & Ledger Mastery",
+                    ],
+                )
+            )
+            questions.append(
+                ContextQuestion(
+                    question_id="q_004",
+                    text="What is your preferred learning cadence?",
+                    type="single_select",
+                    options=[
+                        "Step-by-step worked numerical ledgers and journal entries",
+                        "Spreadsheet financial models and balance sheet templates",
+                        "Formula derivations with exam problem walkthroughs",
+                    ],
+                )
+            )
+
+        else: # CODING_CS / APPLIED_OFFICE_IT
+            if not skills or len(skills) < 2:
+                questions.append(
+                    ContextQuestion(
+                        question_id="q_001",
+                        text="Which programming languages or technical tools do you primarily work with?",
+                        type="multi_select",
+                        options=["Python", "JavaScript", "TypeScript", "Java", "Go", "C++", "Rust", "SQL"],
+                    )
+                )
+
+            if not experience or str(experience).strip().lower() in ["", "none", "null"]:
+                questions.append(
+                    ContextQuestion(
+                        question_id="q_002",
+                        text="How many years of technical or programming experience do you have?",
+                        type="single_select",
+                        options=["< 1 year (Beginner)", "1-2 years (Developing)", "3-5 years (Intermediate)", "5+ years (Advanced)"],
+                    )
+                )
+
+            questions.append(
+                ContextQuestion(
+                    question_id="q_003",
+                    text="What is your primary learning and career goal for this roadmap?",
+                    type="single_select",
+                    options=[
+                        "Crack technical interviews at top engineering companies",
+                        "Build hands-on production-ready portfolio projects",
+                        "Achieve high academic grades and syllabus mastery",
+                        "Transition into AI / Machine Learning and Data Engineering",
+                    ],
+                )
+            )
+
+            questions.append(
+                ContextQuestion(
+                    question_id="q_004",
+                    text="What is your preferred learning pace and feedback cadence?",
+                    type="single_select",
+                    options=[
+                        "Fast-paced with frequent coding challenges",
+                        "Standard balanced pacing with worked examples",
+                        "Deep foundational pacing with visual concept walkthroughs",
+                    ],
+                )
+            )
 
         return questions[:4]
 

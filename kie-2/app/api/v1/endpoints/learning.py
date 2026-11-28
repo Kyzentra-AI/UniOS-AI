@@ -29,6 +29,7 @@ from app.services import (
     LLMParseError,
 )
 from app.services.domain_classifier import classify_domain, DomainArchetype
+from app.services.content_sanitizer import sanitize_math_and_latex
 
 router = APIRouter()
 
@@ -262,12 +263,15 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
 
         # 2. Structured lesson generation (A2-S4-02)
         lesson_prompt = build_lesson_prompt(context, pedagogy_decision)
+        learner_prog = context.learner_state.academic_program if context.learner_state else None
         try:
             lesson = provider.generate_lesson(
                 prompt=lesson_prompt,
                 context_id=context.context_id,
                 topic=context.topic,
                 pedagogy_decision=pedagogy_decision,
+                academic_domain=context.academic_domain,
+                degree_program=learner_prog,
             )
         except Exception as gen_err:
             print(f"    - Notice: Live LLM lesson generation encountered error ({gen_err}); applying resilient fallback.")
@@ -278,6 +282,8 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
                 context_id=context.context_id,
                 topic=context.topic,
                 pedagogy_decision=pedagogy_decision,
+                academic_domain=context.academic_domain,
+                degree_program=learner_prog,
             )
         # Ensure request_id is propagated
         lesson.request_id = req_id
@@ -338,6 +344,7 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
 
                 # Content sanitization and code inclusion for rich frontend rendering
                 content_val = str(blk.content) if blk.content else ""
+                content_val = sanitize_math_and_latex(content_val)
                 if "Renderer Type: Diagram" in content_val and "Draw a rectangle" in content_val:
                     # Replace drawing meta-instructions with valid Mermaid chart
                     content_val = (
@@ -385,11 +392,14 @@ def plan_and_generate_lesson(context: NormalizedLearningContext) -> GeneratedLes
         fallback_provider = MockLLMProvider()
         fallback_pedagogy = pedagogy_engine.determine_pedagogy(context)
         lesson_prompt = build_lesson_prompt(context, fallback_pedagogy)
+        learner_prog = context.learner_state.academic_program if context.learner_state else None
         lesson = fallback_provider.generate_lesson(
             prompt=lesson_prompt,
             context_id=context.lesson_id or context.context_id,
             topic=context.topic,
             pedagogy_decision=fallback_pedagogy,
+            academic_domain=context.academic_domain,
+            degree_program=learner_prog,
         )
         lesson.id = context.lesson_id or lesson.id or context.context_id
         lesson.title = f"Mastering {context.topic}"

@@ -301,6 +301,8 @@ class BaseLLMProvider(ABC):
         context_id: str,
         topic: str,
         pedagogy_decision: Optional[PedagogyDecision] = None,
+        academic_domain: Optional[str] = None,
+        degree_program: Optional[str] = None,
     ) -> GeneratedLesson:
         """Generate structured lesson blocks from a prompt."""
         pass
@@ -440,20 +442,33 @@ class MockLLMProvider(BaseLLMProvider):
         context_id: str,
         topic: str,
         pedagogy_decision: Optional[PedagogyDecision] = None,
+        academic_domain: Optional[str] = None,
+        degree_program: Optional[str] = None,
     ) -> GeneratedLesson:
         """Deterministic 5-section offline domain-adaptive lesson generator (100% reliable, zero network)."""
         if pedagogy_decision is None:
             pedagogy_decision = self.generate_pedagogy_decision(prompt)
 
+        # Do NOT pass prompt as academic_domain; prompt contains formatting keywords that corrupt domain classification
         archetype = classify_domain(
             subject=topic,
-            degree_program=None,
+            degree_program=degree_program,
             topic=topic,
-            academic_domain=prompt,
+            academic_domain=academic_domain,
         )
 
         topic_clean = (topic or "Foundational Concepts").strip()
         topic_lower = topic_clean.lower()
+
+        # Strict Cross-Domain Safety Gate: Never permit CODING_CS for biological, medical, natural science, or humanities topics
+        _NON_CS_INDICATORS = [
+            "life", "zoolog", "botan", "biolog", "medic", "health", "anatom", "physiolog",
+            "patholog", "pharmac", "pediatric", "surg", "cell", "organ", "species", "specimen",
+            "animal", "plant", "kinematic", "chemistr", "physic", "history", "philosophy",
+            "sociolog", "literature", "jurisprudence", "law", "governance"
+        ]
+        if archetype == DomainArchetype.CODING_CS and any(k in topic_lower for k in _NON_CS_INDICATORS):
+            archetype = DomainArchetype.GENERAL_HUMANITIES_SCIENCE
         from app.schemas.lesson import AssessmentIntent, NextLearningAction
 
         # Domain-specific block assembly
@@ -677,60 +692,58 @@ class MockLLMProvider(BaseLLMProvider):
                     f"3. **Closure Properties**: Regular languages are closed under union, intersection, complementation, and concatenation."
                 )
             else:
-                obj_title = f"Learning Outcomes & Software Architecture: {topic_clean}"
+                obj_title = f"Learning Outcomes & Practical Competencies: {topic_clean}"
                 obj_content = (
                     f"## 🎯 Learning Outcomes & Competencies\n"
-                    f"- Design modular, maintainable, and type-safe systems implementing **{topic_clean}**.\n"
-                    f"- Understand state persistence, boundary validation, and separation of concerns.\n"
-                    f"- Implement robust error handling and automated unit tests.\n\n"
+                    f"- Master the fundamental syntax, execution mechanics, and principles of **{topic_clean}**.\n"
+                    f"- Write clean, readable, and functional solutions with proper error handling.\n"
+                    f"- Trace program execution state step-by-step and verify execution results.\n\n"
                     f"### 📚 Prerequisites & Readiness\n"
-                    f"- Core programming foundations, object-oriented concepts, and API contract design."
+                    f"- Basic variables, conditional logic, and procedural control flow."
                 )
-                expl_title = f"Conceptual Architecture & Design Patterns: {topic_clean}"
+                expl_title = f"Core Concepts & Execution Mechanics: {topic_clean}"
                 expl_content = (
-                    f"## 🔬 Structural Invariants & System Architecture\n"
-                    f"Modular software engineering requires isolating business logic from input/output gateways and persistence layers.\n\n"
+                    f"## 🔬 Foundations & Core Principles\n"
+                    f"Understanding **{topic_clean}** requires examining runtime execution and state transitions.\n\n"
                     f"> [!NOTE]\n"
-                    f"> **Separation of Concerns**: Each component owns exactly one responsibility, minimizing cognitive load and coupling."
+                    f"> **Key Principle**: Clear structure and predictable state transitions minimize runtime defects and simplify debugging."
                 )
-                code_title = f"Verified Production Implementation: {topic_clean}"
+                code_title = f"Hands-On Implementation Walkthrough: {topic_clean}"
                 code_lang = "python"
                 code_snippet = (
-                    f"# Production implementation for {topic_clean}\n"
-                    f"from typing import List, Optional\n\n"
-                    f"class {topic_clean.replace(' ', '').replace('-', '')}Manager:\n"
-                    f'    """Encapsulates business operations for {topic_clean}."""\n'
-                    f"    def __init__(self):\n"
-                    f"        self._records = []\n\n"
-                    f"    def process_item(self, item_name: str) -> bool:\n"
-                    f"        if not item_name or not item_name.strip():\n"
-                    f"            raise ValueError('Item name cannot be empty')\n"
-                    f"        self._records.append(item_name.strip())\n"
-                    f"        return True\n\n"
-                    f"manager = {topic_clean.replace(' ', '').replace('-', '')}Manager()\n"
-                    f"assert manager.process_item('Core Component') is True"
+                    f"# Practical implementation for {topic_clean}\n\n"
+                    f"def solve_{topic_clean.lower().replace(' ', '_').replace('-', '_')}():\n"
+                    f'    """Demonstrates execution logic for {topic_clean}."""\n'
+                    f'    items = ["Initial State", "Processing", "Completed"]\n'
+                    f"    result = []\n"
+                    f"    for item in items:\n"
+                    f"        result.append(f'Handled: {{item}}')\n"
+                    f"    return result\n\n"
+                    f"output = solve_{topic_clean.lower().replace(' ', '_').replace('-', '_')}()\n"
+                    f"assert len(output) == 3\n"
+                    f"print('Successfully executed:', output)"
                 )
                 code_content = (
                     f"## 🛠️ Step-by-Step Implementation\n\n"
                     f"```{code_lang}\n{code_snippet}\n```"
                 )
-                vis_title = f"System Topology & Architecture Map"
+                vis_title = f"Execution Flow & Logic Map: {topic_clean}"
                 vis_content = (
-                    f"## 📊 Architecture & Data Flow\n\n"
+                    f"## 📊 Execution Flow\n\n"
                     f"```mermaid\n"
                     f"flowchart TD\n"
-                    f'    A["Client Request"] --> B["Validation Gateway"]\n'
-                    f'    B --> C["Core Logic: {topic_clean}"]\n'
-                    f'    C --> D["Persistence Layer"]\n'
+                    f'    A["Input Data"] --> B["Processing Logic: {topic_clean}"]\n'
+                    f'    B --> C["Validation & Transformation"]\n'
+                    f'    C --> D["Return Output"]\n'
                     f"```"
                 )
-                task_title = f"Hands-On Challenge & Exam Preparation: {topic_clean}"
+                task_title = f"Hands-On Challenge & Exam Takeaways: {topic_clean}"
                 task_content = (
                     f"## 🎯 Applied Hands-On Challenge\n"
-                    f"Refactor the implementation above to support concurrent updates with thread safety.\n\n"
+                    f"Extend the implementation above to handle boundary cases such as empty inputs or negative values.\n\n"
                     f"### 💡 Key Exam Takeaways\n"
-                    f"- Always enforce boundary validations before mutating internal state.\n"
-                    f"- Separate pure logic from side-effects."
+                    f"- Always validate inputs before performing state transformations.\n"
+                    f"- Test code thoroughly against nominal, boundary, and edge conditions."
                 )
 
             blocks = [
@@ -2037,6 +2050,8 @@ class GroqLLMProvider(BaseLLMProvider):
         context_id: str,
         topic: str,
         pedagogy_decision: Optional[PedagogyDecision] = None,
+        academic_domain: Optional[str] = None,
+        degree_program: Optional[str] = None,
     ) -> GeneratedLesson:
         """Calls Groq LLM to generate 5-section domain-adaptive lesson; falls back gracefully to MockLLMProvider on any error/429."""
         if pedagogy_decision is None:
@@ -2045,12 +2060,26 @@ class GroqLLMProvider(BaseLLMProvider):
             except Exception:
                 pedagogy_decision = MockLLMProvider().generate_pedagogy_decision(prompt)
 
+        # Do NOT pass prompt as academic_domain; prompt contains formatting keywords that corrupt domain classification
         archetype = classify_domain(
             subject=topic,
-            degree_program=None,
+            degree_program=degree_program,
             topic=topic,
-            academic_domain=prompt,
+            academic_domain=academic_domain,
         )
+
+        topic_clean = (topic or "Foundational Concepts").strip()
+        topic_lower = topic_clean.lower()
+
+        # Strict Cross-Domain Safety Gate: Never permit CODING_CS for biological, medical, natural science, or humanities topics
+        _NON_CS_INDICATORS = [
+            "life", "zoolog", "botan", "biolog", "medic", "health", "anatom", "physiolog",
+            "patholog", "pharmac", "pediatric", "surg", "cell", "organ", "species", "specimen",
+            "animal", "plant", "kinematic", "chemistr", "physic", "history", "philosophy",
+            "sociolog", "literature", "jurisprudence", "law", "governance"
+        ]
+        if archetype == DomainArchetype.CODING_CS and any(k in topic_lower for k in _NON_CS_INDICATORS):
+            archetype = DomainArchetype.GENERAL_HUMANITIES_SCIENCE
 
         system_instruction = (
             "You are the senior pedagogical content architect for UniOS.\n"
@@ -2065,7 +2094,14 @@ class GroqLLMProvider(BaseLLMProvider):
             "- If domain is NOT CODING_CS: You are STRICTLY FORBIDDEN from including programming code blocks (e.g. ```python, ```sql, ```java), "
             "database schemas (CREATE TABLE), or system architecture topology diagrams. Instead, use real-world corporate case studies (Tata, Swiggy, Apple) for business/management, "
             "step-by-step worked numerical journal/ledger problems for accounting/finance, and spreadsheet formula tutorials for applied office IT.\n"
+            "- If domain is GENERAL_HUMANITIES_SCIENCE:\n"
+            "  * For Medical / Life Sciences (Zoology, Botany, MBBS, Anatomy): Focus on anatomical structures, physiological mechanisms, cellular pathways, evolutionary adaptations, clinical symptoms, and empirical scientific evidence. NEVER write code.\n"
+            "  * For Physical Sciences (Physics, Chemistry): Focus on core physical principles, laws, step-by-step derivations, and worked numerical problems.\n"
             "- Only if domain is CODING_CS: Provide clean, verified runnable code walkthroughs with variable state trace tables.\n\n"
+            "CRITICAL SCIENTIFIC & MATHEMATICAL NOTATION RULES:\n"
+            "- DO NOT use \\text{...} inside LaTeX math formulas.\n"
+            "- Keep physical units in plain text outside the math delimiters (e.g. write 'Initial velocity ($u$) = 20 m/s', 'Acceleration ($a$) = -5 m/s²', '$v = u + at$'). NEVER output '$u = 20 , \\text{m/s}$' or '$a = -5 , \\text{m/s}^2$'.\n"
+            "- Use clean Unicode exponents for units: 'm/s²', 'm/s³', 'cm²', 'kg' rather than raw backslashed LaTeX macros.\n\n"
             "Generate EXACTLY 5 high-depth learning blocks in this sequence:\n"
             "1. type: 'objective' (Learning Outcomes & Context)\n"
             "   - title: Clear, motivating learning outcome title.\n"
@@ -2108,7 +2144,7 @@ class GroqLLMProvider(BaseLLMProvider):
                     {"role": "system", "content": system_instruction},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=3200,
+                max_tokens=3800,
                 temperature=settings.LLM_TEMPERATURE,
             )
             json_text = extract_json_payload(raw_content)
@@ -2180,6 +2216,8 @@ class GroqLLMProvider(BaseLLMProvider):
                 context_id=context_id,
                 topic=topic,
                 pedagogy_decision=pedagogy_decision,
+                academic_domain=academic_domain,
+                degree_program=degree_program,
             )
 
 

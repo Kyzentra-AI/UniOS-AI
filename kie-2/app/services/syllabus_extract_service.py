@@ -179,6 +179,34 @@ class SyllabusExtractService:
                 )
             )
 
+        if any(w in text_lower for w in ["zoology", "animal diversity", "foundations of life", "invertebrate", "vertebrate", "cell biology", "ecology", "evolution", "botany", "plant diversity"]):
+            matched.append(
+                SyllabusSubject(
+                    name="Animal Diversity & Life Sciences",
+                    topics=[
+                        "Foundations of Life and Zoological Scope",
+                        "Invertebrate Organization & Functional Morphology",
+                        "Vertebrate Comparative Anatomy & Organ Systems",
+                        "Cell Biology, Genetics & Molecular Mechanisms",
+                        "Ecology, Animal Behavior & Evolutionary Dynamics",
+                    ],
+                )
+            )
+
+        if any(w in text_lower for w in ["medical", "medicine", "mbbs", "anatomy", "physiology", "pathology", "pharmacology", "microbiology", "nursing", "clinical"]):
+            matched.append(
+                SyllabusSubject(
+                    name="Foundations of Medicine & Clinical Sciences",
+                    topics=[
+                        "Human Anatomy & Structural Systems",
+                        "Human Physiology & Systemic Homeostasis",
+                        "General Pathology & Infectious Microbiology",
+                        "Pharmacological Principles & Mechanism of Action",
+                        "Clinical Diagnostics, Medical Ethics & Patient Care",
+                    ],
+                )
+            )
+
         if any(w in text_lower for w in ["constitutional law", "contract law", "jurisprudence", "tort", "criminal law", "legal studies"]):
             matched.append(
                 SyllabusSubject(
