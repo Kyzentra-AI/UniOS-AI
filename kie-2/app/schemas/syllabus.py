@@ -7,7 +7,12 @@ class SyllabusExtractRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     syllabus_id: str = Field(..., min_length=1, description="Unique syllabus document identifier")
-    text: str = Field(..., min_length=1, description="Raw extracted plain text from PDF")
+    text: Optional[str] = Field(default=None, description="Raw extracted plain text from PDF (if text extraction succeeded in Backend)")
+    file_base64: Optional[str] = Field(default=None, description="Optional Base64-encoded PDF or image bytes if scanned/image-based")
+    pdf_base64: Optional[str] = Field(default=None, description="Alias for file_base64")
+    file_url: Optional[str] = Field(default=None, description="Optional public/pre-signed download URL for PDF or image")
+    pdf_url: Optional[str] = Field(default=None, description="Alias for file_url")
+    filename: Optional[str] = Field(default=None, description="Optional original filename (e.g. syllabus.pdf)")
 
 
 class SyllabusSubject(BaseModel):

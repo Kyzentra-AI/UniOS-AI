@@ -74,7 +74,15 @@ from app.services.mentor_prompt_builder import (
 )
 
 
+from app.services.pdf_extract_service import (
+    PDFExtractService,
+    get_pdf_extract_service,
+)
+
+
 __all__ = [
+    "PDFExtractService",
+    "get_pdf_extract_service",
     "BaseLLMProvider",
     "MockLLMProvider",
     "GroqLLMProvider",

@@ -38,6 +38,20 @@ class SyllabusExtractService:
         # 2. Deterministic rule-based extraction
         return self._extract_deterministic(syllabus_id, clean_text)
 
+    def extract_from_bytes(
+        self,
+        syllabus_id: str,
+        file_bytes: bytes,
+        filename: Optional[str] = None,
+        content_type: Optional[str] = None,
+    ) -> SyllabusExtractResponse:
+        """Extracts text from PDF/image bytes via pypdf/OCR and parses curriculum subjects."""
+        from app.services.pdf_extract_service import get_pdf_extract_service
+        pdf_service = get_pdf_extract_service()
+        extracted_text = pdf_service.extract_from_bytes(file_bytes, filename=filename, content_type=content_type)
+        logger.info(f"[SyllabusExtractService] Extracted {len(extracted_text)} chars from binary payload for '{syllabus_id}'")
+        return self.extract(syllabus_id, extracted_text)
+
     def _extract_via_llm(self, syllabus_id: str, text: str) -> Optional[SyllabusExtractResponse]:
         provider = get_llm_provider()
         # Sample intelligently up to 12,000 characters (head + tail) to avoid missing late units
