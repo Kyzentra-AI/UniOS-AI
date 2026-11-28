@@ -8,6 +8,7 @@ import type { Assessment } from '@/types/assessment';
 
 import { useAssessment } from '@/hooks/useAssessment';
 import { Check, Chevron, stagger } from '@/components/roadmap/UI';
+import Link from 'next/link';
 
 interface AssessmentPanelProps {
   lesson: Lesson;
@@ -57,29 +58,44 @@ export default function AssessmentPanel({
     );
   }
 
-  if (loadError) {
-    return (
-      <section className={`rise ${card}`} role="alert">
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-          Unable to load assessment
-        </h2>
+ if (loadError) {
+  const isInsufficientCredits =
+    loadError.toLowerCase().includes('insufficient') &&
+    loadError.toLowerCase().includes('credit');
 
-        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-          {loadError}
-        </p>
+  return (
+    <section className={`rise ${card}`} role="alert">
+      <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+        Unable to load assessment
+      </h2>
 
+      <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+        {loadError}
+      </p>
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
         {onRetry && (
           <button
             type="button"
             onClick={onRetry}
-            className="mt-5 rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
+            className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2"
           >
             Try again
           </button>
         )}
-      </section>
-    );
-  }
+
+        {isInsufficientCredits && (
+          <Link
+            href="/billing"
+            className="rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-alt)]"
+          >
+            Buy Plans
+          </Link>
+        )}
+      </div>
+    </section>
+  );
+}
 
   if (!assessment || assessment.questions.length === 0) {
     return (

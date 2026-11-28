@@ -13,6 +13,7 @@ import AssessmentPanel from './assessment/AssessmentPanel';
 import { useLearning } from '@/hooks/useLearning';
 import { generateAssessment } from '@/services/assessmentServices';
 import { Check, ProgressRing } from '@/components/roadmap/UI';
+import Link from 'next/link';
 
 interface LearningWorkspaceProps {
   topic: string;
@@ -328,6 +329,15 @@ export default function LearningWorkspace({
           >
             Try again
           </button>
+          {error?.toLowerCase().includes('insufficient') &&
+  error.toLowerCase().includes('credit') && (
+    <Link
+      href="/billing"
+      className="ml-[18px] mt-3 inline-flex rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-alt)]"
+    >
+      Buy Plans
+    </Link>
+  )}
         </section>
       </main>
     );
